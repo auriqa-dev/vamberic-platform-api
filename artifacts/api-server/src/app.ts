@@ -1,34 +1,57 @@
 import express, { type Express } from "express";
 import cors from "cors";
+import helmet from "helmet";
 import pinoHttp from "pino-http";
-import router from "./routes";
+import { createRouter } from "./routes";
 import { logger } from "./lib/logger";
+import { loadConfig, type AppConfig } from "./config";
+import { requestId } from "./middlewares/request-id";
+import { rateLimit } from "./middlewares/rate-limit";
+import { errorHandler, notFoundHandler } from "./middlewares/errors";
 
-const app: Express = express();
+export function createApp(config: AppConfig = loadConfig()): Express {
+  const app: Express = express();
 
-app.use(
-  pinoHttp({
-    logger,
-    serializers: {
-      req(req) {
-        return {
-          id: req.id,
-          method: req.method,
-          url: req.url?.split("?")[0],
-        };
+  app.disable("x-powered-by");
+  app.use(requestId);
+  app.use(
+    pinoHttp({
+      logger,
+      genReqId: (req) => req.headers["x-request-id"]?.toString() ?? req.id,
+      serializers: {
+        req(req) {
+          return {
+            id: req.id,
+            method: req.method,
+            url: req.url?.split("?")[0],
+          };
+        },
+        res(res) {
+          return {
+            statusCode: res.statusCode,
+          };
+        },
       },
-      res(res) {
-        return {
-          statusCode: res.statusCode,
-        };
-      },
-    },
-  }),
-);
-app.use(cors());
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+    }),
+  );
+  app.use(helmet());
+  app.use(
+    cors({
+      origin: config.corsOrigins.length > 0 ? config.corsOrigins : false,
+      credentials: false,
+    }),
+  );
+  app.use(express.json({ limit: "1mb" }));
+  app.use(express.urlencoded({ extended: true, limit: "1mb" }));
+  app.use(rateLimit(config.rateLimit));
 
-app.use("/api", router);
+  app.use(createRouter(config));
+  app.use(notFoundHandler);
+  app.use(errorHandler);
+
+  return app;
+}
+
+const app = createApp();
 
 export default app;

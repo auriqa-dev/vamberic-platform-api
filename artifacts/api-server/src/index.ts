@@ -1,25 +1,43 @@
+import { createServer } from "node:http";
 import app from "./app";
+import { loadConfig } from "./config";
 import { logger } from "./lib/logger";
 
-const rawPort = process.env["PORT"];
+const config = loadConfig();
+const server = createServer(app);
 
-if (!rawPort) {
-  throw new Error(
-    "PORT environment variable is required but was not provided.",
+server.listen(config.port, () => {
+  logger.info(
+    {
+      port: config.port,
+      environment: config.environment,
+      service: config.serviceName,
+      version: config.version,
+    },
+    "Server listening",
   );
-}
+});
 
-const port = Number(rawPort);
+let isShuttingDown = false;
 
-if (Number.isNaN(port) || port <= 0) {
-  throw new Error(`Invalid PORT value: "${rawPort}"`);
-}
-
-app.listen(port, (err) => {
-  if (err) {
-    logger.error({ err }, "Error listening on port");
-    process.exit(1);
+function shutdown(signal: NodeJS.Signals): void {
+  if (isShuttingDown) {
+    return;
   }
 
-  logger.info({ port }, "Server listening");
-});
+  isShuttingDown = true;
+  logger.info({ signal }, "Shutdown requested");
+
+  server.close((error) => {
+    if (error) {
+      logger.error({ err: error }, "Error during server shutdown");
+      process.exitCode = 1;
+      return;
+    }
+
+    logger.info("Server shut down cleanly");
+  });
+}
+
+process.once("SIGTERM", () => shutdown("SIGTERM"));
+process.once("SIGINT", () => shutdown("SIGINT"));

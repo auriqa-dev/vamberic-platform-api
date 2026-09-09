@@ -1,0 +1,57 @@
+Build the initial Vamberic Studio Platform API as a clean, production-oriented TypeScript/Node.js service.
+This is a greenfield platform API and must not include any product-specific business logic yet.
+Requirements:
+* Use Node.js + TypeScript
+* Use Express for the HTTP API
+* Use Zod for request/config validation
+* Use a clear modular structure for future domains such as:
+    * identity
+    * organisations
+    * CRM
+    * products
+    * entitlements
+    * assessments
+    * events
+    * communications
+    * payments
+    * GDPR/retention
+    * agents
+* Create environment/config handling with validation at startup
+* Do not hard-code secrets
+* Add structured logging
+* Add centralised error handling
+* Add request ID / correlation ID support
+* Add a simple API version prefix: /api/v1
+* Add GET /health and GET /api/v1/health
+* Health response should include service name, environment, version and timestamp, but no secrets or infrastructure details
+* Add graceful shutdown handling
+* Add CORS configuration but do not default to unrestricted *
+* Add basic security headers
+* Add rate-limiting support in a configurable way
+* Add tests for the health endpoint and startup/config validation
+* Add ESLint and Prettier
+* Add .env.example
+* Add a clear README.md explaining local development, environment variables and project structure
+Architecture rules:
+* This API will eventually be the only service with broad access to MongoDB Atlas.
+* Product apps and the Vamberic console will call this API rather than connecting directly to Mongo.
+* The API must be designed for multiple products from the beginning.
+* productId, organisationId and user/actor context will later be first-class request concepts.
+* External providers such as email, payments, analytics and AI must later sit behind provider abstractions rather than being hard-wired into domain logic.
+* Agent actions must eventually use the same API/service layer as human-operated applications.
+* Build robust structure now, but do not implement unused future functionality.
+For this first pass, do not connect to MongoDB yet and do not add authentication yet. We only want the clean API foundation and verified health endpoint.
+After implementation:
+* run tests
+* run lint/typecheck
+* confirm the API starts successfully
+* show me the resulting directory structure
+* summarise any assumptions made
+* do not deploy anything yet
+A couple of things I want us to check after Replit finishes:
+* it has not introduced a database we didn't ask for
+* it hasn't added Replit Auth or some other opinionated auth layer
+* it hasn't hard-wired any product names
+* /health works locally
+* the code is committed back to GitHub cleanly
+Once Replit has completed that first pass, paste its summary here or send me the directory structure and I’ll review the foundation before we let it anywhere near Mongo or AWS.

@@ -1,11 +1,26 @@
-import { Router, type IRouter } from "express";
+import { Router, type IRouter, type Request, type Response } from "express";
 import { HealthCheckResponse } from "@workspace/api-zod";
+import type { AppConfig } from "../config";
 
-const router: IRouter = Router();
+export function createHealthRouter(config: AppConfig): IRouter {
+  const router: IRouter = Router();
 
-router.get("/healthz", (_req, res) => {
-  const data = HealthCheckResponse.parse({ status: "ok" });
-  res.json(data);
-});
+  const healthHandler = (_req: Request, res: Response) => {
+    const data = HealthCheckResponse.parse({
+      status: "ok",
+      serviceName: config.serviceName,
+      environment: config.environment,
+      version: config.version,
+      timestamp: new Date().toISOString(),
+    });
 
-export default router;
+    res.status(200).json(data);
+  };
+
+  router.get("/health", healthHandler);
+  router.get("/api/v1/health", healthHandler);
+  // Kept for the existing artifact startup probe while the public contract moves to /api/v1.
+  router.get("/api/healthz", healthHandler);
+
+  return router;
+}

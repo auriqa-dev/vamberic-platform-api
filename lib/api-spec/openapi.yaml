@@ -5,18 +5,31 @@ info:
   version: 0.1.0
   description: API specification
 servers:
-  - url: /api
-    description: Base API path
+  - url: /
+    description: API root
 tags:
   - name: health
     description: Health operations
 paths:
-  /healthz:
+  /health:
     get:
-      operationId: healthCheck
+      operationId: rootHealthCheck
       tags: [health]
-      summary: Health check
-      description: Returns server health status
+      summary: Root health check
+      description: Returns safe service health metadata
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+  /api/v1/health:
+    get:
+      operationId: versionedHealthCheck
+      tags: [health]
+      summary: Versioned health check
+      description: Returns safe service health metadata
       responses:
         "200":
           description: Healthy
@@ -31,6 +44,21 @@ components:
       properties:
         status:
           type: string
+          enum: [ok]
+        serviceName:
+          type: string
+        environment:
+          type: string
+          enum: [development, test, production]
+        version:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
       required:
         - status
+        - serviceName
+        - environment
+        - version
+        - timestamp
 
