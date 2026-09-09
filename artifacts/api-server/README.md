@@ -58,3 +58,23 @@ pnpm --filter @workspace/api-server run lint
 pnpm --filter @workspace/api-server run format:check
 pnpm --filter @workspace/api-server run test
 ```
+
+## Docker
+
+The repository-root `Dockerfile` builds the API with Node.js 24 LTS and pnpm
+10.26.1. It uses the workspace lockfile, compiles the bundled production output
+in a build stage, and copies only `dist` into the non-root runtime stage.
+
+From the repository root:
+
+```sh
+docker build --tag vamberic-platform-api:local .
+docker run --rm --name vamberic-platform-api -p 3000:3000 \
+  vamberic-platform-api:local
+curl --fail http://localhost:3000/health
+```
+
+The container sets `NODE_ENV=production`, listens on port 3000, runs as the
+standard unprivileged `node` user, and includes a Docker health check against
+`GET /health`. Runtime configuration can be supplied with `--env-file` or
+individual `--env` flags; secrets must never be copied into the image.
