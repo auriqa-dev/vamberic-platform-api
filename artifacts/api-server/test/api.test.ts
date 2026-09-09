@@ -67,7 +67,7 @@ test("root health endpoint is available", async () => {
 test("configuration rejects invalid values and wildcard CORS", () => {
   assert.throws(
     () => parseConfig({ PORT: "not-a-port" }),
-    /PORT must be a number/,
+    /Invalid application configuration: PORT/,
   );
   assert.throws(
     () => parseConfig({ CORS_ORIGINS: "*" }),

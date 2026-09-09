@@ -13,6 +13,7 @@ export function createApp(config: AppConfig = loadConfig()): Express {
   const app: Express = express();
 
   app.disable("x-powered-by");
+  app.set("trust proxy", 1);
   app.use(requestId);
   app.use(
     pinoHttp({

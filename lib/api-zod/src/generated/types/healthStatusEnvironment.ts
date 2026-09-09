@@ -5,12 +5,6 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
-export type HealthStatusStatus = typeof HealthStatusStatus[keyof typeof HealthStatusStatus];
-
-
-export const HealthStatusStatus = {
-  ok: 'ok',
-} as const;
 
 export type HealthStatusEnvironment = typeof HealthStatusEnvironment[keyof typeof HealthStatusEnvironment];
 
@@ -20,12 +14,3 @@ export const HealthStatusEnvironment = {
   test: 'test',
   production: 'production',
 } as const;
-
-export interface HealthStatus {
-  status: HealthStatusStatus;
-  serviceName: string;
-  environment: HealthStatusEnvironment;
-  version: string;
-  timestamp: string;
-}
-

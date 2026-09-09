@@ -1,12 +1,12 @@
 import { Router, type IRouter, type Request, type Response } from "express";
-import { HealthCheckResponse } from "@workspace/api-zod";
+import { RootHealthCheckResponse } from "@workspace/api-zod";
 import type { AppConfig } from "../config";
 
 export function createHealthRouter(config: AppConfig): IRouter {
   const router: IRouter = Router();
 
   const healthHandler = (_req: Request, res: Response) => {
-    const data = HealthCheckResponse.parse({
+    const data = RootHealthCheckResponse.parse({
       status: "ok",
       serviceName: config.serviceName,
       environment: config.environment,

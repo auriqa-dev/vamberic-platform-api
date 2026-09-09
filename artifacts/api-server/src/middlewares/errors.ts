@@ -11,12 +11,8 @@ export const notFoundHandler: RequestHandler = (req, res) => {
   });
 };
 
-export const errorHandler: ErrorRequestHandler = (
-  error,
-  req,
-  res,
-  _next,
-) => {
+export const errorHandler: ErrorRequestHandler = (error, req, res, next) => {
+  void next;
   const isValidationError = error instanceof ZodError;
   const statusCode = isValidationError ? 400 : 500;
   const code = isValidationError ? "VALIDATION_ERROR" : "INTERNAL_SERVER_ERROR";

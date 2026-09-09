@@ -10,6 +10,7 @@ export const requestId: RequestHandler = (req, res, next) => {
       ? incomingRequestId
       : randomUUID();
 
+  req.headers["x-request-id"] = id;
   res.setHeader("x-request-id", id);
   next();
 };

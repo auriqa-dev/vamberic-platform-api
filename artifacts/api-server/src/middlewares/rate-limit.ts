@@ -12,9 +12,21 @@ type Bucket = {
 
 export function rateLimit(options: RateLimitOptions): RequestHandler {
   const buckets = new Map<string, Bucket>();
+  let requestsSinceCleanup = 0;
 
   return (req, res, next) => {
     const now = Date.now();
+
+    requestsSinceCleanup += 1;
+    if (requestsSinceCleanup >= 1000) {
+      for (const [client, bucket] of buckets) {
+        if (bucket.resetAt <= now) {
+          buckets.delete(client);
+        }
+      }
+      requestsSinceCleanup = 0;
+    }
+
     const key = req.ip ?? req.socket.remoteAddress ?? "unknown";
     const current = buckets.get(key);
     const bucket =

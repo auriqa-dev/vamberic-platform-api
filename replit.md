@@ -1,15 +1,17 @@
-# [Project name]
+# Vamberic Studio Platform
 
-_Replace the heading above with the project's name, and this line with one sentence describing what this app does for users._
+Production-oriented, product-neutral API foundation for the Vamberic Studio multi-product platform.
 
 ## Run & Operate
 
-- `pnpm --filter @workspace/api-server run dev` — run the API server (port 5000)
+- `pnpm --filter @workspace/api-server run dev` — build and run the API server
+- `pnpm --filter @workspace/api-server run test` — run API and configuration tests
+- `pnpm --filter @workspace/api-server run lint` — lint API TypeScript
 - `pnpm run typecheck` — full typecheck across all packages
 - `pnpm run build` — typecheck + build all packages
 - `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
 - `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
-- Required env: `DATABASE_URL` — Postgres connection string
+- API environment variables are documented in `artifacts/api-server/.env.example`
 
 ## Stack
 
@@ -22,15 +24,24 @@ _Replace the heading above with the project's name, and this line with one sente
 
 ## Where things live
 
-_Populate as you build — short repo map plus pointers to the source-of-truth file for DB schema, API contracts, theme files, etc._
+- `artifacts/api-server/src` — Express API implementation
+- `artifacts/api-server/src/config.ts` — validated runtime configuration
+- `artifacts/api-server/src/middlewares` — request IDs, rate limiting, and errors
+- `lib/api-spec/openapi.yaml` — source of truth for the HTTP contract
+- `artifacts/api-server/README.md` — local development and service structure
 
 ## Architecture decisions
 
-_Populate as you build — non-obvious choices a reader couldn't infer from the code (3-5 bullets)._
+- The API is product-neutral; no product domain logic is implemented in the foundation.
+- Product applications and agents will eventually use the same API/service layer.
+- Databases, authentication, and external providers are deliberately absent from this pass.
+- Future external providers must sit behind provider abstractions rather than domain imports.
 
 ## Product
 
-_Describe the high-level user-facing capabilities of this app once they exist._
+- Safe health metadata at `/health` and `/api/v1/health`
+- Structured request logging and correlation IDs
+- Explicit CORS allowlists, security headers, configurable rate limiting, and graceful shutdown
 
 ## User preferences
 
@@ -38,7 +49,9 @@ _Populate as you build — explicit user instructions worth remembering across s
 
 ## Gotchas
 
-_Populate as you build — sharp edges, "always run X before Y" rules._
+- Run API codegen after every change to `lib/api-spec/openapi.yaml`.
+- Never configure `CORS_ORIGINS=*`; startup validation rejects wildcard origins.
+- Do not add direct database access to product applications.
 
 ## Pointers
 

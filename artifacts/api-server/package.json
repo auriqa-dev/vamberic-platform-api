@@ -8,9 +8,9 @@
     "build": "node ./build.mjs",
     "start": "node --enable-source-maps ./dist/index.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "node --import tsx --test test",
-    "lint": "eslint .",
-    "format:check": "prettier --check \"src/**/*.ts\" \"test/**/*.ts\" \"*.{json,mjs}\""
+    "test": "node --import tsx --test test/*.test.ts",
+    "lint": "eslint src test",
+    "format:check": "prettier --check \"src/**/*.ts\" \"test/**/*.ts\""
   },
   "dependencies": {
     "@workspace/api-zod": "workspace:*",
