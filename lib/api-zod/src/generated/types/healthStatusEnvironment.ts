@@ -10,7 +10,8 @@ export type HealthStatusEnvironment = typeof HealthStatusEnvironment[keyof typeo
 
 
 export const HealthStatusEnvironment = {
-  development: 'development',
+  dev: 'dev',
+  prod: 'prod',
   test: 'test',
-  production: 'production',
+  local: 'local',
 } as const;

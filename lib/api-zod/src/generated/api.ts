@@ -15,7 +15,8 @@ import * as zod from 'zod';
 export const RootHealthCheckResponse = zod.object({
   "status": zod.enum(['ok']),
   "serviceName": zod.string(),
-  "environment": zod.enum(['development', 'test', 'production']),
+  "environment": zod.enum(['dev', 'prod', 'test', 'local']),
+  "runtimeMode": zod.enum(['development', 'test', 'production']),
   "version": zod.string(),
   "timestamp": zod.coerce.date()
 })
@@ -28,7 +29,8 @@ export const RootHealthCheckResponse = zod.object({
 export const VersionedHealthCheckResponse = zod.object({
   "status": zod.enum(['ok']),
   "serviceName": zod.string(),
-  "environment": zod.enum(['development', 'test', 'production']),
+  "environment": zod.enum(['dev', 'prod', 'test', 'local']),
+  "runtimeMode": zod.enum(['development', 'test', 'production']),
   "version": zod.string(),
   "timestamp": zod.coerce.date()
 })

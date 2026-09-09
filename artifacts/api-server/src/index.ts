@@ -10,7 +10,8 @@ server.listen(config.port, () => {
   logger.info(
     {
       port: config.port,
-      environment: config.environment,
+      environment: config.deploymentEnvironment,
+      runtimeMode: config.runtimeMode,
       service: config.serviceName,
       version: config.version,
     },

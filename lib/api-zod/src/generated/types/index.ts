@@ -8,4 +8,5 @@
 
 export * from './healthStatus';
 export * from './healthStatusEnvironment';
+export * from './healthStatusRuntimeMode';
 export * from './healthStatusStatus';

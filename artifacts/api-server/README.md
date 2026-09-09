@@ -20,6 +20,7 @@ The existing `/api/healthz` path remains available for the local service startup
 | Variable | Required | Default | Description |
 | --- | --- | --- | --- |
 | `NODE_ENV` | No | `development` | `development`, `test`, or `production` |
+| `DEPLOYMENT_ENV` | Yes | — | Deployment environment: `dev`, `prod`, `test`, or `local` |
 | `PORT` | No | `5000` | HTTP port |
 | `SERVICE_NAME` | No | `vamberic-studio-platform-api` | Service identifier returned by health |
 | `API_VERSION` | No | `0.1.0` | API version returned by health |
@@ -70,6 +71,7 @@ From the repository root:
 ```sh
 docker build --tag vamberic-platform-api:local .
 docker run --rm --name vamberic-platform-api -p 3000:3000 \
+  --env DEPLOYMENT_ENV=local \
   vamberic-platform-api:local
 curl --fail http://localhost:3000/health
 ```

@@ -49,6 +49,9 @@ components:
           type: string
         environment:
           type: string
+          enum: [dev, prod, test, local]
+        runtimeMode:
+          type: string
           enum: [development, test, production]
         version:
           type: string
@@ -59,6 +62,7 @@ components:
         - status
         - serviceName
         - environment
+        - runtimeMode
         - version
         - timestamp
 

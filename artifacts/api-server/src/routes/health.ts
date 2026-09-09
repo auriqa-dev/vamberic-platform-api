@@ -9,7 +9,8 @@ export function createHealthRouter(config: AppConfig): IRouter {
     const data = RootHealthCheckResponse.parse({
       status: "ok",
       serviceName: config.serviceName,
-      environment: config.environment,
+      environment: config.deploymentEnvironment,
+      runtimeMode: config.runtimeMode,
       version: config.version,
       timestamp: new Date().toISOString(),
     });

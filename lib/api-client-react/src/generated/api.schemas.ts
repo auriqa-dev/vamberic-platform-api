@@ -16,6 +16,16 @@ export type HealthStatusEnvironment = typeof HealthStatusEnvironment[keyof typeo
 
 
 export const HealthStatusEnvironment = {
+  dev: 'dev',
+  prod: 'prod',
+  test: 'test',
+  local: 'local',
+} as const;
+
+export type HealthStatusRuntimeMode = typeof HealthStatusRuntimeMode[keyof typeof HealthStatusRuntimeMode];
+
+
+export const HealthStatusRuntimeMode = {
   development: 'development',
   test: 'test',
   production: 'production',
@@ -25,6 +35,7 @@ export interface HealthStatus {
   status: HealthStatusStatus;
   serviceName: string;
   environment: HealthStatusEnvironment;
+  runtimeMode: HealthStatusRuntimeMode;
   version: string;
   timestamp: string;
 }

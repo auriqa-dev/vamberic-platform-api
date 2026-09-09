@@ -6,12 +6,14 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { HealthStatusEnvironment } from './healthStatusEnvironment';
+import type { HealthStatusRuntimeMode } from './healthStatusRuntimeMode';
 import type { HealthStatusStatus } from './healthStatusStatus';
 
 export interface HealthStatus {
   status: HealthStatusStatus;
   serviceName: string;
   environment: HealthStatusEnvironment;
+  runtimeMode: HealthStatusRuntimeMode;
   version: string;
   timestamp: Date;
 }

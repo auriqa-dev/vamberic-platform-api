@@ -4,11 +4,11 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "export NODE_ENV=development && pnpm run build && pnpm run start",
+    "dev": "export NODE_ENV=development DEPLOYMENT_ENV=local && pnpm run build && pnpm run start",
     "build": "node ./build.mjs",
     "start": "node --enable-source-maps ./dist/index.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "node --import tsx --test test/*.test.ts",
+    "test": "DEPLOYMENT_ENV=test node --import tsx --test test/*.test.ts",
     "lint": "eslint src test",
     "format:check": "prettier --check \"src/**/*.ts\" \"test/**/*.ts\""
   },

@@ -7,7 +7,8 @@ import { createApp } from "../src/app";
 import { parseConfig } from "../src/config";
 
 const testConfig = parseConfig({
-  NODE_ENV: "test",
+  NODE_ENV: "production",
+  DEPLOYMENT_ENV: "dev",
   PORT: "5001",
   SERVICE_NAME: "test-api",
   API_VERSION: "test-version",
@@ -48,7 +49,8 @@ test("health endpoint returns safe service metadata", async () => {
   assert.deepEqual(response.body, {
     status: "ok",
     serviceName: "test-api",
-    environment: "test",
+    environment: "dev",
+    runtimeMode: "production",
     version: "test-version",
     timestamp: response.body.timestamp,
   });
@@ -66,11 +68,19 @@ test("root health endpoint is available", async () => {
 
 test("configuration rejects invalid values and wildcard CORS", () => {
   assert.throws(
-    () => parseConfig({ PORT: "not-a-port" }),
+    () => parseConfig({ NODE_ENV: "production" }),
+    /Invalid application configuration: DEPLOYMENT_ENV/,
+  );
+  assert.throws(
+    () => parseConfig({ DEPLOYMENT_ENV: "staging" }),
+    /Invalid application configuration: DEPLOYMENT_ENV/,
+  );
+  assert.throws(
+    () => parseConfig({ DEPLOYMENT_ENV: "local", PORT: "not-a-port" }),
     /Invalid application configuration: PORT/,
   );
   assert.throws(
-    () => parseConfig({ CORS_ORIGINS: "*" }),
+    () => parseConfig({ DEPLOYMENT_ENV: "local", CORS_ORIGINS: "*" }),
     /CORS_ORIGINS must list explicit origins/,
   );
 });

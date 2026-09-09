@@ -4,6 +4,7 @@ const configSchema = z.object({
   NODE_ENV: z
     .enum(["development", "test", "production"])
     .default("development"),
+  DEPLOYMENT_ENV: z.enum(["dev", "prod", "test", "local"]),
   PORT: z.coerce.number().int().min(1).max(65535).default(5000),
   SERVICE_NAME: z
     .string()
@@ -31,7 +32,8 @@ const configSchema = z.object({
 });
 
 export type AppConfig = {
-  environment: "development" | "test" | "production";
+  deploymentEnvironment: "dev" | "prod" | "test" | "local";
+  runtimeMode: "development" | "test" | "production";
   port: number;
   serviceName: string;
   version: string;
@@ -57,7 +59,8 @@ export function parseConfig(
   }
 
   return {
-    environment: parsed.data.NODE_ENV,
+    deploymentEnvironment: parsed.data.DEPLOYMENT_ENV,
+    runtimeMode: parsed.data.NODE_ENV,
     port: parsed.data.PORT,
     serviceName: parsed.data.SERVICE_NAME,
     version: parsed.data.API_VERSION,
