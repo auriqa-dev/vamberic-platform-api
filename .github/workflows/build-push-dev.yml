@@ -46,14 +46,17 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Generate API contract types
+        run: pnpm --filter @workspace/api-spec run codegen
+
       - name: Build API
         run: pnpm --filter @workspace/api-server run build
 
       - name: Lint API
         run: pnpm --filter @workspace/api-server run lint
 
-      - name: Type-check API
-        run: pnpm --filter @workspace/api-server run typecheck
+      - name: Type-check workspace
+        run: pnpm run typecheck
 
       - name: Test API
         run: pnpm --filter @workspace/api-server run test
