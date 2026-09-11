@@ -1,0 +1,95 @@
+name: Build and push development image
+
+on:
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION }}
+  AWS_DEPLOY_ROLE_ARN: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+  ECR_REPOSITORY: ${{ vars.ECR_REPOSITORY }}
+
+jobs:
+  build-and-push:
+    name: Build and push API image
+    runs-on: ubuntu-latest
+    environment: dev
+    outputs:
+      image-uri: ${{ steps.image.outputs.uri }}
+      image-tag: ${{ steps.image.outputs.tag }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.26.1
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Validate required repository variables
+        shell: bash
+        run: |
+          : "${AWS_REGION:?Repository variable AWS_REGION must be set}"
+          : "${AWS_DEPLOY_ROLE_ARN:?Repository variable AWS_DEPLOY_ROLE_ARN must be set}"
+          : "${ECR_REPOSITORY:?Repository variable ECR_REPOSITORY must be set}"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build API
+        run: pnpm --filter @workspace/api-server run build
+
+      - name: Lint API
+        run: pnpm --filter @workspace/api-server run lint
+
+      - name: Type-check API
+        run: pnpm --filter @workspace/api-server run typecheck
+
+      - name: Test API
+        run: pnpm --filter @workspace/api-server run test
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v5
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Log in to Amazon ECR
+        id: ecr-login
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push image
+        id: image
+        env:
+          ECR_REGISTRY: ${{ steps.ecr-login.outputs.registry }}
+        shell: bash
+        run: |
+          IMAGE_TAG="${GITHUB_SHA::7}"
+          IMAGE_URI="${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}"
+
+          docker build --tag "${IMAGE_URI}" .
+          docker push "${IMAGE_URI}"
+
+          echo "uri=${IMAGE_URI}" >> "${GITHUB_OUTPUT}"
+          echo "tag=${IMAGE_TAG}" >> "${GITHUB_OUTPUT}"
+
+      - name: Report pushed image
+        run: |
+          echo "Pushed image URI: ${{ steps.image.outputs.uri }}"
+          echo "Pushed image tag: ${{ steps.image.outputs.tag }}"
+          {
+            echo "## Development image published"
+            echo
+            echo "- Image URI: \`${{ steps.image.outputs.uri }}\`"
+            echo "- Image tag: \`${{ steps.image.outputs.tag }}\`"
+          } >> "${GITHUB_STEP_SUMMARY}"

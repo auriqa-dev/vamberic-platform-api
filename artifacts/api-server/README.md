@@ -90,3 +90,16 @@ The container sets `NODE_ENV=production`, listens on port 3000, runs as the
 standard unprivileged `node` user, and includes a Docker health check against
 `GET /health`. Runtime configuration can be supplied with `--env-file` or
 individual `--env` flags; secrets must never be copied into the image.
+
+## Development image delivery
+
+```text
+Replit → GitHub → GitHub Actions → AWS ECR
+```
+
+The manually triggered `Build and push development image` GitHub Actions
+workflow validates the API, assumes the development AWS role with GitHub OIDC,
+and pushes the Docker image to Amazon ECR. It uses the GitHub `dev` environment
+and repository variables `AWS_DEPLOY_ROLE_ARN`, `AWS_REGION`, and
+`ECR_REPOSITORY`. Images are tagged with the short Git commit SHA; the workflow
+does not create a `latest` tag and does not deploy ECS or production.
