@@ -1,9 +1,12 @@
 import { createServer } from "node:http";
-import app from "./app";
+import { createApp } from "./app";
 import { loadConfig } from "./config";
 import { logger } from "./lib/logger";
+import { MongoClientService } from "./services/mongo";
 
 const config = loadConfig();
+const mongo = new MongoClientService(config.mongodbUri);
+const app = createApp(config, mongo);
 const server = createServer(app);
 
 server.listen(config.port, () => {
@@ -29,14 +32,26 @@ function shutdown(signal: NodeJS.Signals): void {
   isShuttingDown = true;
   logger.info({ signal }, "Shutdown requested");
 
-  server.close((error) => {
+  server.close(async (error) => {
+    let shutdownFailed = false;
+
     if (error) {
       logger.error({ err: error }, "Error during server shutdown");
-      process.exitCode = 1;
-      return;
+      shutdownFailed = true;
     }
 
-    logger.info("Server shut down cleanly");
+    try {
+      await mongo.close();
+    } catch {
+      logger.error("MongoDB shutdown failed");
+      shutdownFailed = true;
+    }
+
+    if (shutdownFailed) {
+      process.exitCode = 1;
+    } else {
+      logger.info("Server shut down cleanly");
+    }
   });
 }
 

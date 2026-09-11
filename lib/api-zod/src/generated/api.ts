@@ -36,3 +36,33 @@ export const VersionedHealthCheckResponse = zod.object({
 })
 
 
+/**
+ * Returns readiness based on MongoDB availability
+ * @summary Root readiness check
+ */
+export const RootReadinessCheckResponse = zod.object({
+  "status": zod.enum(['ready', 'unavailable']),
+  "serviceName": zod.string(),
+  "environment": zod.enum(['dev', 'prod', 'test', 'local']),
+  "dependencies": zod.object({
+  "mongodb": zod.enum(['available', 'unavailable'])
+}),
+  "timestamp": zod.coerce.date()
+})
+
+
+/**
+ * Returns readiness based on MongoDB availability
+ * @summary Versioned readiness check
+ */
+export const VersionedReadinessCheckResponse = zod.object({
+  "status": zod.enum(['ready', 'unavailable']),
+  "serviceName": zod.string(),
+  "environment": zod.enum(['dev', 'prod', 'test', 'local']),
+  "dependencies": zod.object({
+  "mongodb": zod.enum(['available', 'unavailable'])
+}),
+  "timestamp": zod.coerce.date()
+})
+
+

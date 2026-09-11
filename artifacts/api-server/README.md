@@ -12,8 +12,13 @@ The API listens on `PORT` (5000 by default). The health endpoints are:
 
 - `GET /health`
 - `GET /api/v1/health`
+- `GET /ready`
+- `GET /api/v1/ready`
 
 The existing `/api/healthz` path remains available for the local service startup probe.
+Health is a liveness check and does not depend on MongoDB. Readiness returns HTTP
+200 only when the API can ping MongoDB, and otherwise returns HTTP 503 without
+exposing connection details.
 
 ## Environment variables
 
@@ -21,6 +26,7 @@ The existing `/api/healthz` path remains available for the local service startup
 | --- | --- | --- | --- |
 | `NODE_ENV` | No | `development` | `development`, `test`, or `production` |
 | `DEPLOYMENT_ENV` | Yes | — | Deployment environment: `dev`, `prod`, `test`, or `local` |
+| `MONGODB_URI` | Yes | — | MongoDB Atlas or local MongoDB connection URI |
 | `PORT` | No | `5000` | HTTP port |
 | `SERVICE_NAME` | No | `vamberic-studio-platform-api` | Service identifier returned by health |
 | `API_VERSION` | No | `0.1.0` | API version returned by health |
@@ -46,7 +52,10 @@ src/
 │   └── request-id.ts      # Correlation ID support
 └── routes/
     ├── health.ts          # Versioned and unversioned health endpoints
+    ├── readiness.ts       # MongoDB-backed readiness endpoints
     └── index.ts           # Route composition
+services/
+└── mongo.ts               # Reusable lazy MongoDB client and ping
 ```
 
 Future domain modules should be added as isolated route/service/provider boundaries for identity, organisations, CRM, products, entitlements, assessments, events, communications, payments, GDPR/retention, and agents. External providers should be introduced behind interfaces rather than imported directly into domain logic.
@@ -72,6 +81,7 @@ From the repository root:
 docker build --tag vamberic-platform-api:local .
 docker run --rm --name vamberic-platform-api -p 3000:3000 \
   --env DEPLOYMENT_ENV=local \
+  --env MONGODB_URI=mongodb://host.docker.internal:27017 \
   vamberic-platform-api:local
 curl --fail http://localhost:3000/health
 ```

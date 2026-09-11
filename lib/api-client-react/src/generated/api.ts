@@ -16,7 +16,8 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
-  HealthStatus
+  HealthStatus,
+  ReadinessStatus
 } from './api.schemas';
 
 import { customFetch } from '../custom-fetch';
@@ -190,6 +191,162 @@ export function useVersionedHealthCheck<TData = Awaited<ReturnType<typeof versio
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getVersionedHealthCheckQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getRootReadinessCheckUrl = () => {
+
+
+
+
+  return `/api/ready`
+}
+
+/**
+ * Returns readiness based on MongoDB availability
+ * @summary Root readiness check
+ */
+export const rootReadinessCheck = async ( options?: Parameters<typeof customFetch>[1]): Promise<ReadinessStatus> => {
+
+  return customFetch<ReadinessStatus>(getRootReadinessCheckUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getRootReadinessCheckQueryKey = () => {
+    return [
+    `/api/ready`
+    ] as const;
+    }
+
+
+export const getRootReadinessCheckQueryOptions = <TData = Awaited<ReturnType<typeof rootReadinessCheck>>, TError = ErrorType<ReadinessStatus>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof rootReadinessCheck>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getRootReadinessCheckQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof rootReadinessCheck>>> = ({ signal }) => rootReadinessCheck({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof rootReadinessCheck>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type RootReadinessCheckQueryResult = NonNullable<Awaited<ReturnType<typeof rootReadinessCheck>>>
+export type RootReadinessCheckQueryError = ErrorType<ReadinessStatus>
+
+
+/**
+ * @summary Root readiness check
+ */
+
+export function useRootReadinessCheck<TData = Awaited<ReturnType<typeof rootReadinessCheck>>, TError = ErrorType<ReadinessStatus>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof rootReadinessCheck>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getRootReadinessCheckQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getVersionedReadinessCheckUrl = () => {
+
+
+
+
+  return `/api/api/v1/ready`
+}
+
+/**
+ * Returns readiness based on MongoDB availability
+ * @summary Versioned readiness check
+ */
+export const versionedReadinessCheck = async ( options?: Parameters<typeof customFetch>[1]): Promise<ReadinessStatus> => {
+
+  return customFetch<ReadinessStatus>(getVersionedReadinessCheckUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getVersionedReadinessCheckQueryKey = () => {
+    return [
+    `/api/api/v1/ready`
+    ] as const;
+    }
+
+
+export const getVersionedReadinessCheckQueryOptions = <TData = Awaited<ReturnType<typeof versionedReadinessCheck>>, TError = ErrorType<ReadinessStatus>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof versionedReadinessCheck>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getVersionedReadinessCheckQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof versionedReadinessCheck>>> = ({ signal }) => versionedReadinessCheck({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof versionedReadinessCheck>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type VersionedReadinessCheckQueryResult = NonNullable<Awaited<ReturnType<typeof versionedReadinessCheck>>>
+export type VersionedReadinessCheckQueryError = ErrorType<ReadinessStatus>
+
+
+/**
+ * @summary Versioned readiness check
+ */
+
+export function useVersionedReadinessCheck<TData = Awaited<ReturnType<typeof versionedReadinessCheck>>, TError = ErrorType<ReadinessStatus>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof versionedReadinessCheck>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getVersionedReadinessCheckQueryOptions(options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

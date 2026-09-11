@@ -40,3 +40,41 @@ export interface HealthStatus {
   timestamp: string;
 }
 
+export type ReadinessStatusStatus = typeof ReadinessStatusStatus[keyof typeof ReadinessStatusStatus];
+
+
+export const ReadinessStatusStatus = {
+  ready: 'ready',
+  unavailable: 'unavailable',
+} as const;
+
+export type ReadinessStatusEnvironment = typeof ReadinessStatusEnvironment[keyof typeof ReadinessStatusEnvironment];
+
+
+export const ReadinessStatusEnvironment = {
+  dev: 'dev',
+  prod: 'prod',
+  test: 'test',
+  local: 'local',
+} as const;
+
+export type ReadinessStatusDependenciesMongodb = typeof ReadinessStatusDependenciesMongodb[keyof typeof ReadinessStatusDependenciesMongodb];
+
+
+export const ReadinessStatusDependenciesMongodb = {
+  available: 'available',
+  unavailable: 'unavailable',
+} as const;
+
+export type ReadinessStatusDependencies = {
+  mongodb: ReadinessStatusDependenciesMongodb;
+};
+
+export interface ReadinessStatus {
+  status: ReadinessStatusStatus;
+  serviceName: string;
+  environment: ReadinessStatusEnvironment;
+  dependencies: ReadinessStatusDependencies;
+  timestamp: string;
+}
+

@@ -1,0 +1,71 @@
+Add MongoDB Atlas connectivity to the Vamberic Studio Platform API.
+
+Context:
+
+MongoDB Atlas project: Vamberic Studio
+database: vamberic_studio
+the connection string will be supplied at runtime through environment variable MONGODB_URI
+the secret already exists in AWS Secrets Manager under vamberic/dev/api
+do not hard-code any credentials or connection strings
+do not create product/business collections or schemas yet
+
+Requirements:
+
+Add the official MongoDB Node.js driver.
+Add MONGODB_URI to validated runtime configuration using Zod.
+Create a dedicated Mongo client module/service.
+Use a single reusable MongoClient connection rather than opening a new connection per request.
+Do not log the URI, username, password, hostname details, or credentials.
+Connect lazily or at startup in a way that allows clear readiness reporting.
+Add graceful Mongo shutdown when the API receives SIGTERM/SIGINT.
+
+Add a new readiness endpoint:
+
+GET /ready
+
+and versioned equivalent:
+
+GET /api/v1/ready
+
+Readiness behaviour:
+
+return HTTP 200 only when MongoDB can be reached successfully;
+use a lightweight database ping;
+return a safe response such as:
+{
+  "status": "ready",
+  "serviceName": "vamberic-studio-platform-api",
+  "environment": "dev",
+  "dependencies": {
+    "mongodb": "available"
+  },
+  "timestamp": "..."
+}
+
+If Mongo is unavailable:
+
+return HTTP 503;
+report only "mongodb": "unavailable";
+do not expose connection strings, hosts, driver errors, stack traces or credentials.
+
+Keep /health as the liveness endpoint. /health must not depend on MongoDB, because a temporary database problem should not cause ECS to repeatedly kill an otherwise healthy API process.
+
+Update:
+
+OpenAPI contract
+generated Zod/types/client code
+.env.example
+README
+tests
+
+Add tests for:
+
+readiness success
+readiness failure
+no credential leakage
+config validation
+
+Do not create collections or write documents yet.
+Do not deploy anything.
+Run build, lint, typecheck, tests and formatting checks.
+Report files changed and assumptions.

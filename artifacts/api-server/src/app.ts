@@ -8,8 +8,9 @@ import { loadConfig, type AppConfig } from "./config";
 import { requestId } from "./middlewares/request-id";
 import { rateLimit } from "./middlewares/rate-limit";
 import { errorHandler, notFoundHandler } from "./middlewares/errors";
+import type { MongoService } from "./services/mongo";
 
-export function createApp(config: AppConfig = loadConfig()): Express {
+export function createApp(config: AppConfig, mongo: MongoService): Express {
   const app: Express = express();
 
   app.disable("x-powered-by");
@@ -46,13 +47,9 @@ export function createApp(config: AppConfig = loadConfig()): Express {
   app.use(express.urlencoded({ extended: true, limit: "1mb" }));
   app.use(rateLimit(config.rateLimit));
 
-  app.use(createRouter(config));
+  app.use(createRouter(config, mongo));
   app.use(notFoundHandler);
   app.use(errorHandler);
 
   return app;
 }
-
-const app = createApp();
-
-export default app;

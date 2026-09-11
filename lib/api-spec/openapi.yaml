@@ -37,6 +37,44 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /ready:
+    get:
+      operationId: rootReadinessCheck
+      tags: [health]
+      summary: Root readiness check
+      description: Returns readiness based on MongoDB availability
+      responses:
+        "200":
+          description: Ready
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReadinessStatus"
+        "503":
+          description: Unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReadinessStatus"
+  /api/v1/ready:
+    get:
+      operationId: versionedReadinessCheck
+      tags: [health]
+      summary: Versioned readiness check
+      description: Returns readiness based on MongoDB availability
+      responses:
+        "200":
+          description: Ready
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReadinessStatus"
+        "503":
+          description: Unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReadinessStatus"
 components:
   schemas:
     HealthStatus:
@@ -64,5 +102,33 @@ components:
         - environment
         - runtimeMode
         - version
+        - timestamp
+    ReadinessStatus:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [ready, unavailable]
+        serviceName:
+          type: string
+        environment:
+          type: string
+          enum: [dev, prod, test, local]
+        dependencies:
+          type: object
+          properties:
+            mongodb:
+              type: string
+              enum: [available, unavailable]
+          required:
+            - mongodb
+        timestamp:
+          type: string
+          format: date-time
+      required:
+        - status
+        - serviceName
+        - environment
+        - dependencies
         - timestamp
 
