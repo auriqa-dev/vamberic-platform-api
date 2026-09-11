@@ -93,7 +93,8 @@ test("readiness returns 200 when MongoDB is available", async () => {
 });
 
 test("readiness returns a safe 503 when MongoDB is unavailable", async () => {
-  const credential = "mongodb://secret-user:secret-password@private-host.example";
+  const credential =
+    "mongodb://secret-user:secret-password@private-host.example";
   const unavailableMongo: MongoService = {
     isAvailable: async () => {
       throw new Error(`Connection failed: ${credential}`);
@@ -114,7 +115,10 @@ test("readiness returns a safe 503 when MongoDB is unavailable", async () => {
     },
     timestamp: response.body.timestamp,
   });
-  assert.doesNotMatch(serializedBody, /secret-user|secret-password|private-host/);
+  assert.doesNotMatch(
+    serializedBody,
+    /secret-user|secret-password|private-host/,
+  );
   assert.doesNotMatch(serializedBody, /Connection failed|mongodb:\/\//);
 });
 

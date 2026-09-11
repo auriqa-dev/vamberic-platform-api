@@ -4,7 +4,7 @@ import helmet from "helmet";
 import pinoHttp from "pino-http";
 import { createRouter } from "./routes";
 import { logger } from "./lib/logger";
-import { loadConfig, type AppConfig } from "./config";
+import type { AppConfig } from "./config";
 import { requestId } from "./middlewares/request-id";
 import { rateLimit } from "./middlewares/rate-limit";
 import { errorHandler, notFoundHandler } from "./middlewares/errors";
