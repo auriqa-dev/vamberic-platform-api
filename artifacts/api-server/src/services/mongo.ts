@@ -1,6 +1,6 @@
 import { MongoClient } from "mongodb";
 
-const DATABASE_NAME = "vamberic_studio";
+export const DATABASE_NAME = "vamberic_studio";
 
 export interface MongoService {
   isAvailable(): Promise<boolean>;

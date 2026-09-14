@@ -7,6 +7,7 @@
     "dev": "export NODE_ENV=development DEPLOYMENT_ENV=local MONGODB_URI=${MONGODB_URI:-mongodb://127.0.0.1:27017} && pnpm run build && pnpm run start",
     "build": "node ./build.mjs",
     "start": "node --enable-source-maps ./dist/index.mjs",
+    "db:setup": "tsx src/commands/db-setup.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "DEPLOYMENT_ENV=test node --import tsx --test test/*.test.ts",
     "lint": "eslint src test",

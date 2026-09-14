@@ -22,18 +22,18 @@ exposing connection details.
 
 ## Environment variables
 
-| Variable | Required | Default | Description |
-| --- | --- | --- | --- |
-| `NODE_ENV` | No | `development` | `development`, `test`, or `production` |
-| `DEPLOYMENT_ENV` | Yes | — | Deployment environment: `dev`, `prod`, `test`, or `local` |
-| `MONGODB_URI` | Yes | — | MongoDB Atlas or local MongoDB connection URI |
-| `PORT` | No | `5000` | HTTP port |
-| `SERVICE_NAME` | No | `vamberic-studio-platform-api` | Service identifier returned by health |
-| `API_VERSION` | No | `0.1.0` | API version returned by health |
-| `LOG_LEVEL` | No | `info` | Pino log level |
-| `CORS_ORIGINS` | No | `http://localhost:3000` | Comma-separated explicit allowed origins |
-| `RATE_LIMIT_WINDOW_MS` | No | `60000` | Rate-limit window |
-| `RATE_LIMIT_MAX_REQUESTS` | No | `100` | Requests per IP and window |
+| Variable                  | Required | Default                        | Description                                               |
+| ------------------------- | -------- | ------------------------------ | --------------------------------------------------------- |
+| `NODE_ENV`                | No       | `development`                  | `development`, `test`, or `production`                    |
+| `DEPLOYMENT_ENV`          | Yes      | —                              | Deployment environment: `dev`, `prod`, `test`, or `local` |
+| `MONGODB_URI`             | Yes      | —                              | MongoDB Atlas or local MongoDB connection URI             |
+| `PORT`                    | No       | `5000`                         | HTTP port                                                 |
+| `SERVICE_NAME`            | No       | `vamberic-studio-platform-api` | Service identifier returned by health                     |
+| `API_VERSION`             | No       | `0.1.0`                        | API version returned by health                            |
+| `LOG_LEVEL`               | No       | `info`                         | Pino log level                                            |
+| `CORS_ORIGINS`            | No       | `http://localhost:3000`        | Comma-separated explicit allowed origins                  |
+| `RATE_LIMIT_WINDOW_MS`    | No       | `60000`                        | Rate-limit window                                         |
+| `RATE_LIMIT_MAX_REQUESTS` | No       | `100`                          | Requests per IP and window                                |
 
 Invalid configuration causes startup to fail with a clear validation error. Secrets are not required by this first pass.
 
@@ -59,6 +59,87 @@ services/
 ```
 
 Future domain modules should be added as isolated route/service/provider boundaries for identity, organisations, CRM, products, entitlements, assessments, events, communications, payments, GDPR/retention, and agents. External providers should be introduced behind interfaces rather than imported directly into domain logic.
+
+## Vapp v1 data model
+
+The Platform API owns the MongoDB connection. Vapp and product applications use
+the API and never connect to MongoDB directly. The v1 domain model has one
+canonical `people` record per human, while email/phone values live in
+`contact_points`; a changed or invalid contact point therefore never erases a
+person or their history. Employment is historical in
+`organisation_relationships`, and CRM lifecycle is intentionally separate from
+the historical `marketing_permissions` ledger.
+
+The fourteen domain collections are:
+
+| Collection                   | Responsibility                                                   |
+| ---------------------------- | ---------------------------------------------------------------- |
+| `products`                   | Vamberic products, lifecycle, commercial model and archive state |
+| `people`                     | Canonical human records                                          |
+| `contact_points`             | Email, phone and future contact channels                         |
+| `organisations`              | Companies, prospects, customers and partners                     |
+| `organisation_relationships` | Current and historical employment/association                    |
+| `product_relationships`      | Person/organisation relationship per product                     |
+| `marketing_permissions`      | Permission and lawful-basis history                              |
+| `opportunities`              | Configurable, lightweight B2B pipeline                           |
+| `subscriptions`              | Provider-neutral recurring billing records                       |
+| `entitlements`               | Durable access, including one-off purchases                      |
+| `campaigns`                  | Acquisition/outbound/content campaign definitions                |
+| `imports`                    | Auditable import runs and field policy metadata                  |
+| `events`                     | Bounded, append-oriented activity envelope                       |
+| `transactions`               | Provider-neutral financial events                                |
+
+```mermaid
+erDiagram
+  PRODUCTS ||--o{ PRODUCT_RELATIONSHIPS : scopes
+  PRODUCTS ||--o{ CAMPAIGNS : runs
+  PRODUCTS ||--o{ OPPORTUNITIES : supports
+  PRODUCTS ||--o{ SUBSCRIPTIONS : bills
+  PRODUCTS ||--o{ ENTITLEMENTS : grants
+  PRODUCTS ||--o{ EVENTS : labels
+  PRODUCTS ||--o{ TRANSACTIONS : records
+  PEOPLE ||--o{ CONTACT_POINTS : owns
+  PEOPLE ||--o{ ORGANISATION_RELATIONSHIPS : has
+  ORGANISATIONS ||--o{ ORGANISATION_RELATIONSHIPS : employs
+  PEOPLE ||--o{ PRODUCT_RELATIONSHIPS : engages
+  ORGANISATIONS ||--o{ PRODUCT_RELATIONSHIPS : engages
+  PEOPLE ||--o{ MARKETING_PERMISSIONS : receives
+  CONTACT_POINTS ||--o{ MARKETING_PERMISSIONS : addresses
+  ORGANISATIONS ||--o{ OPPORTUNITIES : sponsors
+  CAMPAIGNS ||--o{ EVENTS : attributes
+  CAMPAIGNS ||--o{ TRANSACTIONS : attributes
+  SUBSCRIPTIONS ||--o{ ENTITLEMENTS : derives
+  TRANSACTIONS ||--o{ ENTITLEMENTS : funds
+```
+
+Every domain document has an immutable application `id`, UTC `createdAt` and
+`updatedAt`, `schemaVersion`, and archive/source metadata where appropriate.
+Mongo `_id` is an internal persistence detail. References are IDs rather than
+large embedded person or organisation objects. Events use a common envelope;
+their `payload` is restricted to 50 keys and 16KB so event-specific metadata
+cannot become an unbounded unsafe object.
+
+### Database setup and indexes
+
+Run `pnpm --filter @workspace/api-server run db:setup` in an environment with
+the intended `MONGODB_URI` configured. Setup creates missing collections,
+`schema_versions`, and the indexes declared in `src/db/collections.ts`. It
+records schema version `1` on first setup and is safe to run repeatedly. It
+never drops collections, deletes data, or silently changes an existing index.
+If an existing index has the same name but incompatible keys or options, setup
+fails and a reviewed migration is required. The command intentionally emits
+only a generic failure message so connection credentials cannot leak into logs.
+
+The indexes focus on application ID/slug uniqueness, normalized contact lookup,
+product/person/organisation relationship queries, provider external IDs, and
+time-oriented event/transaction access. The complete rationale is kept beside
+each index definition rather than adding speculative indexes.
+
+Persistence code can use `getDomainCollections(db)` from
+`src/db/collections.ts`. Its `DomainCollections` return type maps each of the
+fourteen names to the corresponding domain persistence type, so a repository
+cannot accidentally use (for example) an events collection as a people
+collection.
 
 ## Checks
 
