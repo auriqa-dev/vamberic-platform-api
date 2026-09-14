@@ -1,0 +1,548 @@
+Implement the Vamberic Vapp v1 MongoDB data model and database setup framework.
+
+Context
+
+Vapp is the private Vamberic operating application that will eventually run at app.vamberic.com. It will be used to manage the portfolio of Vamberic products, CRM, customers, organisations, campaigns, subscriptions, revenue, activity and later software agents.
+
+Architecture:
+
+Vapp → Vamberic Platform API → MongoDB Atlas
+
+Only the Platform API may access MongoDB. Vapp and future product applications must never connect directly to MongoDB.
+
+The existing API already:
+
+uses Node.js + TypeScript + Express
+uses the official MongoDB Node.js driver
+reads MONGODB_URI from runtime configuration
+has /health and /ready
+successfully connects to the Atlas database vamberic_studio
+
+Do not use Mongoose.
+
+Objective
+
+Define and implement the complete Vapp v1 core MongoDB collection architecture in one pass, including:
+
+TypeScript domain types
+Zod validation
+MongoDB collection access
+collection creation/bootstrap
+indexes
+safe schema/version management
+tests
+
+Do not build the CRM UI or full CRUD API yet.
+
+Collections
+
+Implement these collections:
+
+1. products
+
+Vamberic-owned products/apps.
+
+Include concepts such as:
+
+stable product ID
+name
+slug/code
+description
+lifecycle status: idea / validation / active / paused / retired
+product type
+domains
+commercial model
+one-off purchase available
+subscription available
+currency
+internal notes
+created/updated/archive metadata
+
+Product examples later may include Energy Health Check and other Vamberic micro-products.
+
+2. people
+
+Canonical human records.
+
+Important principle:
+
+An email address is not the person.
+
+A person must survive:
+
+employer changes
+email changes
+multiple products
+multiple contact points
+
+Include:
+
+stable person ID
+first/last/display name
+role/title where appropriate as current descriptive data only
+source/provenance
+lifecycle metadata
+timestamps
+archived state
+
+Do not embed the canonical email address as the identity key.
+
+3. contact_points
+
+Email addresses and later phone/contact channels associated with people.
+
+Include:
+
+contact point ID
+person ID
+type: email / phone / other extensible values
+value
+normalized value
+primary flag
+validity state
+deliverability/contactability state
+soft bounce / hard bounce
+invalid
+left organisation
+suppressed
+source
+first seen / last validated
+timestamps
+
+An email address that becomes invalid or belongs to a person who left an organisation must be invalidated without deleting the person or their history.
+
+4. organisations
+
+Companies, prospects, customers, partners and other organisations.
+
+Include:
+
+organisation ID
+legal/display name
+domain
+organisation type
+sector/industry
+size fields where known
+country/region
+source/provenance
+lifecycle metadata
+timestamps/archive state
+5. organisation_relationships
+
+Historical and current relationships between people and organisations.
+
+Include:
+
+relationship ID
+person ID
+organisation ID
+job title
+department/function
+seniority where known
+start/end dates
+current flag
+source
+confidence where imported/inferred
+
+Preserve employment history rather than overwriting previous employers.
+
+6. product_relationships
+
+Relates people and/or organisations to Vamberic products.
+
+Include:
+
+relationship ID
+product ID
+person ID and/or organisation ID as appropriate
+relationship/lifecycle status such as prospect / engaged / trial / customer / former customer / partner
+source
+acquisition source/campaign where known
+first engagement date
+customer since
+ended date
+timestamps
+
+Design this so one person or organisation can have different relationships with different Vamberic products.
+
+7. marketing_permissions
+
+Communication permissions and lawful-basis history.
+
+Keep this separate from CRM lifecycle.
+
+Include:
+
+permission ID
+person/contact point as appropriate
+product scope and/or portfolio-wide scope
+channel
+purpose such as marketing / newsletter / product communication
+lawful basis such as consent / legitimate interest / soft opt-in / transactional where appropriate
+permitted / not permitted
+source
+evidence/reference
+granted/recorded date
+withdrawn date
+review date
+timestamps
+
+Preserve history rather than simply overwriting opt-in state.
+
+Do not attempt to encode legal advice into application logic. Build an extensible policy-driven data model.
+
+8. opportunities
+
+Lightweight B2B pipeline where a Vamberic product requires human-assisted sales.
+
+Include:
+
+opportunity ID
+product ID
+organisation ID
+relevant person IDs
+name
+stage
+status
+estimated value
+currency
+probability if used
+expected close date
+next action
+next action date
+source/campaign
+won/lost metadata
+timestamps
+
+Keep stages configurable/extensible rather than hard-coding one rigid sales process.
+
+9. subscriptions
+
+Recurring commercial relationships.
+
+Include:
+
+subscription ID
+product ID
+person and/or organisation/customer reference
+provider
+external provider customer/subscription IDs
+plan
+status
+currency
+recurring amount
+billing interval
+started date
+current period start/end
+cancellation date
+ended date
+timestamps
+
+Do not assume Paddle is the only future billing provider.
+
+10. entitlements
+
+Records what a customer is allowed to access.
+
+Must support:
+
+one-off purchases
+permanent access
+subscription-derived access
+time-limited access
+product/site/feature/usage scope later
+
+Include:
+
+entitlement ID
+product ID
+person/organisation/customer reference
+entitlement type
+source transaction or subscription
+scope
+quantity/limits where appropriate
+active from/until
+status
+timestamps
+
+Important principle:
+
+A customer who buys a one-off report/assessment should retain access to what they purchased even if they do not subscribe later.
+
+11. campaigns
+
+Acquisition, outbound and email/content campaigns.
+
+Include:
+
+campaign ID
+product ID
+name
+campaign type
+channel
+status
+source
+audience description
+start/end dates
+spend where available
+external platform/provider references
+attribution metadata
+timestamps
+12. imports
+
+Tracks contact/data imports, especially future Lusha imports.
+
+Include:
+
+import ID
+source/provider
+product/campaign context
+filename/reference
+imported date
+row counts
+created/updated/duplicate/rejected counts
+field mapping metadata
+lawful-basis/default policy metadata
+retention/review date
+status
+error summary
+timestamps
+
+Do not store the original imported file inside Mongo.
+
+13. events
+
+Central append-oriented activity/event stream across Vamberic.
+
+Examples:
+
+contact created
+organisation created
+campaign membership
+email sent/delivered/opened/clicked/bounced/unsubscribed/replied
+page viewed
+account created
+assessment started/completed
+checkout started
+purchase completed
+subscription started/cancelled
+product usage
+entitlement granted
+CRM lifecycle changed
+
+Include:
+
+event ID
+event type
+timestamp
+product ID where applicable
+person ID
+organisation ID
+campaign ID
+session/external reference where applicable
+source
+structured metadata/payload
+schema version
+
+Design this as an extensible event envelope rather than a separate schema for every event type.
+
+Do not allow arbitrary unbounded unsafe objects. Validate size/shape of metadata.
+
+14. transactions
+
+Financial/commercial events.
+
+Include:
+
+transaction ID
+product ID
+person/organisation/customer reference
+provider
+external transaction ID
+type: purchase / renewal / refund / adjustment / fee etc.
+gross amount
+tax where available
+fees where available
+net amount where available
+currency
+transaction date
+subscription reference where applicable
+entitlement reference where applicable
+campaign/acquisition attribution where available
+status
+timestamps
+
+This should later support calculations such as revenue, MRR, LTV, CAC and product profitability.
+
+Common data-model rules
+
+Establish a consistent convention across collections for:
+
+stable application-generated IDs independent of Mongo _id
+createdAt
+updatedAt
+archive/delete state where appropriate
+schema version
+source/provenance
+
+Prefer immutable IDs.
+
+Use UTC dates.
+
+Do not duplicate large person/organisation objects inside relationship collections. Store references and deliberately denormalize only small display fields when there is a documented performance reason.
+
+Do not implement multi-tenancy unnecessarily. This is currently one Vamberic business operating multiple products.
+
+Product boundaries must nevertheless be explicit wherever relevant.
+
+Validation
+
+Use Zod as the application validation layer.
+
+Define:
+
+domain schemas
+insert/create schemas
+update schemas where useful
+
+Keep database persistence types separate from public API DTOs where appropriate.
+
+Do not expose Mongo _id as the public identity.
+
+MongoDB collection bootstrap
+
+Add an idempotent database setup mechanism, for example:
+
+pnpm db:setup
+
+or an equivalent command consistent with the repository structure.
+
+It must:
+
+connect using existing runtime Mongo configuration
+create missing collections
+create/update required indexes safely
+be idempotent
+not delete production data
+not drop collections automatically
+fail safely if an incompatible destructive migration would be required
+
+Do not rely purely on Mongo creating collections implicitly on first insert.
+
+Create a small metadata collection such as:
+
+schema_versions
+
+or equivalent to track applied database schema/setup versions.
+
+Indexing
+
+Design appropriate indexes now.
+
+Include where relevant:
+
+unique application IDs
+normalized email/contact values
+product IDs
+person IDs
+organisation IDs
+external provider IDs
+lifecycle/status fields used for filtering
+event timestamps
+event type + product/time combinations
+campaign references
+transaction external IDs
+
+Avoid excessive speculative indexes.
+
+Document index reasoning.
+
+What NOT to build yet
+
+Do not build:
+
+Vapp UI
+app.vamberic.com
+broad CRUD endpoints for every collection
+email sending
+Lusha integration
+Paddle integration
+analytics dashboards
+agents
+agent run/action collections
+CAC/MRR/LTV aggregate collections
+product-specific Energy assessment collections
+
+Those will follow.
+
+Initial API scope
+
+It is acceptable to expose no new business endpoints in this change.
+
+If useful for architecture/tests, only add minimal internal repository/service layers for:
+
+products
+people
+organisations
+
+Do not turn this into a full CRM API implementation.
+
+Testing
+
+Add tests covering:
+
+Zod validation for each collection
+required/invalid identifiers
+relationship integrity at application level
+index definitions
+idempotent database setup
+repeated setup does not destroy/change existing data
+safe failure behaviour
+no credential leakage in logs/errors
+
+Tests should not require the live Atlas database.
+
+Use appropriate mocks/test containers/in-memory approach compatible with the repository.
+
+Documentation
+
+Add documentation explaining:
+
+Vapp data architecture
+collection responsibilities
+major relationships
+lifecycle vs marketing-permission distinction
+person vs contact-point distinction
+organisation history
+product boundaries
+event model
+database setup/versioning process
+
+Include a Mermaid ER-style/domain relationship diagram if the README/docs system supports it.
+
+Quality requirements
+
+Run:
+
+build
+lint
+typecheck
+tests
+formatting checks
+
+Do not connect to or modify the live Atlas database automatically.
+
+Do not deploy.
+
+Do not place Mongo credentials in code, tests, logs or documentation.
+
+Report:
+
+files added/changed
+collection list
+indexes created
+setup/versioning mechanism
+major modelling decisions
+any assumptions or unresolved questions
+
+Commit the implementation to main, but do not run the database setup against Atlas yet.
