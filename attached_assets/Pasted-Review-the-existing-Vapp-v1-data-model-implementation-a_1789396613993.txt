@@ -1,0 +1,189 @@
+Review the existing Vapp v1 data-model implementation at commit 159172b and make the following pre-Atlas refinements.
+
+Do not run database setup, connect to Atlas, deploy, or push until the changes and tests are complete.
+
+1. Central application ID generation
+
+Implement Platform-API-owned prefixed lowercase ULID generation.
+
+Examples:
+
+product_<ulid>
+person_<ulid>
+contact_<ulid>
+org_<ulid>
+orgrel_<ulid>
+prodrel_<ulid>
+permission_<ulid>
+opportunity_<ulid>
+subscription_<ulid>
+entitlement_<ulid>
+campaign_<ulid>
+import_<ulid>
+event_<ulid>
+transaction_<ulid>
+
+IDs must be generated centrally by the Platform API rather than by Vapp or future product applications.
+
+Keep Mongo _id internal.
+
+Add tested ID helpers and collection-appropriate ID validation.
+
+2. Monetary amounts
+
+Replace JavaScript floating-point financial amount fields with integer minor-unit fields:
+
+grossAmountMinor
+taxAmountMinor
+feeAmountMinor
+netAmountMinor
+equivalent recurring/spend/value money fields where appropriate
+
+Retain three-letter ISO currency codes.
+
+Use integers and non-negative validation.
+
+Add optional originalTransactionId for refunds/adjustments.
+
+Refund direction should be represented by transaction type rather than negative monetary values.
+
+Document the minor-unit convention.
+
+3. Customer identity
+
+Remove generic internal customerReference as an alternative identity from subscriptions, entitlements and transactions.
+
+Internal customer identity must be expressed through:
+
+personId
+organisationId
+or both where semantically appropriate.
+
+Provider-specific customer IDs should remain explicitly external/provider fields such as externalCustomerId.
+
+Do not introduce a new customers collection.
+
+4. Marketing permission history
+
+Treat marketing_permissions as historical decision records rather than mutable CRM state.
+
+Add:
+
+effectiveAt
+optional supersedesPermissionId
+
+Replace semantically inappropriate mandatory grantedAt if necessary so denied/withdrawn decisions can be represented cleanly.
+
+Define/document deterministic effective-permission resolution:
+subject + scope + channel + purpose, resolving the latest applicable effective decision.
+
+Do not encode legal advice into code.
+
+Remove broad generic update behaviour where it would undermine permission history.
+
+5. Append-oriented records
+
+Remove generic update schemas for events.
+
+Events are immutable after insertion.
+
+Treat historical permission decisions similarly.
+
+For transactions, allow only deliberately modelled lifecycle/status transitions rather than unrestricted partial financial mutation.
+
+Imports may remain mutable while an import job progresses.
+
+6. Audit actor
+
+Extend common persistence/audit metadata so writes can identify the actor.
+
+Support actor types:
+
+human
+agent
+system
+integration
+
+Include optional actor ID/reference where appropriate.
+
+Model createdBy and updatedBy consistently without conflating them with source/provenance.
+
+This must support future Vapp software agents.
+
+7. Contact normalisation
+
+Define and test central contact normalisation:
+
+emails: trim + lowercase
+phones: design for E.164 normalization where possible, without inventing country information when unavailable
+
+Retain original value separately.
+
+Do not make normalized contact value globally unique.
+
+Add an appropriate partial unique index, if technically sound, to prevent more than one primary=true contact point for the same person/contact type.
+
+8. Safe database preflight
+
+Change the database setup command so operators can perform a genuinely non-mutating live preflight.
+
+Support:
+
+db:setup --dry-run
+
+and an explicit mutation mode:
+
+db:setup --apply
+
+--dry-run must:
+
+connect to the configured database
+make no writes
+create no collections
+create no indexes
+update no schema metadata
+inspect existing collection names
+inspect existing index definitions
+report document counts where useful
+compare actual state to expected state
+report collections/indexes that would be created
+report incompatible indexes
+flag possible unique-index risks
+return a safe human-readable summary without credentials or connection details
+
+Running without either flag should refuse to mutate and show usage rather than defaulting to apply.
+
+--apply should preserve the existing non-destructive/idempotent protections.
+
+Migration framework
+
+Keep v1 simple, but change schema metadata if needed so future sequential migrations can be represented cleanly. Do not build a complex migration engine unnecessarily.
+
+Index review
+
+Review the existing 56 indexes before first deployment. Keep indexes that support identity, relationships, external reconciliation and expected timeline/query patterns. Remove obviously premature standalone low-cardinality indexes if they provide little value. Do not add speculative indexes merely because fields exist.
+
+Tests
+
+Expand tests to cover:
+
+generated ID format and uniqueness
+minor-unit money validation
+refund linkage
+customer identity rules
+permission-history resolution rules
+event immutability/no update contract
+contact normalization
+primary-contact uniqueness index definition
+--dry-run performing zero mutations
+command with no mode refusing mutation
+--apply retaining idempotent/non-destructive behaviour
+no credential leakage
+
+Run build, lint, typecheck, tests, format checks and Docker build.
+
+Update the Vapp architecture documentation.
+
+Report every modelling change and any remaining decisions that genuinely must be resolved before Atlas setup.
+
+Commit the changes locally, but do not push and do not execute either setup mode against Atlas.
