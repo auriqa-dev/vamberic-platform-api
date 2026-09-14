@@ -1,0 +1,199 @@
+Create a single review file for the Vapp v1 MongoDB data-model implementation so I can inspect the architecture before anything is pushed or run against Atlas.
+Create:
+docs/vapp-data-model-review.md
+The file must contain the following sections, with concrete detail taken from the implementation that now exists in the repository.
+1. Implementation status
+Include:
+* current commit SHA
+* whether the implementation is committed
+* whether it has been pushed
+* current branch
+* whether any database setup command has been run against live Atlas
+2. Files added or changed
+List every file added or changed for the Vapp data-model implementation, grouped by:
+* domain/types
+* validation
+* Mongo collection/repository access
+* database setup/migrations/versioning
+* tests
+* documentation
+* package/config/script changes
+For each file, give a one-line explanation of its purpose.
+3. Final collection list
+List every MongoDB collection implemented, including:
+* products
+* people
+* contact_points
+* organisations
+* organisation_relationships
+* product_relationships
+* marketing_permissions
+* opportunities
+* subscriptions
+* entitlements
+* campaigns
+* imports
+* events
+* transactions
+* schema/version metadata collection
+For each collection include:
+* purpose
+* primary application ID field
+* key references to other collections
+* whether records are mutable, append-oriented, historical, or soft-archived
+4. ID strategy
+Explain exactly:
+* how application IDs are generated
+* whether UUID/ULID/other is used
+* relationship between application IDs and Mongo _id
+* uniqueness guarantees
+* whether IDs are immutable
+5. Common document fields
+Show the common fields/conventions applied across collections, including:
+* createdAt
+* updatedAt
+* schema version
+* source/provenance
+* archive/delete state
+* any audit fields
+Include representative TypeScript/Zod snippets where useful.
+6. Zod validation design
+For every collection, state:
+* domain schema
+* create/insert schema
+* update schema if implemented
+* important enums/validation constraints
+Highlight any validation decisions that are deliberately permissive/extensible.
+7. Mongo collection-level validation
+State clearly whether MongoDB JSON Schema validators were added at collection level.
+If yes:
+* show which collections
+* summarize validator rules
+* explain how validator changes are handled
+If no:
+* say explicitly that validation is application-level through Zod
+* explain why
+8. Indexes
+Provide a table with:
+* collection
+* index name
+* fields
+* unique or non-unique
+* sparse/partial if applicable
+* rationale
+Include all implemented indexes.
+Pay particular attention to:
+* normalized contact values
+* product IDs
+* person IDs
+* organisation IDs
+* external provider IDs
+* event type/timestamp/product combinations
+* transaction external IDs
+9. Database setup and versioning
+Explain:
+* exact setup command, e.g. pnpm db:setup
+* entry point/script invoked
+* how missing collections are created
+* how indexes are created/updated
+* how setup remains idempotent
+* schema/version metadata collection design
+* how applied versions are recorded
+* whether migrations are ordered/versioned
+Include the current schema version.
+10. Safe handling of incompatible changes
+Explain exactly what happens if:
+* an index with the same name exists but has different keys/options
+* a unique index cannot be created because duplicate data exists
+* a collection already exists
+* the setup script is run repeatedly
+* a destructive migration would be required
+State clearly whether the code ever:
+* drops collections
+* drops indexes automatically
+* deletes existing data
+11. Relationship integrity
+Explain how the application currently handles or validates references such as:
+* person → contact points
+* person ↔ organisation relationships
+* product relationships
+* subscriptions → products/customers
+* transactions → subscriptions/entitlements
+State whether Mongo foreign-key enforcement exists or whether integrity is application-controlled.
+12. People vs contact points
+Explain the implemented design for:
+* canonical person identity
+* multiple email addresses
+* employer changes
+* invalid email addresses
+* hard bounce/soft bounce
+* left organisation
+* suppression
+* preserving history
+13. Marketing permissions
+Explain:
+* data model
+* history model
+* person/contact-point/product/portfolio scope
+* channel and purpose
+* lawful basis representation
+* permitted/not-permitted state
+* withdrawal/review/evidence fields
+Confirm that CRM lifecycle and marketing permission are separate concepts.
+14. Events
+Explain the event-envelope design in detail:
+* required fields
+* event type
+* product/person/organisation/campaign references
+* metadata/payload validation
+* payload size limits if any
+* schema versioning
+* append-oriented behaviour
+* indexes
+Include representative examples for:
+* email event
+* purchase event
+* product-usage event
+15. Transactions
+Explain:
+* financial event types
+* amount/currency representation
+* provider/external transaction IDs
+* links to subscriptions/entitlements/campaigns
+* support for refunds/fees/net/gross/tax
+* how duplicate external transactions are prevented
+16. Tests
+List all new tests or test suites and what each verifies.
+Include whether tests cover:
+* every collection schema
+* invalid IDs
+* index definitions
+* idempotent setup
+* repeated setup preserving data
+* incompatible index handling
+* credential leakage
+State whether tests require live Atlas.
+17. Quality-check results
+Give the exact result of:
+* build
+* lint
+* typecheck
+* tests
+* formatting
+Include test counts where available.
+18. Modelling decisions and assumptions
+List all important architectural decisions made during implementation, especially anything that was not explicitly specified.
+19. Unresolved questions or risks
+List anything that still needs a decision before we run the setup against live Atlas.
+Do not hide uncertainties.
+20. Recommended next step
+State what should happen next, but do not run anything.
+Important:
+* Do not modify implementation code while creating this review file.
+* Do not run db:setup.
+* Do not connect to or modify live Atlas.
+* Do not deploy.
+* Do not push to GitHub.
+* Base the document only on the implementation currently present in the repository.
+When complete, report only the path to the generated review file and whether it was created successfully.
+
