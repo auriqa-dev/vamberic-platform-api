@@ -113,27 +113,62 @@ erDiagram
 ```
 
 Every domain document has an immutable application `id`, UTC `createdAt` and
-`updatedAt`, `schemaVersion`, and archive/source metadata where appropriate.
-Mongo `_id` is an internal persistence detail. References are IDs rather than
-large embedded person or organisation objects. Events use a common envelope;
-their `payload` is restricted to 50 keys and 16KB so event-specific metadata
-cannot become an unbounded unsafe object.
+`updatedAt`, `schemaVersion`, actor audit metadata, and archive/source metadata
+where appropriate. The Platform API generates IDs centrally as
+`<collection-prefix>_<lowercase Crockford ULID>`; Mongo `_id` remains internal.
+References are IDs rather than large embedded person or organisation objects.
+Events use a common envelope; their `payload` is restricted to 50 keys and 16KB
+so event-specific metadata cannot become an unbounded unsafe object.
+
+Financial values use integer minor units (`grossAmountMinor`,
+`recurringAmountMinor`, `estimatedValueMinor`, `spendMinor`, and transaction
+tax/fee/net fields) alongside runtime-supported three-letter ISO 4217 currency
+codes. Amounts are non-negative safe integers. Optional opportunity and campaign
+amounts must be paired with their currency. Refund and adjustment direction is
+represented by `type`, never a negative amount, and `originalTransactionId`
+links a refund or adjustment to its source transaction.
+Subscriptions, entitlements, and transactions identify customers with
+`personId` and/or `organisationId`; generic `customerReference` is not part of
+the model. Marketing permissions are historical decisions with `effectiveAt`;
+`resolveEffectiveMarketingPermission` deterministically resolves the latest
+applicable decision. Events and permission decisions have no update contract,
+while transaction updates are status-only. Same-state transaction updates are
+idempotent. The allowed lifecycle is pending → completed/failed/voided,
+completed → refunded, plus same-state writes; terminal states cannot reopen.
+
+Contact points retain their original value in `value`; the central normalizer
+trims/lowercases email and removes phone formatting without inventing a country
+code. Normalized values are not globally unique. A partial unique index prevents
+more than one primary contact of a given type for one person.
 
 ### Database setup and indexes
 
-Run `pnpm --filter @workspace/api-server run db:setup` in an environment with
-the intended `MONGODB_URI` configured. Setup creates missing collections,
+Run `pnpm --filter @workspace/api-server run db:setup -- --dry-run` in an
+environment with the intended `MONGODB_URI` configured for a live, read-only
+preflight. It creates no collections, indexes, or schema metadata and reports
+counts, missing resources, incompatible indexes, and possible unique-index
+risks. The report includes existing schema version and a compatibility
+classification, and uses read-only duplicate aggregation for populated missing
+unique indexes where available. The command requires an explicit mode:
+`--dry-run` is read-only and `--apply` is the only mutating mode. Running
+without a mode refuses to connect.
+
+Run `pnpm --filter @workspace/api-server run db:setup -- --apply` to create missing collections,
 `schema_versions`, and the indexes declared in `src/db/collections.ts`. It
-records schema version `1` on first setup and is safe to run repeatedly. It
+records schema version `1` and migration `001-vapp-v1-baseline` on first setup
+and is safe to run repeatedly. It backfills that ledger entry on a compatible
+existing same-version metadata document without changing an existing entry. It
 never drops collections, deletes data, or silently changes an existing index.
 If an existing index has the same name but incompatible keys or options, setup
 fails and a reviewed migration is required. The command intentionally emits
 only a generic failure message so connection credentials cannot leak into logs.
 
 The indexes focus on application ID/slug uniqueness, normalized contact lookup,
-product/person/organisation relationship queries, provider external IDs, and
-time-oriented event/transaction access. The complete rationale is kept beside
-each index definition rather than adding speculative indexes.
+primary-contact exclusivity, product/person/organisation relationship queries,
+provider external IDs, and time-oriented event/transaction access. Premature
+standalone low-cardinality status indexes are intentionally omitted. The
+complete rationale is kept beside each index definition rather than adding
+speculative indexes.
 
 Persistence code can use `getDomainCollections(db)` from
 `src/db/collections.ts`. Its `DomainCollections` return type maps each of the

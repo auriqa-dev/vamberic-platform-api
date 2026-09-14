@@ -90,29 +90,27 @@ const appId = (name = "id"): IndexDescription => ({
 export const COLLECTION_DEFINITIONS: readonly CollectionDefinition[] = [
   {
     name: "products",
-    indexes: [
-      appId(),
-      { key: { slug: 1 }, name: "slug_unique", unique: true },
-      { key: { status: 1 }, name: "status" },
-    ],
+    indexes: [appId(), { key: { slug: 1 }, name: "slug_unique", unique: true }],
     reason:
-      "IDs and slugs are lookup/uniqueness boundaries; status supports portfolio views.",
+      "IDs and slugs are lookup/uniqueness boundaries; low-cardinality status is filtered after the product boundary.",
   },
   {
     name: "people",
-    indexes: [
-      appId(),
-      { key: { lifecycleStatus: 1 }, name: "lifecycle_status" },
-    ],
+    indexes: [appId()],
     reason:
-      "People are canonical records; lifecycle is filtered without using email as identity.",
+      "People are canonical records; lifecycle is low-cardinality and filtered without an index or email identity.",
   },
   {
     name: "contact_points",
     indexes: [
       appId(),
       { key: { normalizedValue: 1 }, name: "normalized_value" },
-      { key: { personId: 1, type: 1 }, name: "person_type" },
+      {
+        key: { personId: 1, type: 1 },
+        name: "person_type_primary_unique",
+        unique: true,
+        partialFilterExpression: { primary: true },
+      },
       { key: { validity: 1, deliverability: 1 }, name: "contactability" },
     ],
     reason:
@@ -147,7 +145,6 @@ export const COLLECTION_DEFINITIONS: readonly CollectionDefinition[] = [
         key: { productId: 1, organisationId: 1 },
         name: "product_organisation",
       },
-      { key: { status: 1 }, name: "status" },
       { key: { campaignId: 1 }, name: "campaign" },
     ],
     reason:
@@ -162,7 +159,7 @@ export const COLLECTION_DEFINITIONS: readonly CollectionDefinition[] = [
         key: { productId: 1, channel: 1, purpose: 1 },
         name: "scope_channel_purpose",
       },
-      { key: { permitted: 1, withdrawnAt: 1 }, name: "permission_state" },
+      { key: { effectiveAt: -1 }, name: "effective_at" },
     ],
     reason:
       "Permission history is queried by subject, scope, channel, and effective state.",
@@ -231,7 +228,6 @@ export const COLLECTION_DEFINITIONS: readonly CollectionDefinition[] = [
     indexes: [
       appId(),
       { key: { provider: 1, importedAt: -1 }, name: "provider_imported_at" },
-      { key: { status: 1 }, name: "status" },
       { key: { campaignId: 1 }, name: "campaign" },
     ],
     reason:
@@ -279,3 +275,4 @@ export const COLLECTION_DEFINITIONS: readonly CollectionDefinition[] = [
 export const SCHEMA_VERSIONS_COLLECTION = "schema_versions";
 export const DATABASE_SCHEMA_VERSION = 1;
 export const DATABASE_SCHEMA_VERSION_ID = "vapp-v1";
+export const DATABASE_MIGRATION_ID = "001-vapp-v1-baseline";

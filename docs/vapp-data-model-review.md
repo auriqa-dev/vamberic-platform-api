@@ -2,13 +2,13 @@
 
 ## 1. Implementation status
 
-| Item | Status |
-|---|---|
-| Current commit SHA | `159172bc112fdfdb25577fa8335906ef8012ee43` (`159172b`) |
-| Implementation committed | Yes, locally, as `Add Vapp v1 MongoDB data model` |
-| Implementation pushed | No. The attempted push was rejected by GitHub because the configured credential was invalid. |
-| Current branch | `main` |
-| Live Atlas setup run | No. `db:setup` was not run and this review did not connect to Atlas. |
+| Item                     | Status                                                                                       |
+| ------------------------ | -------------------------------------------------------------------------------------------- |
+| Current commit SHA       | `159172bc112fdfdb25577fa8335906ef8012ee43` (`159172b`)                                       |
+| Implementation committed | Yes, locally, as `Add Vapp v1 MongoDB data model`                                            |
+| Implementation pushed    | No. The attempted push was rejected by GitHub because the configured credential was invalid. |
+| Current branch           | `main`                                                                                       |
+| Live Atlas setup run     | No. `db:setup` was not run and this review did not connect to Atlas.                         |
 
 The implementation is complete in the local repository and has passed the
 quality checks listed in section 17. The uploaded specifications remain
@@ -81,23 +81,23 @@ identifier. Every domain schema inherits optional provenance and soft-archive
 fields. The behavior classifications below describe intended use; MongoDB does
 not enforce immutability or append-only writes.
 
-| Collection | Purpose | Primary application ID | Key references | Intended behavior |
-|---|---|---|---|---|
-| `products` | Product/venture portfolio registry and commercial configuration | `id` | None | Mutable; soft-archived |
-| `people` | Canonical human identity independent of contact details or employers | `id` | None | Mutable; soft-archived |
-| `contact_points` | Email, phone, and other contact channels with deliverability state | `id` | `personId` → `people` | Mutable operational/history-bearing record; soft-archived |
-| `organisations` | Companies and other B2B entities | `id` | None | Mutable; soft-archived |
-| `organisation_relationships` | Time-bounded person/employer history | `id` | `personId` → `people`; `organisationId` → `organisations` | Historical but mutable for corrections/current-state closure; soft-archived |
-| `product_relationships` | Person or organisation lifecycle within one product | `id` | `productId`, optional `personId`, `organisationId`, `campaignId` | Mutable lifecycle; soft-archived |
-| `marketing_permissions` | Evidence-bearing permission decisions by subject, scope, channel, and purpose | `id` | optional `personId`, `contactPointId`, `productId` | Intended as historical decisions; update schema exists; soft-archived |
-| `opportunities` | Product-scoped B2B pipeline records | `id` | `productId`, `organisationId`, `personIds[]`, optional `campaignId` | Mutable pipeline; soft-archived |
-| `subscriptions` | Recurring billing state independent of provider | `id` | `productId`; one or more customer references | Mutable operational state; soft-archived |
-| `entitlements` | Durable access rights, including one-off and subscription-derived access | `id` | `productId`; customer; optional source subscription/transaction | Mutable operational access state; soft-archived |
-| `campaigns` | Product-scoped marketing campaign and attribution metadata | `id` | `productId` | Mutable lifecycle; soft-archived |
-| `imports` | Import audit records, mappings, row counts, policy, and outcome | `id` | optional `productId`, `campaignId` | Historical/append-oriented with status progression; soft-archived |
-| `events` | Extensible product/activity event envelope | `id` | optional product, person, organisation, and campaign IDs | Intended append-oriented; update schema exists and append-only behavior is not enforced |
-| `transactions` | Provider-neutral financial event records | `id` | `productId`; customer; optional subscription, entitlement, campaign | Intended historical financial records; update schema exists; soft-archived |
-| `schema_versions` | Records setup compatibility/version metadata | Mongo `_id` value `vapp-v1` | Lists managed collection names | Mutable only when the supported database schema version advances |
+| Collection                   | Purpose                                                                       | Primary application ID      | Key references                                                                 | Intended behavior                                                           |
+| ---------------------------- | ----------------------------------------------------------------------------- | --------------------------- | ------------------------------------------------------------------------------ | --------------------------------------------------------------------------- |
+| `products`                   | Product/venture portfolio registry and commercial configuration               | `id`                        | None                                                                           | Mutable; soft-archived                                                      |
+| `people`                     | Canonical human identity independent of contact details or employers          | `id`                        | None                                                                           | Mutable; soft-archived                                                      |
+| `contact_points`             | Email, phone, and other contact channels with deliverability state            | `id`                        | `personId` → `people`                                                          | Mutable operational/history-bearing record; soft-archived                   |
+| `organisations`              | Companies and other B2B entities                                              | `id`                        | None                                                                           | Mutable; soft-archived                                                      |
+| `organisation_relationships` | Time-bounded person/employer history                                          | `id`                        | `personId` → `people`; `organisationId` → `organisations`                      | Historical but mutable for corrections/current-state closure; soft-archived |
+| `product_relationships`      | Person or organisation lifecycle within one product                           | `id`                        | `productId`, optional `personId`, `organisationId`, `campaignId`               | Mutable lifecycle; soft-archived                                            |
+| `marketing_permissions`      | Evidence-bearing permission decisions by subject, scope, channel, and purpose | `id`                        | optional `personId`, `contactPointId`, `productId`                             | Historical immutable decisions; soft-archived                               |
+| `opportunities`              | Product-scoped B2B pipeline records                                           | `id`                        | `productId`, `organisationId`, `personIds[]`, optional `campaignId`            | Mutable pipeline; soft-archived                                             |
+| `subscriptions`              | Recurring billing state independent of provider                               | `id`                        | `productId`; one or more customer references                                   | Mutable operational state; soft-archived                                    |
+| `entitlements`               | Durable access rights, including one-off and subscription-derived access      | `id`                        | `productId`; customer; optional source subscription/transaction                | Mutable operational access state; soft-archived                             |
+| `campaigns`                  | Product-scoped marketing campaign and attribution metadata                    | `id`                        | `productId`                                                                    | Mutable lifecycle; soft-archived                                            |
+| `imports`                    | Import audit records, mappings, row counts, policy, and outcome               | `id`                        | optional `productId`, `campaignId`                                             | Historical/append-oriented with status progression; soft-archived           |
+| `events`                     | Extensible product/activity event envelope                                    | `id`                        | optional product, person, organisation, and campaign IDs                       | Append-oriented; no update contract                                         |
+| `transactions`               | Provider-neutral financial event records                                      | `id`                        | `productId`; person/organisation; optional subscription, entitlement, campaign | Historical financial records; status-only updates; soft-archived            |
+| `schema_versions`            | Records setup compatibility/version metadata                                  | Mongo `_id` value `vapp-v1` | Lists managed collection names                                                 | Mutable only when the supported database schema version advances            |
 
 ## 4. ID strategy
 
@@ -179,22 +179,22 @@ remaining fields optional, and permits an optional `updatedAt`.
 
 ## 6. Zod validation design
 
-| Collection | Persistence schema | Insert schema | Update schema | Important validation |
-|---|---|---|---|---|
-| `products` | `ProductSchema` | `ProductInsertSchema` | `ProductUpdateSchema` | Status: `idea`, `validation`, `active`, `paused`, `retired`; unique-compatible lowercase slug; max 50 domains; product/commercial model remain extensible strings |
-| `people` | `PersonSchema` | `PersonInsertSchema` | `PersonUpdateSchema` | Required first/last names; lifecycle `active`, `inactive`, `archived`; title/display name optional |
-| `contact_points` | `ContactPointSchema` | `ContactPointInsertSchema` | `ContactPointUpdateSchema` | Type `email`, `phone`, `other`; separate raw/normalized values; validity and deliverability enums; suppression/left-organisation flags |
-| `organisations` | `OrganisationSchema` | `OrganisationInsertSchema` | `OrganisationUpdateSchema` | Type `prospect`, `customer`, `partner`, `vendor`, `other`; optional size/country/region; lifecycle enum |
-| `organisation_relationships` | `OrganisationRelationshipSchema` | `OrganisationRelationshipInsertSchema` | `OrganisationRelationshipUpdateSchema` | Person and organisation required; optional dated history; `current`; confidence 0–1 |
-| `product_relationships` | `ProductRelationshipSchema` | `ProductRelationshipInsertSchema` | `ProductRelationshipUpdateSchema` | Product required; at least person or organisation required on persistence/insert; lifecycle status enum; optional campaign/acquisition dates |
-| `marketing_permissions` | `MarketingPermissionSchema` | `MarketingPermissionInsertSchema` | `MarketingPermissionUpdateSchema` | Requires person or contact point and product or `portfolioWide`; purpose/lawful-basis enums; channel extensible string; evidence and review/withdrawal dates |
-| `opportunities` | `OpportunitySchema` | `OpportunityInsertSchema` | `OpportunityUpdateSchema` | Product/organisation required; max 100 people; open/won/lost/paused; non-negative value; probability 0–1; stage extensible |
-| `subscriptions` | `SubscriptionSchema` | `SubscriptionInsertSchema` | `SubscriptionUpdateSchema` | Product and one customer reference required; status/billing interval enums; non-negative recurring amount; three-letter uppercase currency |
-| `entitlements` | `EntitlementSchema` | `EntitlementInsertSchema` | `EntitlementUpdateSchema` | Product and customer required; one-off/permanent/subscription/time-limited types; active/expired/revoked; optional source IDs/scope/quantity |
-| `campaigns` | `CampaignSchema` | `CampaignInsertSchema` | `CampaignUpdateSchema` | Product required; status enum; type/channel/provider extensible; non-negative spend; bounded attribution metadata |
-| `imports` | `ImportSchema` | `ImportInsertSchema` | `ImportUpdateSchema` | Non-negative integer row counts; started/completed/failed/cancelled; bounded field mapping and policy metadata |
-| `events` | `EventSchema` | `EventInsertSchema` | `EventUpdateSchema` | Required type/time; event type intentionally extensible; optional entity/campaign references; bounded payload |
-| `transactions` | `TransactionSchema` | `TransactionInsertSchema` | `TransactionUpdateSchema` | Product and customer required; purchase/renewal/refund/adjustment/fee; pending/completed/failed/refunded/voided; non-negative amounts; uppercase 3-letter currency |
+| Collection                   | Persistence schema               | Insert schema                          | Update schema                           | Important validation                                                                                                                                              |
+| ---------------------------- | -------------------------------- | -------------------------------------- | --------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `products`                   | `ProductSchema`                  | `ProductInsertSchema`                  | `ProductUpdateSchema`                   | Status: `idea`, `validation`, `active`, `paused`, `retired`; unique-compatible lowercase slug; max 50 domains; product/commercial model remain extensible strings |
+| `people`                     | `PersonSchema`                   | `PersonInsertSchema`                   | `PersonUpdateSchema`                    | Required first/last names; lifecycle `active`, `inactive`, `archived`; title/display name optional                                                                |
+| `contact_points`             | `ContactPointSchema`             | `ContactPointInsertSchema`             | `ContactPointUpdateSchema`              | Type `email`, `phone`, `other`; separate raw/normalized values; validity and deliverability enums; suppression/left-organisation flags                            |
+| `organisations`              | `OrganisationSchema`             | `OrganisationInsertSchema`             | `OrganisationUpdateSchema`              | Type `prospect`, `customer`, `partner`, `vendor`, `other`; optional size/country/region; lifecycle enum                                                           |
+| `organisation_relationships` | `OrganisationRelationshipSchema` | `OrganisationRelationshipInsertSchema` | `OrganisationRelationshipUpdateSchema`  | Person and organisation required; optional dated history; `current`; confidence 0–1                                                                               |
+| `product_relationships`      | `ProductRelationshipSchema`      | `ProductRelationshipInsertSchema`      | `ProductRelationshipUpdateSchema`       | Product required; at least person or organisation required on persistence/insert; lifecycle status enum; optional campaign/acquisition dates                      |
+| `marketing_permissions`      | `MarketingPermissionSchema`      | `MarketingPermissionInsertSchema`      | —                                       | Requires person or contact point and product or `portfolioWide`; effective decision time; optional supersession; purpose/lawful-basis enums                       |
+| `opportunities`              | `OpportunitySchema`              | `OpportunityInsertSchema`              | `OpportunityUpdateSchema`               | Product/organisation required; max 100 people; open/won/lost/paused; non-negative value; probability 0–1; stage extensible                                        |
+| `subscriptions`              | `SubscriptionSchema`             | `SubscriptionInsertSchema`             | `SubscriptionUpdateSchema`              | Product and one customer reference required; status/billing interval enums; non-negative recurring amount; three-letter uppercase currency                        |
+| `entitlements`               | `EntitlementSchema`              | `EntitlementInsertSchema`              | `EntitlementUpdateSchema`               | Product and customer required; one-off/permanent/subscription/time-limited types; active/expired/revoked; optional source IDs/scope/quantity                      |
+| `campaigns`                  | `CampaignSchema`                 | `CampaignInsertSchema`                 | `CampaignUpdateSchema`                  | Product required; status enum; type/channel/provider extensible; non-negative spend; bounded attribution metadata                                                 |
+| `imports`                    | `ImportSchema`                   | `ImportInsertSchema`                   | `ImportUpdateSchema`                    | Non-negative integer row counts; started/completed/failed/cancelled; bounded field mapping and policy metadata                                                    |
+| `events`                     | `EventSchema`                    | `EventInsertSchema`                    | —                                       | Required type/time; event type intentionally extensible; optional entity/campaign references; bounded payload                                                     |
+| `transactions`               | `TransactionSchema`              | `TransactionInsertSchema`              | `TransactionUpdateSchema` (status only) | Product and person/organisation required; conservative lifecycle transitions; safe integer minor-unit amounts; supported ISO currency                             |
 
 The intentionally extensible strings include product type, commercial model,
 opportunity stage, campaign type/channel, provider names, permission channel,
@@ -225,64 +225,64 @@ existing non-conforming records.
 There are 56 declared indexes across the fourteen domain collections. MongoDB's
 automatic `_id_` indexes are not included below. There are no partial indexes.
 
-| Collection | Index name | Fields | Unique | Sparse | Rationale |
-|---|---|---|---:|---:|---|
-| `products` | `id_unique` | `id: 1` | Yes | No | Stable application-ID lookup/boundary |
-| `products` | `slug_unique` | `slug: 1` | Yes | No | Product routing/lookup slug must be unique |
-| `products` | `status` | `status: 1` | No | No | Portfolio status views |
-| `people` | `id_unique` | `id: 1` | Yes | No | Stable canonical person lookup |
-| `people` | `lifecycle_status` | `lifecycleStatus: 1` | No | No | Filter canonical people without treating email as identity |
-| `contact_points` | `id_unique` | `id: 1` | Yes | No | Stable contact-point lookup |
-| `contact_points` | `normalized_value` | `normalizedValue: 1` | No | No | Find contacts by normalized email/phone; intentionally not globally unique |
-| `contact_points` | `person_type` | `personId: 1, type: 1` | No | No | List a person's channels by type |
-| `contact_points` | `contactability` | `validity: 1, deliverability: 1` | No | No | Contact eligibility/deliverability filtering |
-| `organisations` | `id_unique` | `id: 1` | Yes | No | Stable organisation lookup |
-| `organisations` | `domain` | `domain: 1` | No | No | Organisation discovery/deduplication workflow |
-| `organisations` | `lifecycle_status` | `lifecycleStatus: 1` | No | No | Organisation lifecycle filtering |
-| `organisation_relationships` | `id_unique` | `id: 1` | Yes | No | Stable relationship lookup |
-| `organisation_relationships` | `person_current` | `personId: 1, current: 1` | No | No | Current and historical employers for a person |
-| `organisation_relationships` | `organisation_current` | `organisationId: 1, current: 1` | No | No | Current and historical people for an organisation |
-| `product_relationships` | `id_unique` | `id: 1` | Yes | No | Stable product-relationship lookup |
-| `product_relationships` | `product_person` | `productId: 1, personId: 1` | No | No | Person lifecycle inside a product boundary |
-| `product_relationships` | `product_organisation` | `productId: 1, organisationId: 1` | No | No | Organisation lifecycle inside a product boundary |
-| `product_relationships` | `status` | `status: 1` | No | No | Cross-product lifecycle filtering |
-| `product_relationships` | `campaign` | `campaignId: 1` | No | No | Acquisition/campaign attribution |
-| `marketing_permissions` | `id_unique` | `id: 1` | Yes | No | Stable permission-decision lookup |
-| `marketing_permissions` | `person_contact_point` | `personId: 1, contactPointId: 1` | No | No | Permission history by person/channel identity |
-| `marketing_permissions` | `scope_channel_purpose` | `productId: 1, channel: 1, purpose: 1` | No | No | Product/channel/purpose permission resolution |
-| `marketing_permissions` | `permission_state` | `permitted: 1, withdrawnAt: 1` | No | No | Effective permission-state filtering |
-| `opportunities` | `id_unique` | `id: 1` | Yes | No | Stable opportunity lookup |
-| `opportunities` | `product_pipeline` | `productId: 1, status: 1, stage: 1` | No | No | Product-scoped pipeline views |
-| `opportunities` | `organisation_status` | `organisationId: 1, status: 1` | No | No | Organisation opportunity history/state |
-| `opportunities` | `campaign` | `campaignId: 1` | No | No | Campaign attribution |
-| `subscriptions` | `id_unique` | `id: 1` | Yes | No | Stable subscription lookup |
-| `subscriptions` | `product_status` | `productId: 1, status: 1` | No | No | Product subscription state |
-| `subscriptions` | `provider_external_subscription` | `provider: 1, externalSubscriptionId: 1` | Yes | Yes | Prevent duplicate provider subscriptions when an external ID exists |
-| `subscriptions` | `customer` | `personId: 1, organisationId: 1` | No | No | Customer subscription lookup |
-| `entitlements` | `id_unique` | `id: 1` | Yes | No | Stable entitlement lookup |
-| `entitlements` | `product_access_window` | `productId: 1, status: 1, activeUntil: 1` | No | No | Product access checks and expiry windows |
-| `entitlements` | `customer_status` | `personId: 1, organisationId: 1, status: 1` | No | No | Customer access-state lookup |
-| `entitlements` | `source_subscription` | `sourceSubscriptionId: 1` | No | No | Trace subscription-derived access |
-| `entitlements` | `source_transaction` | `sourceTransactionId: 1` | No | No | Trace one-off transaction-derived access |
-| `campaigns` | `id_unique` | `id: 1` | Yes | No | Stable campaign lookup |
-| `campaigns` | `product_status` | `productId: 1, status: 1` | No | No | Product campaign lifecycle |
-| `campaigns` | `provider_external_reference` | `provider: 1, externalReference: 1` | No | Yes | Provider attribution reconciliation when reference exists |
-| `imports` | `id_unique` | `id: 1` | Yes | No | Stable import lookup |
-| `imports` | `provider_imported_at` | `provider: 1, importedAt: -1` | No | No | Provider/time audit history |
-| `imports` | `status` | `status: 1` | No | No | Import operational status |
-| `imports` | `campaign` | `campaignId: 1` | No | No | Campaign-linked imports |
-| `events` | `id_unique` | `id: 1` | Yes | No | Stable event identity/idempotency key |
-| `events` | `occurred_at` | `occurredAt: -1` | No | No | Global time-first activity |
-| `events` | `type_occurred_at` | `eventType: 1, occurredAt: -1` | No | No | Event type/time slices |
-| `events` | `product_occurred_at` | `productId: 1, occurredAt: -1` | No | No | Product activity timeline |
-| `events` | `person_occurred_at` | `personId: 1, occurredAt: -1` | No | No | Person activity timeline |
-| `events` | `organisation_occurred_at` | `organisationId: 1, occurredAt: -1` | No | No | Organisation activity timeline |
-| `events` | `campaign_occurred_at` | `campaignId: 1, occurredAt: -1` | No | No | Campaign activity/attribution timeline |
-| `transactions` | `id_unique` | `id: 1` | Yes | No | Stable transaction lookup |
-| `transactions` | `provider_external_transaction` | `provider: 1, externalTransactionId: 1` | Yes | Yes | Prevent duplicate provider transactions when an external ID exists |
-| `transactions` | `product_transacted_at` | `productId: 1, transactedAt: -1` | No | No | Product revenue timeline |
-| `transactions` | `status_transacted_at` | `status: 1, transactedAt: -1` | No | No | Reconciliation/reporting by state and time |
-| `transactions` | `campaign` | `campaignId: 1` | No | No | Revenue attribution |
+| Collection                   | Index name                       | Fields                                      | Unique | Sparse | Rationale                                                                  |
+| ---------------------------- | -------------------------------- | ------------------------------------------- | -----: | -----: | -------------------------------------------------------------------------- |
+| `products`                   | `id_unique`                      | `id: 1`                                     |    Yes |     No | Stable application-ID lookup/boundary                                      |
+| `products`                   | `slug_unique`                    | `slug: 1`                                   |    Yes |     No | Product routing/lookup slug must be unique                                 |
+| `products`                   | `status`                         | `status: 1`                                 |     No |     No | Portfolio status views                                                     |
+| `people`                     | `id_unique`                      | `id: 1`                                     |    Yes |     No | Stable canonical person lookup                                             |
+| `people`                     | `lifecycle_status`               | `lifecycleStatus: 1`                        |     No |     No | Filter canonical people without treating email as identity                 |
+| `contact_points`             | `id_unique`                      | `id: 1`                                     |    Yes |     No | Stable contact-point lookup                                                |
+| `contact_points`             | `normalized_value`               | `normalizedValue: 1`                        |     No |     No | Find contacts by normalized email/phone; intentionally not globally unique |
+| `contact_points`             | `person_type`                    | `personId: 1, type: 1`                      |     No |     No | List a person's channels by type                                           |
+| `contact_points`             | `contactability`                 | `validity: 1, deliverability: 1`            |     No |     No | Contact eligibility/deliverability filtering                               |
+| `organisations`              | `id_unique`                      | `id: 1`                                     |    Yes |     No | Stable organisation lookup                                                 |
+| `organisations`              | `domain`                         | `domain: 1`                                 |     No |     No | Organisation discovery/deduplication workflow                              |
+| `organisations`              | `lifecycle_status`               | `lifecycleStatus: 1`                        |     No |     No | Organisation lifecycle filtering                                           |
+| `organisation_relationships` | `id_unique`                      | `id: 1`                                     |    Yes |     No | Stable relationship lookup                                                 |
+| `organisation_relationships` | `person_current`                 | `personId: 1, current: 1`                   |     No |     No | Current and historical employers for a person                              |
+| `organisation_relationships` | `organisation_current`           | `organisationId: 1, current: 1`             |     No |     No | Current and historical people for an organisation                          |
+| `product_relationships`      | `id_unique`                      | `id: 1`                                     |    Yes |     No | Stable product-relationship lookup                                         |
+| `product_relationships`      | `product_person`                 | `productId: 1, personId: 1`                 |     No |     No | Person lifecycle inside a product boundary                                 |
+| `product_relationships`      | `product_organisation`           | `productId: 1, organisationId: 1`           |     No |     No | Organisation lifecycle inside a product boundary                           |
+| `product_relationships`      | `status`                         | `status: 1`                                 |     No |     No | Cross-product lifecycle filtering                                          |
+| `product_relationships`      | `campaign`                       | `campaignId: 1`                             |     No |     No | Acquisition/campaign attribution                                           |
+| `marketing_permissions`      | `id_unique`                      | `id: 1`                                     |    Yes |     No | Stable permission-decision lookup                                          |
+| `marketing_permissions`      | `person_contact_point`           | `personId: 1, contactPointId: 1`            |     No |     No | Permission history by person/channel identity                              |
+| `marketing_permissions`      | `scope_channel_purpose`          | `productId: 1, channel: 1, purpose: 1`      |     No |     No | Product/channel/purpose permission resolution                              |
+| `marketing_permissions`      | `effective_at`                   | `effectiveAt: -1`                           |     No |     No | Historical decision resolution by effective time                           |
+| `opportunities`              | `id_unique`                      | `id: 1`                                     |    Yes |     No | Stable opportunity lookup                                                  |
+| `opportunities`              | `product_pipeline`               | `productId: 1, status: 1, stage: 1`         |     No |     No | Product-scoped pipeline views                                              |
+| `opportunities`              | `organisation_status`            | `organisationId: 1, status: 1`              |     No |     No | Organisation opportunity history/state                                     |
+| `opportunities`              | `campaign`                       | `campaignId: 1`                             |     No |     No | Campaign attribution                                                       |
+| `subscriptions`              | `id_unique`                      | `id: 1`                                     |    Yes |     No | Stable subscription lookup                                                 |
+| `subscriptions`              | `product_status`                 | `productId: 1, status: 1`                   |     No |     No | Product subscription state                                                 |
+| `subscriptions`              | `provider_external_subscription` | `provider: 1, externalSubscriptionId: 1`    |    Yes |    Yes | Prevent duplicate provider subscriptions when an external ID exists        |
+| `subscriptions`              | `customer`                       | `personId: 1, organisationId: 1`            |     No |     No | Customer subscription lookup                                               |
+| `entitlements`               | `id_unique`                      | `id: 1`                                     |    Yes |     No | Stable entitlement lookup                                                  |
+| `entitlements`               | `product_access_window`          | `productId: 1, status: 1, activeUntil: 1`   |     No |     No | Product access checks and expiry windows                                   |
+| `entitlements`               | `customer_status`                | `personId: 1, organisationId: 1, status: 1` |     No |     No | Customer access-state lookup                                               |
+| `entitlements`               | `source_subscription`            | `sourceSubscriptionId: 1`                   |     No |     No | Trace subscription-derived access                                          |
+| `entitlements`               | `source_transaction`             | `sourceTransactionId: 1`                    |     No |     No | Trace one-off transaction-derived access                                   |
+| `campaigns`                  | `id_unique`                      | `id: 1`                                     |    Yes |     No | Stable campaign lookup                                                     |
+| `campaigns`                  | `product_status`                 | `productId: 1, status: 1`                   |     No |     No | Product campaign lifecycle                                                 |
+| `campaigns`                  | `provider_external_reference`    | `provider: 1, externalReference: 1`         |     No |    Yes | Provider attribution reconciliation when reference exists                  |
+| `imports`                    | `id_unique`                      | `id: 1`                                     |    Yes |     No | Stable import lookup                                                       |
+| `imports`                    | `provider_imported_at`           | `provider: 1, importedAt: -1`               |     No |     No | Provider/time audit history                                                |
+| `imports`                    | `status`                         | `status: 1`                                 |     No |     No | Import operational status                                                  |
+| `imports`                    | `campaign`                       | `campaignId: 1`                             |     No |     No | Campaign-linked imports                                                    |
+| `events`                     | `id_unique`                      | `id: 1`                                     |    Yes |     No | Stable event identity/idempotency key                                      |
+| `events`                     | `occurred_at`                    | `occurredAt: -1`                            |     No |     No | Global time-first activity                                                 |
+| `events`                     | `type_occurred_at`               | `eventType: 1, occurredAt: -1`              |     No |     No | Event type/time slices                                                     |
+| `events`                     | `product_occurred_at`            | `productId: 1, occurredAt: -1`              |     No |     No | Product activity timeline                                                  |
+| `events`                     | `person_occurred_at`             | `personId: 1, occurredAt: -1`               |     No |     No | Person activity timeline                                                   |
+| `events`                     | `organisation_occurred_at`       | `organisationId: 1, occurredAt: -1`         |     No |     No | Organisation activity timeline                                             |
+| `events`                     | `campaign_occurred_at`           | `campaignId: 1, occurredAt: -1`             |     No |     No | Campaign activity/attribution timeline                                     |
+| `transactions`               | `id_unique`                      | `id: 1`                                     |    Yes |     No | Stable transaction lookup                                                  |
+| `transactions`               | `provider_external_transaction`  | `provider: 1, externalTransactionId: 1`     |    Yes |    Yes | Prevent duplicate provider transactions when an external ID exists         |
+| `transactions`               | `product_transacted_at`          | `productId: 1, transactedAt: -1`            |     No |     No | Product revenue timeline                                                   |
+| `transactions`               | `status_transacted_at`           | `status: 1, transactedAt: -1`               |     No |     No | Reconciliation/reporting by state and time                                 |
+| `transactions`               | `campaign`                       | `campaignId: 1`                             |     No |     No | Revenue attribution                                                        |
 
 The implementation has product/time and event-type/time indexes, but no single
 compound `productId + eventType + occurredAt` index. If queries routinely
@@ -375,7 +375,7 @@ References are stable application IDs and are controlled by the application:
 - `product_relationships` require a product and at least one of person or
   organisation.
 - `subscriptions`, `entitlements`, and `transactions` require a product and at
-  least one of `personId`, `organisationId`, or `customerReference`.
+  least one of `personId` or `organisationId`.
 - Entitlements may link to source subscriptions/transactions.
 - Transactions may link to subscriptions, entitlements, and campaigns.
 
@@ -425,8 +425,8 @@ Each `marketing_permissions` record is an evidence-bearing decision with:
 - lawful basis: `consent`, `legitimate_interest`, `soft_opt_in`,
   `transactional`, or `other`;
 - `permitted` boolean;
-- optional `evidence`, `withdrawnAt`, and `reviewAt`;
-- required `grantedAt`;
+- optional `evidence`, `supersedesPermissionId`, and `reviewAt`;
+- required `effectiveAt`;
 - common provenance, schema, timestamps, and archive state.
 
 The collection and indexes allow multiple records, so permission decisions can
@@ -496,7 +496,8 @@ Representative valid shapes:
 
 Insert callers must also provide `id`; persistence code must add lifecycle
 fields. The event model is described and indexed as append-oriented, but
-`EventUpdateSchema` exists and MongoDB does not enforce append-only behavior.
+There is no `EventUpdateSchema`; event records are append-oriented and MongoDB
+does not independently enforce immutability.
 
 Indexes cover ID, global time, event type/time, and separate
 product/person/organisation/campaign timelines. Event schema evolution can use
@@ -509,27 +510,22 @@ Supported financial types are `purchase`, `renewal`, `refund`, `adjustment`,
 and `fee`. Statuses are `pending`, `completed`, `failed`, `refunded`, and
 `voided`.
 
-Amounts are finite, non-negative JavaScript numbers:
+Amounts are non-negative safe integer minor units:
 
-- required `grossAmount`;
-- optional `taxAmount`, `feeAmount`, and `netAmount`;
-- required three-letter uppercase `currency`.
+- required `grossAmountMinor`;
+- optional `taxAmountMinor`, `feeAmountMinor`, and `netAmountMinor`;
+- required runtime-supported three-letter ISO 4217 `currency`.
 
 `provider` is required and `externalTransactionId` is optional. When an
 external ID is present, the sparse unique compound index on
 `provider + externalTransactionId` prevents duplicate ingestion for the same
 provider. The application `id_unique` index is a second idempotency boundary.
 
-Transactions require a product and customer reference and may link to
-`subscriptionId`, `entitlementId`, and `campaignId`. Refunds are represented by
-type/status, but there is no explicit `originalTransactionId`; such a link
-would currently have to be represented outside the schema or added in a later
-version. Amounts cannot be negative, so refund direction must be inferred from
-type rather than sign.
-
-Using JavaScript numbers for money is a material decision to revisit. The model
-does not specify minor units or Decimal128, so fractional/rounding rules remain
-undefined.
+Transactions require a product and person and/or organisation identity and may
+link to `subscriptionId`, `entitlementId`, and `campaignId`. Refunds and
+adjustments may link to `originalTransactionId`; direction is represented by
+type/status, never a negative amount. Status updates follow the conservative
+transition matrix and cannot mutate financial fields.
 
 ## 16. Tests
 
@@ -557,16 +553,16 @@ The complete test command also runs five API/config tests in `api.test.ts`:
 
 Coverage requested by the review:
 
-| Concern | Covered |
-|---|---|
-| Every collection schema | Yes |
-| Invalid IDs | Yes |
-| Index definitions | Names/coverage and incompatible-index behavior; not every exact key/option individually |
-| Idempotent setup | Yes |
-| Repeated setup preserves data | Yes |
-| Incompatible index handling | Yes |
-| Credential leakage | Yes for readiness HTTP responses; CLI catch behavior is implemented but not directly log-captured in a test |
-| Live Atlas required | No; setup uses in-memory fakes and API tests inject a fake Mongo service |
+| Concern                       | Covered                                                                                                     |
+| ----------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| Every collection schema       | Yes                                                                                                         |
+| Invalid IDs                   | Yes                                                                                                         |
+| Index definitions             | Names/coverage and incompatible-index behavior; not every exact key/option individually                     |
+| Idempotent setup              | Yes                                                                                                         |
+| Repeated setup preserves data | Yes                                                                                                         |
+| Incompatible index handling   | Yes                                                                                                         |
+| Credential leakage            | Yes for readiness HTTP responses; CLI catch behavior is implemented but not directly log-captured in a test |
+| Live Atlas required           | No; setup uses in-memory fakes and API tests inject a fake Mongo service                                    |
 
 The tests do not exercise actual MongoDB index creation behavior, duplicate
 data failures, BSON persistence, or Mongo server version compatibility.
@@ -575,15 +571,15 @@ data failures, BSON persistence, or Mongo server version compatibility.
 
 Results from the local implementation before this review document was added:
 
-| Check | Command | Result |
-|---|---|---|
-| Build | `pnpm --filter @workspace/api-server run build` | Passed; bundled `dist/index.mjs` and Pino worker files |
-| Lint | `pnpm --filter @workspace/api-server run lint` | Passed with no errors |
-| Workspace typecheck | `pnpm run typecheck` | Passed for libraries, API server, mockup sandbox, and scripts |
-| Tests | `pnpm --filter @workspace/api-server run test` | Passed: 13 tests, 0 failed/skipped/cancelled |
-| Formatting | API `format:check` plus README Prettier check | Passed after formatting the README |
-| Diff whitespace | `git diff --check` | Passed |
-| Docker build | `docker build --tag vamberic-platform-api:vapp-model-check .` | Passed |
+| Check               | Command                                                       | Result                                                        |
+| ------------------- | ------------------------------------------------------------- | ------------------------------------------------------------- |
+| Build               | `pnpm --filter @workspace/api-server run build`               | Passed; bundled `dist/index.mjs` and Pino worker files        |
+| Lint                | `pnpm --filter @workspace/api-server run lint`                | Passed with no errors                                         |
+| Workspace typecheck | `pnpm run typecheck`                                          | Passed for libraries, API server, mockup sandbox, and scripts |
+| Tests               | `pnpm --filter @workspace/api-server run test`                | Passed: 13 tests, 0 failed/skipped/cancelled                  |
+| Formatting          | API `format:check` plus README Prettier check                 | Passed after formatting the README                            |
+| Diff whitespace     | `git diff --check`                                            | Passed                                                        |
+| Docker build        | `docker build --tag vamberic-platform-api:vapp-model-check .` | Passed                                                        |
 
 No quality command connected to Atlas. `db:setup` was not run.
 
@@ -621,9 +617,13 @@ No quality command connected to Atlas. `db:setup` was not run.
 16. Financial amounts currently use non-negative JavaScript numbers and
     three-letter currency codes rather than integer minor units or Decimal128.
 
-## 19. Unresolved questions or risks
+## 19. Historical unresolved questions or risks
 
-Before live Atlas setup, decide or confirm:
+This section records the questions at the initial review point. The
+post-refinement resolutions are authoritative in section 21; only the
+operational decisions listed there remain open.
+
+Before the refinement pass, the review asked operators to decide or confirm:
 
 1. **ID generation:** UUID, ULID, prefixed ULID, or another strategy; collision
    behavior and service ownership are not defined.
@@ -683,3 +683,49 @@ pnpm --filter @workspace/api-server run db:setup
 
 Do not run setup merely to test connectivity. No setup, Atlas connection,
 deployment, or GitHub push is performed by this recommendation.
+
+## 21. Post-review refinements
+
+The pre-Atlas refinement pass supersedes the implementation gaps described
+above:
+
+- Platform API ID helpers now generate standard 26-character lowercase
+  Crockford ULIDs with collection-specific prefixes and validators. Mongo
+  `_id` remains internal.
+- Monetary fields are integer minor units with non-negative validation and
+  safe-integer validation and runtime-supported ISO 4217 currency codes.
+  Optional opportunity/campaign amounts are paired with currency. Transactions support
+  `originalTransactionId`; refund direction is represented by transaction
+  type.
+- `customerReference` was removed. Customer-bearing records use
+  `personId`/`organisationId`, while provider IDs remain explicitly external.
+- Permission records are historical decisions with `effectiveAt` and optional
+  supersession. A deterministic helper resolves the latest applicable
+  subject/scope/channel/purpose decision. There is no permission update schema.
+- Events have no update schema. Transaction updates are restricted to status
+  and audit metadata; the explicit transition matrix permits idempotent
+  same-state writes, pending → completed/failed/voided, and completed →
+  refunded, with no terminal-state reopening.
+- Contact identity (`type`, original `value`, and `normalizedValue`) is
+  immutable through updates. Operational contact flags remain mutable; changing
+  identity creates a replacement record.
+- Common audit metadata now separates `source` provenance from `createdBy` and
+  `updatedBy` actors (`human`, `agent`, `system`, or `integration`).
+- Email and phone normalization is centralized. Original values remain
+  available, normalized values are not globally unique, and a partial unique
+  index enforces one primary contact per person/type.
+- Setup now has a pure read-only planner for `--dry-run`; it reports counts,
+  missing resources, compatibility/version state, incompatible indexes, and
+  confirmed or unable-to-confirm duplicate risks from read-only aggregation
+  without creating `schema_versions` or any other resource. `--apply` is
+  explicit; no mode refuses to run.
+- Schema metadata retains a small applied-migrations list with stable ID
+  `001-vapp-v1-baseline` for future sequential migrations without introducing a
+  migration engine. Apply backfills a missing baseline entry on compatible
+  metadata and preserves existing entries. Standalone
+  low-cardinality indexes were pruned where their query value was weak.
+
+Remaining decisions before any Atlas mutation are operational: verify current
+Atlas data will not collide with the new prefixed IDs or partial unique primary
+contact index, agree on each provider's currency minor-unit rules, and review
+the dry-run report before a separately approved `--apply`.
