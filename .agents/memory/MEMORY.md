@@ -1,0 +1,1 @@
+- [GitHub API publication](github-api-publication.md) — Git Data API fallback must serialize blob creation below the Replit connector’s request limit.
