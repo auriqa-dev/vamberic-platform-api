@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "Vapp"
+description = "Vamberic's internal operations application, beginning with a live dashboard and full Products management backed by the existing Platform API and MongoDB domain model."
+version = "1.0.0"
+id = "artifacts/vapp"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 19117
+
+[services.development]
+run = "pnpm --filter @workspace/vapp run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/vapp", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/vapp/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "19117"
+BASE_PATH = "/"

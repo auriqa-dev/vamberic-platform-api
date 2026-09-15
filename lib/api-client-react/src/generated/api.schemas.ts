@@ -5,6 +5,132 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+export interface ErrorResponse {
+  error: string;
+}
+
+export type ProductStatus = typeof ProductStatus[keyof typeof ProductStatus];
+
+
+export const ProductStatus = {
+  idea: 'idea',
+  validation: 'validation',
+  active: 'active',
+  paused: 'paused',
+  retired: 'retired',
+} as const;
+
+export interface Product {
+  /** @pattern ^product_[0-7][0-9abcdefghjkmnpqrstvwxyz]{25}$ */
+  id: string;
+  name: string;
+  slug: string;
+  description?: string;
+  status: ProductStatus;
+  productType: string;
+  domains: string[];
+  commercialModel: string;
+  oneOffPurchaseAvailable: boolean;
+  subscriptionAvailable: boolean;
+  currency?: string;
+  internalNotes?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ProductInput {
+  /**
+     * @minLength 1
+     * @maxLength 200
+     */
+  name: string;
+  /**
+     * @minLength 2
+     * @maxLength 100
+     * @pattern ^[a-z0-9][a-z0-9-]*$
+     */
+  slug: string;
+  /** @maxLength 10000 */
+  description?: string;
+  status: ProductStatus;
+  /**
+     * @minLength 1
+     * @maxLength 100
+     */
+  productType: string;
+  /**
+     * @maxItems 50
+     * @items.minLength 1
+     * @items.maxLength 253
+     */
+  domains?: string[];
+  /**
+     * @minLength 1
+     * @maxLength 100
+     */
+  commercialModel: string;
+  oneOffPurchaseAvailable?: boolean;
+  subscriptionAvailable?: boolean;
+  /** @pattern ^[A-Za-z]{3}$ */
+  currency?: string;
+  /** @maxLength 20000 */
+  internalNotes?: string;
+}
+
+export interface ProductUpdate {
+  /**
+     * @minLength 1
+     * @maxLength 200
+     */
+  name?: string;
+  /**
+     * @minLength 2
+     * @maxLength 100
+     * @pattern ^[a-z0-9][a-z0-9-]*$
+     */
+  slug?: string;
+  /** @maxLength 10000 */
+  description?: string;
+  status?: ProductStatus;
+  /**
+     * @minLength 1
+     * @maxLength 100
+     */
+  productType?: string;
+  /**
+     * @maxItems 50
+     * @items.minLength 1
+     * @items.maxLength 253
+     */
+  domains?: string[];
+  /**
+     * @minLength 1
+     * @maxLength 100
+     */
+  commercialModel?: string;
+  oneOffPurchaseAvailable?: boolean;
+  subscriptionAvailable?: boolean;
+  /** @pattern ^[A-Za-z]{3}$ */
+  currency?: string;
+  /** @maxLength 20000 */
+  internalNotes?: string;
+}
+
+export interface DashboardSummary {
+  /** @minimum 0 */
+  totalProducts: number;
+  /** @minimum 0 */
+  activeProducts: number;
+  /** @minimum 0 */
+  draftOrInactiveProducts: number;
+  /** @minimum 0 */
+  totalOrganisations: number;
+  /** @minimum 0 */
+  totalPeople: number;
+  /** @minimum 0 */
+  totalOpportunities: number;
+}
+
 export type HealthStatusStatus = typeof HealthStatusStatus[keyof typeof HealthStatusStatus];
 
 
@@ -77,4 +203,27 @@ export interface ReadinessStatus {
   dependencies: ReadinessStatusDependencies;
   timestamp: string;
 }
+
+/**
+ * Invalid request
+ */
+export type BadRequestResponse = ErrorResponse;
+
+/**
+ * Resource not found
+ */
+export type NotFoundResponse = ErrorResponse;
+
+/**
+ * Resource conflict
+ */
+export type ConflictResponse = ErrorResponse;
+
+export type ListProductsParams = {
+/**
+ * @maxLength 200
+ */
+search?: string;
+status?: ProductStatus;
+};
 

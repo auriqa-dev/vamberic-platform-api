@@ -20,6 +20,9 @@ const testConfig = parseConfig({
 
 const availableMongo: MongoService = {
   isAvailable: async () => true,
+  database: async () => {
+    throw new Error("database is not used by health tests");
+  },
   close: async () => undefined,
 };
 
@@ -98,6 +101,9 @@ test("readiness returns a safe 503 when MongoDB is unavailable", async () => {
   const unavailableMongo: MongoService = {
     isAvailable: async () => {
       throw new Error(`Connection failed: ${credential}`);
+    },
+    database: async () => {
+      throw new Error("database is unavailable");
     },
     close: async () => undefined,
   };

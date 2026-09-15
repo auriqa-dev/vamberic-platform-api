@@ -10,6 +10,10 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: dashboard
+    description: Vapp operational overview
+  - name: products
+    description: Product management
 paths:
   /health:
     get:
@@ -24,7 +28,7 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
-  /api/v1/health:
+  /v1/health:
     get:
       operationId: versionedHealthCheck
       tags: [health]
@@ -56,7 +60,7 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ReadinessStatus"
-  /api/v1/ready:
+  /v1/ready:
     get:
       operationId: versionedReadinessCheck
       tags: [health]
@@ -75,8 +79,303 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ReadinessStatus"
+  /v1/dashboard/summary:
+    get:
+      operationId: getDashboardSummary
+      tags: [dashboard]
+      summary: Get Vapp dashboard counts
+      responses:
+        "200":
+          description: Current domain counts
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardSummary"
+  /v1/products:
+    get:
+      operationId: listProducts
+      tags: [products]
+      summary: List and filter products
+      parameters:
+        - in: query
+          name: search
+          schema:
+            type: string
+            maxLength: 200
+        - in: query
+          name: status
+          schema:
+            $ref: "#/components/schemas/ProductStatus"
+      responses:
+        "200":
+          description: Products ordered by most recently updated
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Product"
+    post:
+      operationId: createProduct
+      tags: [products]
+      summary: Create a product
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProductInput"
+      responses:
+        "201":
+          description: Product created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Product"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "409":
+          $ref: "#/components/responses/Conflict"
+  /v1/products/{id}:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+          pattern: "^product_[0-7][0-9abcdefghjkmnpqrstvwxyz]{25}$"
+    get:
+      operationId: getProduct
+      tags: [products]
+      summary: Get one product
+      responses:
+        "200":
+          description: Product
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Product"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    patch:
+      operationId: updateProduct
+      tags: [products]
+      summary: Update a product
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProductUpdate"
+      responses:
+        "200":
+          description: Updated product
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Product"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
 components:
+  responses:
+    BadRequest:
+      description: Invalid request
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    Conflict:
+      description: Resource conflict
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
   schemas:
+    ErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+    ProductStatus:
+      type: string
+      enum: [idea, validation, active, paused, retired]
+    Product:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - name
+        - slug
+        - status
+        - productType
+        - domains
+        - commercialModel
+        - oneOffPurchaseAvailable
+        - subscriptionAvailable
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: string
+          pattern: "^product_[0-7][0-9abcdefghjkmnpqrstvwxyz]{25}$"
+        name:
+          type: string
+        slug:
+          type: string
+        description:
+          type: string
+        status:
+          $ref: "#/components/schemas/ProductStatus"
+        productType:
+          type: string
+        domains:
+          type: array
+          items:
+            type: string
+        commercialModel:
+          type: string
+        oneOffPurchaseAvailable:
+          type: boolean
+        subscriptionAvailable:
+          type: boolean
+        currency:
+          type: string
+        internalNotes:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    ProductInput:
+      type: object
+      additionalProperties: false
+      required: [name, slug, status, productType, commercialModel]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        slug:
+          type: string
+          minLength: 2
+          maxLength: 100
+          pattern: "^[a-z0-9][a-z0-9-]*$"
+        description:
+          type: string
+          maxLength: 10000
+        status:
+          $ref: "#/components/schemas/ProductStatus"
+        productType:
+          type: string
+          minLength: 1
+          maxLength: 100
+        domains:
+          type: array
+          maxItems: 50
+          items:
+            type: string
+            minLength: 1
+            maxLength: 253
+        commercialModel:
+          type: string
+          minLength: 1
+          maxLength: 100
+        oneOffPurchaseAvailable:
+          type: boolean
+        subscriptionAvailable:
+          type: boolean
+        currency:
+          type: string
+          pattern: "^[A-Za-z]{3}$"
+        internalNotes:
+          type: string
+          maxLength: 20000
+    ProductUpdate:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        slug:
+          type: string
+          minLength: 2
+          maxLength: 100
+          pattern: "^[a-z0-9][a-z0-9-]*$"
+        description:
+          type: string
+          maxLength: 10000
+        status:
+          $ref: "#/components/schemas/ProductStatus"
+        productType:
+          type: string
+          minLength: 1
+          maxLength: 100
+        domains:
+          type: array
+          maxItems: 50
+          items:
+            type: string
+            minLength: 1
+            maxLength: 253
+        commercialModel:
+          type: string
+          minLength: 1
+          maxLength: 100
+        oneOffPurchaseAvailable:
+          type: boolean
+        subscriptionAvailable:
+          type: boolean
+        currency:
+          type: string
+          pattern: "^[A-Za-z]{3}$"
+        internalNotes:
+          type: string
+          maxLength: 20000
+    DashboardSummary:
+      type: object
+      additionalProperties: false
+      required:
+        - totalProducts
+        - activeProducts
+        - draftOrInactiveProducts
+        - totalOrganisations
+        - totalPeople
+        - totalOpportunities
+      properties:
+        totalProducts:
+          type: integer
+          minimum: 0
+        activeProducts:
+          type: integer
+          minimum: 0
+        draftOrInactiveProducts:
+          type: integer
+          minimum: 0
+        totalOrganisations:
+          type: integer
+          minimum: 0
+        totalPeople:
+          type: integer
+          minimum: 0
+        totalOpportunities:
+          type: integer
+          minimum: 0
     HealthStatus:
       type: object
       properties:

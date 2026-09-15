@@ -66,3 +66,222 @@ export const VersionedReadinessCheckResponse = zod.object({
 })
 
 
+/**
+ * @summary Get Vapp dashboard counts
+ */
+export const getDashboardSummaryResponseTotalProductsMin = 0;
+
+export const getDashboardSummaryResponseActiveProductsMin = 0;
+
+export const getDashboardSummaryResponseDraftOrInactiveProductsMin = 0;
+
+export const getDashboardSummaryResponseTotalOrganisationsMin = 0;
+
+export const getDashboardSummaryResponseTotalPeopleMin = 0;
+
+export const getDashboardSummaryResponseTotalOpportunitiesMin = 0;
+
+
+
+export const GetDashboardSummaryResponse = zod.object({
+  "totalProducts": zod.number().int().min(getDashboardSummaryResponseTotalProductsMin),
+  "activeProducts": zod.number().int().min(getDashboardSummaryResponseActiveProductsMin),
+  "draftOrInactiveProducts": zod.number().int().min(getDashboardSummaryResponseDraftOrInactiveProductsMin),
+  "totalOrganisations": zod.number().int().min(getDashboardSummaryResponseTotalOrganisationsMin),
+  "totalPeople": zod.number().int().min(getDashboardSummaryResponseTotalPeopleMin),
+  "totalOpportunities": zod.number().int().min(getDashboardSummaryResponseTotalOpportunitiesMin)
+})
+
+
+/**
+ * @summary List and filter products
+ */
+export const listProductsQuerySearchMax = 200;
+
+
+
+export const ListProductsQueryParams = zod.object({
+  "search": zod.coerce.string().max(listProductsQuerySearchMax).optional(),
+  "status": zod.enum(['idea', 'validation', 'active', 'paused', 'retired']).optional()
+})
+
+export const listProductsResponseIdRegExp = new RegExp('^product_[0-7][0-9abcdefghjkmnpqrstvwxyz]{25}$');
+
+
+export const ListProductsResponseItem = zod.object({
+  "id": zod.string().regex(listProductsResponseIdRegExp),
+  "name": zod.string(),
+  "slug": zod.string(),
+  "description": zod.string().optional(),
+  "status": zod.enum(['idea', 'validation', 'active', 'paused', 'retired']),
+  "productType": zod.string(),
+  "domains": zod.array(zod.string()),
+  "commercialModel": zod.string(),
+  "oneOffPurchaseAvailable": zod.boolean(),
+  "subscriptionAvailable": zod.boolean(),
+  "currency": zod.string().optional(),
+  "internalNotes": zod.string().optional(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})
+export const ListProductsResponse = zod.array(ListProductsResponseItem)
+
+
+/**
+ * @summary Create a product
+ */
+export const createProductBodyNameMax = 200;
+
+export const createProductBodySlugMin = 2;
+export const createProductBodySlugMax = 100;
+
+
+export const createProductBodySlugRegExp = new RegExp('^[a-z0-9][a-z0-9-]*$');
+export const createProductBodyDescriptionMax = 10000;
+
+export const createProductBodyProductTypeMax = 100;
+
+export const createProductBodyDomainsItemMax = 253;
+
+export const createProductBodyDomainsMax = 50;
+
+export const createProductBodyCommercialModelMax = 100;
+
+export const createProductBodyCurrencyRegExp = new RegExp('^[A-Za-z]{3}$');
+export const createProductBodyInternalNotesMax = 20000;
+
+
+
+export const CreateProductBody = zod.object({
+  "name": zod.string().min(1).max(createProductBodyNameMax),
+  "slug": zod.string().min(createProductBodySlugMin).max(createProductBodySlugMax).regex(createProductBodySlugRegExp),
+  "description": zod.string().max(createProductBodyDescriptionMax).optional(),
+  "status": zod.enum(['idea', 'validation', 'active', 'paused', 'retired']),
+  "productType": zod.string().min(1).max(createProductBodyProductTypeMax),
+  "domains": zod.array(zod.string().min(1).max(createProductBodyDomainsItemMax)).max(createProductBodyDomainsMax).optional(),
+  "commercialModel": zod.string().min(1).max(createProductBodyCommercialModelMax),
+  "oneOffPurchaseAvailable": zod.boolean().optional(),
+  "subscriptionAvailable": zod.boolean().optional(),
+  "currency": zod.string().regex(createProductBodyCurrencyRegExp).optional(),
+  "internalNotes": zod.string().max(createProductBodyInternalNotesMax).optional()
+})
+
+export const createProductResponseIdRegExp = new RegExp('^product_[0-7][0-9abcdefghjkmnpqrstvwxyz]{25}$');
+
+
+export const CreateProductResponse = zod.object({
+  "id": zod.string().regex(createProductResponseIdRegExp),
+  "name": zod.string(),
+  "slug": zod.string(),
+  "description": zod.string().optional(),
+  "status": zod.enum(['idea', 'validation', 'active', 'paused', 'retired']),
+  "productType": zod.string(),
+  "domains": zod.array(zod.string()),
+  "commercialModel": zod.string(),
+  "oneOffPurchaseAvailable": zod.boolean(),
+  "subscriptionAvailable": zod.boolean(),
+  "currency": zod.string().optional(),
+  "internalNotes": zod.string().optional(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Get one product
+ */
+export const getProductPathIdRegExp = new RegExp('^product_[0-7][0-9abcdefghjkmnpqrstvwxyz]{25}$');
+
+
+export const GetProductParams = zod.object({
+  "id": zod.coerce.string().regex(getProductPathIdRegExp)
+})
+
+export const getProductResponseIdRegExp = new RegExp('^product_[0-7][0-9abcdefghjkmnpqrstvwxyz]{25}$');
+
+
+export const GetProductResponse = zod.object({
+  "id": zod.string().regex(getProductResponseIdRegExp),
+  "name": zod.string(),
+  "slug": zod.string(),
+  "description": zod.string().optional(),
+  "status": zod.enum(['idea', 'validation', 'active', 'paused', 'retired']),
+  "productType": zod.string(),
+  "domains": zod.array(zod.string()),
+  "commercialModel": zod.string(),
+  "oneOffPurchaseAvailable": zod.boolean(),
+  "subscriptionAvailable": zod.boolean(),
+  "currency": zod.string().optional(),
+  "internalNotes": zod.string().optional(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Update a product
+ */
+export const updateProductPathIdRegExp = new RegExp('^product_[0-7][0-9abcdefghjkmnpqrstvwxyz]{25}$');
+
+
+export const UpdateProductParams = zod.object({
+  "id": zod.coerce.string().regex(updateProductPathIdRegExp)
+})
+
+export const updateProductBodyNameMax = 200;
+
+export const updateProductBodySlugMin = 2;
+export const updateProductBodySlugMax = 100;
+
+
+export const updateProductBodySlugRegExp = new RegExp('^[a-z0-9][a-z0-9-]*$');
+export const updateProductBodyDescriptionMax = 10000;
+
+export const updateProductBodyProductTypeMax = 100;
+
+export const updateProductBodyDomainsItemMax = 253;
+
+export const updateProductBodyDomainsMax = 50;
+
+export const updateProductBodyCommercialModelMax = 100;
+
+export const updateProductBodyCurrencyRegExp = new RegExp('^[A-Za-z]{3}$');
+export const updateProductBodyInternalNotesMax = 20000;
+
+
+
+export const UpdateProductBody = zod.object({
+  "name": zod.string().min(1).max(updateProductBodyNameMax).optional(),
+  "slug": zod.string().min(updateProductBodySlugMin).max(updateProductBodySlugMax).regex(updateProductBodySlugRegExp).optional(),
+  "description": zod.string().max(updateProductBodyDescriptionMax).optional(),
+  "status": zod.enum(['idea', 'validation', 'active', 'paused', 'retired']).optional(),
+  "productType": zod.string().min(1).max(updateProductBodyProductTypeMax).optional(),
+  "domains": zod.array(zod.string().min(1).max(updateProductBodyDomainsItemMax)).max(updateProductBodyDomainsMax).optional(),
+  "commercialModel": zod.string().min(1).max(updateProductBodyCommercialModelMax).optional(),
+  "oneOffPurchaseAvailable": zod.boolean().optional(),
+  "subscriptionAvailable": zod.boolean().optional(),
+  "currency": zod.string().regex(updateProductBodyCurrencyRegExp).optional(),
+  "internalNotes": zod.string().max(updateProductBodyInternalNotesMax).optional()
+})
+
+export const updateProductResponseIdRegExp = new RegExp('^product_[0-7][0-9abcdefghjkmnpqrstvwxyz]{25}$');
+
+
+export const UpdateProductResponse = zod.object({
+  "id": zod.string().regex(updateProductResponseIdRegExp),
+  "name": zod.string(),
+  "slug": zod.string(),
+  "description": zod.string().optional(),
+  "status": zod.enum(['idea', 'validation', 'active', 'paused', 'retired']),
+  "productType": zod.string(),
+  "domains": zod.array(zod.string()),
+  "commercialModel": zod.string(),
+  "oneOffPurchaseAvailable": zod.boolean(),
+  "subscriptionAvailable": zod.boolean(),
+  "currency": zod.string().optional(),
+  "internalNotes": zod.string().optional(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})
+
+

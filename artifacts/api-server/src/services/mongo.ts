@@ -1,9 +1,10 @@
-import { MongoClient } from "mongodb";
+import { MongoClient, type Db } from "mongodb";
 
 export const DATABASE_NAME = "vamberic_studio";
 
 export interface MongoService {
   isAvailable(): Promise<boolean>;
+  database(): Promise<Db>;
   close(): Promise<void>;
 }
 
@@ -26,6 +27,11 @@ export class MongoClientService implements MongoService {
     } catch {
       return false;
     }
+  }
+
+  async database(): Promise<Db> {
+    const client = await this.connect();
+    return client.db(DATABASE_NAME);
   }
 
   async close(): Promise<void> {

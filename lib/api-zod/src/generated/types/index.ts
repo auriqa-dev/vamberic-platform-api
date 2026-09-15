@@ -6,10 +6,20 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from './badRequestResponse';
+export * from './conflictResponse';
+export * from './dashboardSummary';
+export * from './errorResponse';
 export * from './healthStatus';
 export * from './healthStatusEnvironment';
 export * from './healthStatusRuntimeMode';
 export * from './healthStatusStatus';
+export * from './listProductsParams';
+export * from './notFoundResponse';
+export * from './product';
+export * from './productInput';
+export * from './productStatus';
+export * from './productUpdate';
 export * from './readinessStatus';
 export * from './readinessStatusDependencies';
 export * from './readinessStatusDependenciesMongodb';
