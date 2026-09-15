@@ -22,3 +22,8 @@ timeoutMs = 20000
 [nix]
 channel = "stable-25_05"
 packages = ["awscli2"]
+
+[userenv]
+
+[userenv.development]
+VITE_PLATFORM_API_BASE_URL = "http://vamberic-dev-api-1897511102.eu-west-2.elb.amazonaws.com"

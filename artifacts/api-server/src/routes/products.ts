@@ -74,8 +74,8 @@ export function createProductsRouter(mongo: MongoService): IRouter {
     }
 
     const db = await mongo.database();
-    const products = await getDomainCollections(db).products
-      .find(filter)
+    const products = await getDomainCollections(db)
+      .products.find(filter)
       .sort({ updatedAt: -1 })
       .toArray();
     res.json(ListProductsResponse.parse(products.map(productResponse)));
@@ -103,7 +103,9 @@ export function createProductsRouter(mongo: MongoService): IRouter {
       await getDomainCollections(db).products.insertOne(product);
     } catch (error: unknown) {
       if (isDuplicateKey(error)) {
-        res.status(409).json({ error: "A product with this slug already exists" });
+        res
+          .status(409)
+          .json({ error: "A product with this slug already exists" });
         return;
       }
       throw error;
@@ -156,7 +158,9 @@ export function createProductsRouter(mongo: MongoService): IRouter {
       await products.replaceOne({ id: current.id }, updated);
     } catch (error: unknown) {
       if (isDuplicateKey(error)) {
-        res.status(409).json({ error: "A product with this slug already exists" });
+        res
+          .status(409)
+          .json({ error: "A product with this slug already exists" });
         return;
       }
       throw error;

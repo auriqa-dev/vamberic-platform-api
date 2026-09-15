@@ -18,7 +18,8 @@ class MemoryCollection<T extends Record<string, unknown>> {
       if ("$or" in filter && Array.isArray(filter.$or)) {
         return filter.$or.some((condition) => {
           const [field, value] = Object.entries(condition)[0] ?? [];
-          if (!field || typeof value !== "object" || value === null) return false;
+          if (!field || typeof value !== "object" || value === null)
+            return false;
           const pattern = "$regex" in value ? String(value.$regex) : "";
           return new RegExp(pattern, "i").test(String(record[field] ?? ""));
         });
@@ -64,7 +65,10 @@ class MemoryCollection<T extends Record<string, unknown>> {
 }
 
 class MemoryDb {
-  readonly collections = new Map<string, MemoryCollection<Record<string, unknown>>>();
+  readonly collections = new Map<
+    string,
+    MemoryCollection<Record<string, unknown>>
+  >();
 
   collection(name: string) {
     let collection = this.collections.get(name);
@@ -115,6 +119,17 @@ test("dashboard and product CRUD use the existing Mongo domain model", async () 
   };
 
   try {
+    const emptySummary = await request("/api/v1/dashboard/summary");
+    assert.equal(emptySummary.status, 200);
+    assert.deepEqual(emptySummary.body, {
+      totalProducts: 0,
+      activeProducts: 0,
+      draftOrInactiveProducts: 0,
+      totalOrganisations: 0,
+      totalPeople: 0,
+      totalOpportunities: 0,
+    });
+
     const created = await request("/api/v1/products", {
       method: "POST",
       body: JSON.stringify({
@@ -139,11 +154,17 @@ test("dashboard and product CRUD use the existing Mongo domain model", async () 
 
     const detail = await request(`/api/v1/products/${productId}`);
     assert.equal(detail.status, 200);
-    assert.equal((detail.body as Record<string, unknown>).slug, "energy-health-check");
+    assert.equal(
+      (detail.body as Record<string, unknown>).slug,
+      "energy-health-check",
+    );
 
     const updated = await request(`/api/v1/products/${productId}`, {
       method: "PATCH",
-      body: JSON.stringify({ status: "paused", internalNotes: "Review pricing." }),
+      body: JSON.stringify({
+        status: "paused",
+        internalNotes: "Review pricing.",
+      }),
     });
     assert.equal(updated.status, 200);
     assert.equal((updated.body as Record<string, unknown>).status, "paused");
@@ -159,8 +180,20 @@ test("dashboard and product CRUD use the existing Mongo domain model", async () 
       totalOpportunities: 0,
     });
 
-    const products = memoryDb.collection("products") as unknown as MemoryCollection<Product>;
-    assert.equal((await products.findOne({ id: productId }))?.internalNotes, "Review pricing.");
+    const products = memoryDb.collection(
+      "products",
+    ) as unknown as MemoryCollection<Product>;
+    const storedProduct = await products.findOne({ id: productId });
+    assert.equal(storedProduct?.internalNotes, "Review pricing.");
+    assert.equal(storedProduct?.schemaVersion, 1);
+    assert.equal(storedProduct?.archived, false);
+    assert.equal(storedProduct?.archivedAt, undefined);
+    assert.ok(storedProduct?.createdAt instanceof Date);
+    assert.ok(storedProduct?.updatedAt instanceof Date);
+    assert.ok(
+      storedProduct &&
+        storedProduct.updatedAt.getTime() >= storedProduct.createdAt.getTime(),
+    );
   } finally {
     server.close();
     await once(server, "close");

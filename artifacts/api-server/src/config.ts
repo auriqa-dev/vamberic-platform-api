@@ -1,5 +1,19 @@
 import { z } from "zod";
 
+function isBrowserOrigin(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return (
+      (url.protocol === "http:" || url.protocol === "https:") &&
+      url.origin === value &&
+      url.username === "" &&
+      url.password === ""
+    );
+  } catch {
+    return false;
+  }
+}
+
 const configSchema = z.object({
   NODE_ENV: z
     .enum(["development", "test", "production"])
@@ -30,6 +44,10 @@ const configSchema = z.object({
     )
     .refine((origins) => !origins.includes("*"), {
       message: "CORS_ORIGINS must list explicit origins; '*' is not allowed",
+    })
+    .refine((origins) => origins.every(isBrowserOrigin), {
+      message:
+        "CORS_ORIGINS must contain comma-separated HTTP(S) origins without paths",
     }),
   RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(60000),
   RATE_LIMIT_MAX_REQUESTS: z.coerce.number().int().positive().default(100),

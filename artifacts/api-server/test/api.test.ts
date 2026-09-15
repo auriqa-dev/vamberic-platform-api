@@ -29,10 +29,11 @@ const availableMongo: MongoService = {
 async function requestApi(
   path: string,
   mongo: MongoService = availableMongo,
+  init?: RequestInit,
 ): Promise<{
   statusCode: number;
   headers: Headers;
-  body: Record<string, unknown>;
+  body: Record<string, unknown> | null;
 }> {
   const server = createServer(createApp(testConfig, mongo));
   server.listen(0);
@@ -41,13 +42,18 @@ async function requestApi(
 
   try {
     const response = await fetch(`http://127.0.0.1:${port}${path}`, {
-      headers: { "x-request-id": "health-test" },
+      ...init,
+      headers: { "x-request-id": "health-test", ...init?.headers },
     });
+    const responseText = await response.text();
 
     return {
       statusCode: response.status,
       headers: response.headers,
-      body: (await response.json()) as Record<string, unknown>,
+      body:
+        responseText === ""
+          ? null
+          : (JSON.parse(responseText) as Record<string, unknown>),
     };
   } finally {
     server.close();
@@ -156,6 +162,15 @@ test("configuration rejects invalid values and wildcard CORS", () => {
     /CORS_ORIGINS must list explicit origins/,
   );
   assert.throws(
+    () =>
+      parseConfig({
+        DEPLOYMENT_ENV: "local",
+        MONGODB_URI: "mongodb://localhost:27017",
+        CORS_ORIGINS: "https://app.vamberic.com/path",
+      }),
+    /CORS_ORIGINS must contain comma-separated HTTP\(S\) origins without paths/,
+  );
+  assert.throws(
     () => parseConfig({ DEPLOYMENT_ENV: "local" }),
     /Invalid application configuration: MONGODB_URI/,
   );
@@ -167,4 +182,47 @@ test("configuration rejects invalid values and wildcard CORS", () => {
       }),
     /Invalid application configuration: MONGODB_URI/,
   );
+});
+
+test("CORS allows configured origins and supports JSON preflight", async () => {
+  const allowedOrigin = "http://localhost:3000";
+  const response = await requestApi("/api/v1/health", availableMongo, {
+    headers: { origin: allowedOrigin },
+  });
+  const preflight = await requestApi("/api/v1/products", availableMongo, {
+    method: "OPTIONS",
+    headers: {
+      origin: allowedOrigin,
+      "access-control-request-method": "POST",
+      "access-control-request-headers": "content-type",
+    },
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(
+    response.headers.get("access-control-allow-origin"),
+    allowedOrigin,
+  );
+  assert.equal(preflight.statusCode, 204);
+  assert.equal(
+    preflight.headers.get("access-control-allow-origin"),
+    allowedOrigin,
+  );
+  assert.match(
+    preflight.headers.get("access-control-allow-methods") ?? "",
+    /POST/,
+  );
+  assert.equal(
+    preflight.headers.get("access-control-allow-headers"),
+    "content-type",
+  );
+});
+
+test("CORS does not allow an unconfigured origin", async () => {
+  const response = await requestApi("/api/v1/health", availableMongo, {
+    headers: { origin: "https://untrusted.example" },
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.headers.get("access-control-allow-origin"), null);
 });
