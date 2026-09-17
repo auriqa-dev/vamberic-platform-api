@@ -25,3 +25,4 @@ export * from './readinessStatusDependencies';
 export * from './readinessStatusDependenciesMongodb';
 export * from './readinessStatusEnvironment';
 export * from './readinessStatusStatus';
+export * from './unauthorizedResponse';

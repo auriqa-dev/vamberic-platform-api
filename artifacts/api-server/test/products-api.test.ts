@@ -1,3 +1,4 @@
+import { authEnvironment, createTestAuth } from "./helpers/auth";
 import assert from "node:assert/strict";
 import { once } from "node:events";
 import { createServer } from "node:http";
@@ -81,6 +82,7 @@ class MemoryDb {
 }
 
 const config = parseConfig({
+  ...authEnvironment,
   NODE_ENV: "production",
   DEPLOYMENT_ENV: "test",
   MONGODB_URI: "mongodb://localhost:27017",
@@ -97,7 +99,11 @@ test("dashboard and product CRUD use the existing Mongo domain model", async () 
     database: async () => memoryDb as unknown as Db,
     close: async () => undefined,
   };
-  const server = createServer(createApp(config, mongo));
+  const auth = await createTestAuth();
+  const token = await auth.sign();
+  const server = createServer(
+    createApp(config, mongo, { jwtKeyResolver: auth.keyResolver }),
+  );
   server.listen(0);
   await once(server, "listening");
   const { port } = server.address() as AddressInfo;
@@ -109,6 +115,7 @@ test("dashboard and product CRUD use the existing Mongo domain model", async () 
       ...init,
       headers: {
         "content-type": "application/json",
+        authorization: `Bearer ${token}`,
         ...init?.headers,
       },
     });

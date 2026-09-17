@@ -7,6 +7,8 @@ info:
 servers:
   - url: /
     description: API root
+security:
+  - cognitoAccessToken: []
 tags:
   - name: health
     description: Health operations
@@ -17,6 +19,7 @@ tags:
 paths:
   /health:
     get:
+      security: []
       operationId: rootHealthCheck
       tags: [health]
       summary: Root health check
@@ -30,6 +33,7 @@ paths:
                 $ref: "#/components/schemas/HealthStatus"
   /v1/health:
     get:
+      security: []
       operationId: versionedHealthCheck
       tags: [health]
       summary: Versioned health check
@@ -43,6 +47,7 @@ paths:
                 $ref: "#/components/schemas/HealthStatus"
   /ready:
     get:
+      security: []
       operationId: rootReadinessCheck
       tags: [health]
       summary: Root readiness check
@@ -62,6 +67,7 @@ paths:
                 $ref: "#/components/schemas/ReadinessStatus"
   /v1/ready:
     get:
+      security: []
       operationId: versionedReadinessCheck
       tags: [health]
       summary: Versioned readiness check
@@ -85,6 +91,8 @@ paths:
       tags: [dashboard]
       summary: Get Vapp dashboard counts
       responses:
+        "401":
+          $ref: "#/components/responses/Unauthorized"
         "200":
           description: Current domain counts
           content:
@@ -107,6 +115,8 @@ paths:
           schema:
             $ref: "#/components/schemas/ProductStatus"
       responses:
+        "401":
+          $ref: "#/components/responses/Unauthorized"
         "200":
           description: Products ordered by most recently updated
           content:
@@ -126,6 +136,8 @@ paths:
             schema:
               $ref: "#/components/schemas/ProductInput"
       responses:
+        "401":
+          $ref: "#/components/responses/Unauthorized"
         "201":
           description: Product created
           content:
@@ -149,6 +161,8 @@ paths:
       tags: [products]
       summary: Get one product
       responses:
+        "401":
+          $ref: "#/components/responses/Unauthorized"
         "200":
           description: Product
           content:
@@ -168,6 +182,8 @@ paths:
             schema:
               $ref: "#/components/schemas/ProductUpdate"
       responses:
+        "401":
+          $ref: "#/components/responses/Unauthorized"
         "200":
           description: Updated product
           content:
@@ -181,7 +197,19 @@ paths:
         "409":
           $ref: "#/components/responses/Conflict"
 components:
+  securitySchemes:
+    cognitoAccessToken:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Cognito access token for the configured Vapp client. ID tokens are not accepted.
   responses:
+    Unauthorized:
+      description: Missing or invalid Cognito access token
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
     BadRequest:
       description: Invalid request
       content:

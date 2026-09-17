@@ -205,6 +205,11 @@ export interface ReadinessStatus {
 }
 
 /**
+ * Missing or invalid Cognito access token
+ */
+export type UnauthorizedResponse = ErrorResponse;
+
+/**
  * Invalid request
  */
 export type BadRequestResponse = ErrorResponse;

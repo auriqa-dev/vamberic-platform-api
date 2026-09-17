@@ -21,7 +21,7 @@ or receive its credentials.
 already request `/api/v1/...`. `src/main.tsx` calls `setBaseUrl()` before rendering.
 Set the variable when starting Vite or building; changing the API origin later
 requires rebuilding the frontend. A build without it passes compilation but
-the frontend refuses to start.
+the frontend displays a configuration message.
 
 For the intended future production frontend build:
 
@@ -62,8 +62,7 @@ placeholders. Products use the existing v1 domain model through these routes:
 There is no product delete endpoint. IDs, creation timestamps, schema version,
 and archive metadata remain server-managed through these product routes.
 
-Before public exposure, an authentication/authorization boundary is still
-required: these routes currently have no application-level access control.
-Deployment also needs the API runtime configuration, Atlas connectivity and
-existing v1 indexes verified through the normal deployment process. Local API
-tests use in-memory database substitutes and do not verify a live Atlas setup.
+Business routes now require Cognito access tokens. Vapp uses Cognito hosted
+login with Authorization Code + PKCE. See [authentication setup](../../docs/vapp-authentication.md)
+for all required public frontend and server-side variables, callback/logout
+URLs, session behavior, tests, and the infrastructure handoff.

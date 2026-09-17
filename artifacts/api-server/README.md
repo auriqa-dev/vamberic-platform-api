@@ -35,7 +35,11 @@ exposing connection details.
 | `RATE_LIMIT_WINDOW_MS`    | No       | `60000`                        | Rate-limit window                                         |
 | `RATE_LIMIT_MAX_REQUESTS` | No       | `100`                          | Requests per IP and window                                |
 
-Invalid configuration causes startup to fail with a clear validation error. Secrets are not required by this first pass.
+Invalid configuration causes startup to fail with a clear validation error.
+Cognito configuration is required in all environments; there is no authentication
+bypass. See [authentication setup](../../docs/vapp-authentication.md) for the
+required `AWS_REGION`, `COGNITO_USER_POOL_ID`, and `COGNITO_CLIENT_ID`, route
+protection, and local test-key verification.
 
 ## Structure
 
@@ -210,7 +214,7 @@ individual `--env` flags; secrets must never be copied into the image.
 ## Development image delivery
 
 ```text
-Replit → GitHub → GitHub Actions → AWS ECR
+Local development → GitHub → GitHub Actions → AWS ECR
 ```
 
 The manually triggered `Build and push development image` GitHub Actions

@@ -780,6 +780,10 @@ test("command failures never log configuration credentials", async () => {
     serviceName: "test",
     version: "test",
     logLevel: "info" as const,
+    cognito: {
+      issuer: "https://cognito-idp.eu-west-2.amazonaws.com/eu-west-2_TestPool",
+      clientId: "testclient",
+    },
     corsOrigins: [],
     rateLimit: { windowMs: 1000, maxRequests: 1 },
   };

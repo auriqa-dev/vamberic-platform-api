@@ -51,9 +51,15 @@ const configSchema = z.object({
     }),
   RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(60000),
   RATE_LIMIT_MAX_REQUESTS: z.coerce.number().int().positive().default(100),
+  AWS_REGION: z.string().regex(/^[a-z]{2}(?:-[a-z]+)+-\d$/),
+  COGNITO_USER_POOL_ID: z
+    .string()
+    .regex(/^[a-z]{2}(?:-[a-z]+)+-\d_[A-Za-z0-9]+$/),
+  COGNITO_CLIENT_ID: z.string().regex(/^[a-z0-9]+$/),
 });
 
 export type AppConfig = {
+  cognito: { issuer: string; clientId: string };
   deploymentEnvironment: "dev" | "prod" | "test" | "local";
   runtimeMode: "development" | "test" | "production";
   mongodbUri: string;
@@ -81,7 +87,19 @@ export function parseConfig(
     );
   }
 
+  if (
+    !parsed.data.COGNITO_USER_POOL_ID.startsWith(`${parsed.data.AWS_REGION}_`)
+  ) {
+    throw new Error(
+      "Invalid application configuration: Cognito pool region must match AWS_REGION",
+    );
+  }
+
   return {
+    cognito: {
+      issuer: `https://cognito-idp.${parsed.data.AWS_REGION}.amazonaws.com/${parsed.data.COGNITO_USER_POOL_ID}`,
+      clientId: parsed.data.COGNITO_CLIENT_ID,
+    },
     deploymentEnvironment: parsed.data.DEPLOYMENT_ENV,
     runtimeMode: parsed.data.NODE_ENV,
     mongodbUri: parsed.data.MONGODB_URI,

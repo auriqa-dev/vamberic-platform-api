@@ -1,3 +1,4 @@
+import { authenticate, type JwtKeyResolver } from "./middlewares/auth";
 import express, { type Express } from "express";
 import cors from "cors";
 import helmet from "helmet";
@@ -10,7 +11,11 @@ import { rateLimit } from "./middlewares/rate-limit";
 import { errorHandler, notFoundHandler } from "./middlewares/errors";
 import type { MongoService } from "./services/mongo";
 
-export function createApp(config: AppConfig, mongo: MongoService): Express {
+export function createApp(
+  config: AppConfig,
+  mongo: MongoService,
+  options: { jwtKeyResolver?: JwtKeyResolver } = {},
+): Express {
   const app: Express = express();
 
   app.disable("x-powered-by");
@@ -43,9 +48,11 @@ export function createApp(config: AppConfig, mongo: MongoService): Express {
       credentials: false,
     }),
   );
+  app.use(rateLimit(config.rateLimit));
+  // CORS preflight runs first; all actual business requests require a token.
+  app.use("/api/v1", authenticate(config.cognito, options.jwtKeyResolver));
   app.use(express.json({ limit: "1mb" }));
   app.use(express.urlencoded({ extended: true, limit: "1mb" }));
-  app.use(rateLimit(config.rateLimit));
 
   app.use(createRouter(config, mongo));
   app.use(notFoundHandler);

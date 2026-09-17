@@ -1,3 +1,4 @@
+import { useAuth } from "@/auth/provider";
 import * as React from "react";
 import { Link, useLocation } from "wouter";
 import {
@@ -31,6 +32,7 @@ const navigation = [
 ];
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
+  const auth = useAuth();
   const [location] = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
 
@@ -145,6 +147,9 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           </div>
 
           <div className="flex items-center gap-3">
+            <Button variant="outline" onClick={() => void auth.signOut()}>
+              Sign out
+            </Button>
             <Button
               variant="ghost"
               size="icon"

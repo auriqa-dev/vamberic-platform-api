@@ -29,7 +29,8 @@ import type {
   Product,
   ProductInput,
   ProductUpdate,
-  ReadinessStatus
+  ReadinessStatus,
+  UnauthorizedResponse
 } from './api.schemas';
 
 import { customFetch } from '../custom-fetch';
@@ -404,7 +405,7 @@ export const getGetDashboardSummaryQueryKey = () => {
     }
 
 
-export const getGetDashboardSummaryQueryOptions = <TData = Awaited<ReturnType<typeof getDashboardSummary>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getDashboardSummary>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export const getGetDashboardSummaryQueryOptions = <TData = Awaited<ReturnType<typeof getDashboardSummary>>, TError = ErrorType<UnauthorizedResponse>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getDashboardSummary>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
@@ -423,14 +424,14 @@ const {query: queryOptions, request: requestOptions} = options ?? {};
 }
 
 export type GetDashboardSummaryQueryResult = NonNullable<Awaited<ReturnType<typeof getDashboardSummary>>>
-export type GetDashboardSummaryQueryError = ErrorType<unknown>
+export type GetDashboardSummaryQueryError = ErrorType<UnauthorizedResponse>
 
 
 /**
  * @summary Get Vapp dashboard counts
  */
 
-export function useGetDashboardSummary<TData = Awaited<ReturnType<typeof getDashboardSummary>>, TError = ErrorType<unknown>>(
+export function useGetDashboardSummary<TData = Awaited<ReturnType<typeof getDashboardSummary>>, TError = ErrorType<UnauthorizedResponse>>(
   options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getDashboardSummary>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
@@ -488,7 +489,7 @@ export const getListProductsQueryKey = (params?: ListProductsParams,) => {
     }
 
 
-export const getListProductsQueryOptions = <TData = Awaited<ReturnType<typeof listProducts>>, TError = ErrorType<unknown>>(params?: ListProductsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listProducts>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export const getListProductsQueryOptions = <TData = Awaited<ReturnType<typeof listProducts>>, TError = ErrorType<UnauthorizedResponse>>(params?: ListProductsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listProducts>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
@@ -507,14 +508,14 @@ const {query: queryOptions, request: requestOptions} = options ?? {};
 }
 
 export type ListProductsQueryResult = NonNullable<Awaited<ReturnType<typeof listProducts>>>
-export type ListProductsQueryError = ErrorType<unknown>
+export type ListProductsQueryError = ErrorType<UnauthorizedResponse>
 
 
 /**
  * @summary List and filter products
  */
 
-export function useListProducts<TData = Awaited<ReturnType<typeof listProducts>>, TError = ErrorType<unknown>>(
+export function useListProducts<TData = Awaited<ReturnType<typeof listProducts>>, TError = ErrorType<UnauthorizedResponse>>(
  params?: ListProductsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listProducts>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
@@ -558,7 +559,7 @@ export const createProduct = async (productInput: ProductInput, options?: Parame
 
 
 
-export const getCreateProductMutationOptions = <TError = ErrorType<BadRequestResponse | ConflictResponse>,
+export const getCreateProductMutationOptions = <TError = ErrorType<BadRequestResponse | UnauthorizedResponse | ConflictResponse>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createProduct>>, TError,{data: BodyType<ProductInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
 ): UseMutationOptions<Awaited<ReturnType<typeof createProduct>>, TError,{data: BodyType<ProductInput>}, TContext> => {
 
@@ -587,12 +588,12 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
     export type CreateProductMutationResult = NonNullable<Awaited<ReturnType<typeof createProduct>>>
     export type CreateProductMutationBody = BodyType<ProductInput>
-    export type CreateProductMutationError = ErrorType<BadRequestResponse | ConflictResponse>
+    export type CreateProductMutationError = ErrorType<BadRequestResponse | UnauthorizedResponse | ConflictResponse>
 
     /**
  * @summary Create a product
  */
-export const useCreateProduct = <TError = ErrorType<BadRequestResponse | ConflictResponse>,
+export const useCreateProduct = <TError = ErrorType<BadRequestResponse | UnauthorizedResponse | ConflictResponse>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createProduct>>, TError,{data: BodyType<ProductInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof createProduct>>,
@@ -636,7 +637,7 @@ export const getGetProductQueryKey = (id: string,) => {
     }
 
 
-export const getGetProductQueryOptions = <TData = Awaited<ReturnType<typeof getProduct>>, TError = ErrorType<NotFoundResponse>>(id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getProduct>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export const getGetProductQueryOptions = <TData = Awaited<ReturnType<typeof getProduct>>, TError = ErrorType<UnauthorizedResponse | NotFoundResponse>>(id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getProduct>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
@@ -655,14 +656,14 @@ const {query: queryOptions, request: requestOptions} = options ?? {};
 }
 
 export type GetProductQueryResult = NonNullable<Awaited<ReturnType<typeof getProduct>>>
-export type GetProductQueryError = ErrorType<NotFoundResponse>
+export type GetProductQueryError = ErrorType<UnauthorizedResponse | NotFoundResponse>
 
 
 /**
  * @summary Get one product
  */
 
-export function useGetProduct<TData = Awaited<ReturnType<typeof getProduct>>, TError = ErrorType<NotFoundResponse>>(
+export function useGetProduct<TData = Awaited<ReturnType<typeof getProduct>>, TError = ErrorType<UnauthorizedResponse | NotFoundResponse>>(
  id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getProduct>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
@@ -707,7 +708,7 @@ export const updateProduct = async (id: string,
 
 
 
-export const getUpdateProductMutationOptions = <TError = ErrorType<BadRequestResponse | NotFoundResponse | ConflictResponse>,
+export const getUpdateProductMutationOptions = <TError = ErrorType<BadRequestResponse | UnauthorizedResponse | NotFoundResponse | ConflictResponse>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateProduct>>, TError,{id: string;data: BodyType<ProductUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
 ): UseMutationOptions<Awaited<ReturnType<typeof updateProduct>>, TError,{id: string;data: BodyType<ProductUpdate>}, TContext> => {
 
@@ -736,12 +737,12 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
     export type UpdateProductMutationResult = NonNullable<Awaited<ReturnType<typeof updateProduct>>>
     export type UpdateProductMutationBody = BodyType<ProductUpdate>
-    export type UpdateProductMutationError = ErrorType<BadRequestResponse | NotFoundResponse | ConflictResponse>
+    export type UpdateProductMutationError = ErrorType<BadRequestResponse | UnauthorizedResponse | NotFoundResponse | ConflictResponse>
 
     /**
  * @summary Update a product
  */
-export const useUpdateProduct = <TError = ErrorType<BadRequestResponse | NotFoundResponse | ConflictResponse>,
+export const useUpdateProduct = <TError = ErrorType<BadRequestResponse | UnauthorizedResponse | NotFoundResponse | ConflictResponse>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateProduct>>, TError,{id: string;data: BodyType<ProductUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof updateProduct>>,

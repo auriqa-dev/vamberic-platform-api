@@ -1,3 +1,4 @@
+import { authEnvironment } from "./helpers/auth";
 import assert from "node:assert/strict";
 import { once } from "node:events";
 import { createServer } from "node:http";
@@ -8,6 +9,7 @@ import { parseConfig } from "../src/config";
 import type { MongoService } from "../src/services/mongo";
 
 const testConfig = parseConfig({
+  ...authEnvironment,
   NODE_ENV: "production",
   DEPLOYMENT_ENV: "dev",
   MONGODB_URI: "mongodb://user:password@private-host.example/test",
@@ -198,7 +200,7 @@ for (const allowedOrigin of [
         headers: {
           origin: allowedOrigin,
           "access-control-request-method": method,
-          "access-control-request-headers": "content-type",
+          "access-control-request-headers": "authorization,content-type",
         },
       });
 
@@ -218,7 +220,7 @@ for (const allowedOrigin of [
       );
       assert.equal(
         preflight.headers.get("access-control-allow-headers"),
-        "content-type",
+        "authorization,content-type",
       );
     });
   }
@@ -236,8 +238,32 @@ test("CORS does not allow an unconfigured origin", async () => {
     headers: {
       origin: "https://untrusted.example",
       "access-control-request-method": "PATCH",
-      "access-control-request-headers": "content-type",
+      "access-control-request-headers": "authorization,content-type",
     },
   });
   assert.equal(preflight.headers.get("access-control-allow-origin"), null);
+});
+
+test("CORS permits bearer-token preflight and exposes safe 401 responses", async () => {
+  const origin = "https://app.vamberic.com";
+  const preflight = await requestApi("/api/v1/products", availableMongo, {
+    method: "OPTIONS",
+    headers: {
+      origin,
+      "access-control-request-method": "POST",
+      "access-control-request-headers": "authorization,content-type",
+    },
+  });
+  assert.equal(preflight.statusCode, 204);
+  assert.equal(preflight.headers.get("access-control-allow-origin"), origin);
+  assert.equal(
+    preflight.headers.get("access-control-allow-headers"),
+    "authorization,content-type",
+  );
+  const response = await requestApi("/api/v1/products", availableMongo, {
+    headers: { origin, authorization: "Bearer malformed" },
+  });
+  assert.equal(response.statusCode, 401);
+  assert.equal(response.headers.get("access-control-allow-origin"), origin);
+  assert.deepEqual(response.body, { error: "Unauthorized" });
 });
