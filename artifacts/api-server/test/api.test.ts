@@ -14,7 +14,7 @@ const testConfig = parseConfig({
   PORT: "5001",
   SERVICE_NAME: "test-api",
   API_VERSION: "test-version",
-  CORS_ORIGINS: "http://localhost:3000",
+  CORS_ORIGINS: "http://localhost:3000, https://app.vamberic.com",
   RATE_LIMIT_MAX_REQUESTS: "10",
 });
 
@@ -184,39 +184,45 @@ test("configuration rejects invalid values and wildcard CORS", () => {
   );
 });
 
-test("CORS allows configured origins and supports JSON preflight", async () => {
-  const allowedOrigin = "http://localhost:3000";
-  const response = await requestApi("/api/v1/health", availableMongo, {
-    headers: { origin: allowedOrigin },
-  });
-  const preflight = await requestApi("/api/v1/products", availableMongo, {
-    method: "OPTIONS",
-    headers: {
-      origin: allowedOrigin,
-      "access-control-request-method": "POST",
-      "access-control-request-headers": "content-type",
-    },
-  });
+for (const allowedOrigin of [
+  "http://localhost:3000",
+  "https://app.vamberic.com",
+]) {
+  for (const method of ["POST", "PATCH"]) {
+    test(`CORS allows ${allowedOrigin} and ${method} JSON preflight`, async () => {
+      const response = await requestApi("/api/v1/health", availableMongo, {
+        headers: { origin: allowedOrigin },
+      });
+      const preflight = await requestApi("/api/v1/products", availableMongo, {
+        method: "OPTIONS",
+        headers: {
+          origin: allowedOrigin,
+          "access-control-request-method": method,
+          "access-control-request-headers": "content-type",
+        },
+      });
 
-  assert.equal(response.statusCode, 200);
-  assert.equal(
-    response.headers.get("access-control-allow-origin"),
-    allowedOrigin,
-  );
-  assert.equal(preflight.statusCode, 204);
-  assert.equal(
-    preflight.headers.get("access-control-allow-origin"),
-    allowedOrigin,
-  );
-  assert.match(
-    preflight.headers.get("access-control-allow-methods") ?? "",
-    /POST/,
-  );
-  assert.equal(
-    preflight.headers.get("access-control-allow-headers"),
-    "content-type",
-  );
-});
+      assert.equal(response.statusCode, 200);
+      assert.equal(
+        response.headers.get("access-control-allow-origin"),
+        allowedOrigin,
+      );
+      assert.equal(preflight.statusCode, 204);
+      assert.equal(
+        preflight.headers.get("access-control-allow-origin"),
+        allowedOrigin,
+      );
+      assert.match(
+        preflight.headers.get("access-control-allow-methods") ?? "",
+        new RegExp(method),
+      );
+      assert.equal(
+        preflight.headers.get("access-control-allow-headers"),
+        "content-type",
+      );
+    });
+  }
+}
 
 test("CORS does not allow an unconfigured origin", async () => {
   const response = await requestApi("/api/v1/health", availableMongo, {
@@ -225,4 +231,13 @@ test("CORS does not allow an unconfigured origin", async () => {
 
   assert.equal(response.statusCode, 200);
   assert.equal(response.headers.get("access-control-allow-origin"), null);
+  const preflight = await requestApi("/api/v1/products", availableMongo, {
+    method: "OPTIONS",
+    headers: {
+      origin: "https://untrusted.example",
+      "access-control-request-method": "PATCH",
+      "access-control-request-headers": "content-type",
+    },
+  });
+  assert.equal(preflight.headers.get("access-control-allow-origin"), null);
 });

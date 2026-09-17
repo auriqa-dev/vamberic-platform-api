@@ -1,11 +1,8 @@
 import { z } from "zod";
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import {
-  Product,
-  ProductInput,
-  ProductStatus,
-} from "@workspace/api-client-react";
+import { Product, ProductInput } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -20,7 +17,7 @@ import {
 import { Loader2 } from "lucide-react";
 
 const productSchema = z.object({
-  name: z.string().min(1, "Name is required").max(200),
+  name: z.string().trim().min(1, "Name is required").max(200),
   slug: z
     .string()
     .min(2, "Slug is required")
@@ -31,9 +28,13 @@ const productSchema = z.object({
     ),
   description: z.string().max(10000).optional(),
   status: z.enum(["idea", "validation", "active", "paused", "retired"]),
-  productType: z.string().min(1, "Product type is required").max(100),
-  domains: z.array(z.string()).max(50).optional(),
-  commercialModel: z.string().min(1, "Commercial model is required").max(100),
+  productType: z.string().trim().min(1, "Product type is required").max(100),
+  domains: z.array(z.string().trim().min(1).max(253)).max(50).optional(),
+  commercialModel: z
+    .string()
+    .trim()
+    .min(1, "Commercial model is required")
+    .max(100),
   oneOffPurchaseAvailable: z.boolean().optional(),
   subscriptionAvailable: z.boolean().optional(),
   currency: z
@@ -74,8 +75,10 @@ export function ProductForm({
     },
   });
 
-  // Watch domains string (comma separated) for input handling
-  const domainsText = form.watch("domains")?.join(", ") || "";
+  // Keep the text intact while typing; the form stores the parsed domain list.
+  const [domainsText, setDomainsText] = useState(
+    initialData?.domains.join(", ") || "",
+  );
 
   return (
     <Form {...form}>
@@ -83,7 +86,7 @@ export function ProductForm({
         onSubmit={form.handleSubmit((data) => {
           const submitData = { ...data };
           if (submitData.currency === "") submitData.currency = undefined;
-          onSubmit(submitData as ProductInput);
+          onSubmit(submitData);
         })}
         className="space-y-6"
       >
@@ -205,8 +208,12 @@ export function ProductForm({
                     <Input
                       placeholder="vamberic.com, app.vamberic.com"
                       value={domainsText}
+                      onBlur={field.onBlur}
+                      name={field.name}
+                      ref={field.ref}
                       onChange={(e) => {
                         const val = e.target.value;
+                        setDomainsText(val);
                         field.onChange(
                           val
                             .split(",")

@@ -89,11 +89,16 @@ export function createProductsRouter(mongo: MongoService): IRouter {
     }
 
     const now = new Date();
+    const input = ProductInsertSchema.safeParse({
+      ...body.data,
+      id: generatePlatformId("product"),
+    });
+    if (!input.success) {
+      res.status(400).json({ error: "Invalid product details" });
+      return;
+    }
     const product = ProductSchema.parse({
-      ...ProductInsertSchema.parse({
-        ...body.data,
-        id: generatePlatformId("product"),
-      }),
+      ...input.data,
       createdAt: now,
       updatedAt: now,
     });
@@ -135,7 +140,11 @@ export function createProductsRouter(mongo: MongoService): IRouter {
   router.patch("/api/v1/products/:id", async (req, res): Promise<void> => {
     const params = UpdateProductParams.safeParse(req.params);
     const body = UpdateProductBody.safeParse(req.body);
-    if (!params.success || !body.success) {
+    if (
+      !params.success ||
+      !body.success ||
+      Object.keys(body.data).length === 0
+    ) {
       res.status(400).json({ error: "Invalid product update" });
       return;
     }
@@ -148,11 +157,16 @@ export function createProductsRouter(mongo: MongoService): IRouter {
       return;
     }
 
-    const updated = ProductSchema.parse({
+    const result = ProductSchema.safeParse({
       ...current,
       ...body.data,
       updatedAt: new Date(),
     });
+    if (!result.success) {
+      res.status(400).json({ error: "Invalid product update" });
+      return;
+    }
+    const updated = result.data;
 
     try {
       await products.replaceOne({ id: current.id }, updated);

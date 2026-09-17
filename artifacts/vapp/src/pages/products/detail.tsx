@@ -7,6 +7,7 @@ import {
   getGetProductQueryKey,
   getListProductsQueryKey,
   getGetDashboardSummaryQueryKey,
+  type ProductInput,
 } from "@workspace/api-client-react";
 import { useToast } from "@/hooks/use-toast";
 import { ProductForm } from "@/components/product-form";
@@ -39,7 +40,7 @@ export default function ProductDetail() {
 
   const isPending = createMutation.isPending || updateMutation.isPending;
 
-  const handleSubmit = (data: any) => {
+  const handleSubmit = (data: ProductInput) => {
     if (isNew) {
       createMutation.mutate(
         { data },
@@ -57,13 +58,10 @@ export default function ProductDetail() {
             });
             setLocation(`/products/${newProduct.id}`);
           },
-          onError: (err: any) => {
+          onError: (err) => {
             toast({
               title: "Error creating product",
-              description:
-                err?.data?.error ||
-                err?.message ||
-                "An unexpected error occurred.",
+              description: err.message || "An unexpected error occurred.",
               variant: "destructive",
             });
           },
@@ -86,13 +84,10 @@ export default function ProductDetail() {
               queryKey: getGetDashboardSummaryQueryKey(),
             });
           },
-          onError: (err: any) => {
+          onError: (err) => {
             toast({
               title: "Error updating product",
-              description:
-                err?.data?.error ||
-                err?.message ||
-                "An unexpected error occurred.",
+              description: err.message || "An unexpected error occurred.",
               variant: "destructive",
             });
           },
@@ -132,10 +127,12 @@ export default function ProductDetail() {
           </div>
         ) : isError ? (
           <div className="text-center py-12 text-destructive">
-            Failed to load product. It may have been deleted.
+            Failed to load product. It may be unavailable or the API could not
+            be reached.
           </div>
         ) : (
           <ProductForm
+            key={id || "new"}
             initialData={product}
             onSubmit={handleSubmit}
             isPending={isPending}

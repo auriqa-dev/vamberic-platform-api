@@ -130,6 +130,26 @@ test("dashboard and product CRUD use the existing Mongo domain model", async () 
       totalOpportunities: 0,
     });
 
+    const validInput = {
+      name: "Validation example",
+      slug: "validation-example",
+      status: "idea",
+      productType: "software",
+      commercialModel: "subscription",
+    };
+    for (const invalid of [
+      { name: "   " },
+      { currency: "ZZZ" },
+      { domains: [" "] },
+    ]) {
+      const rejected = await request("/api/v1/products", {
+        method: "POST",
+        body: JSON.stringify({ ...validInput, ...invalid }),
+      });
+      assert.equal(rejected.status, 400);
+      assert.deepEqual(rejected.body, { error: "Invalid product details" });
+    }
+
     const created = await request("/api/v1/products", {
       method: "POST",
       body: JSON.stringify({
@@ -159,11 +179,42 @@ test("dashboard and product CRUD use the existing Mongo domain model", async () 
       "energy-health-check",
     );
 
+    for (const invalid of [
+      { name: "   " },
+      { currency: "ZZZ" },
+      {},
+      { archived: true },
+    ]) {
+      const rejected = await request(`/api/v1/products/${productId}`, {
+        method: "PATCH",
+        body: JSON.stringify(invalid),
+      });
+      assert.equal(rejected.status, 400);
+      assert.deepEqual(rejected.body, { error: "Invalid product update" });
+    }
+    const missing = await request(
+      "/api/v1/products/product_00000000000000000000000000",
+    );
+    assert.equal(missing.status, 404);
+    const invalidId = await request("/api/v1/products/not-an-id");
+    assert.equal(invalidId.status, 400);
+    const noDelete = await request(`/api/v1/products/${productId}`, {
+      method: "DELETE",
+    });
+    assert.equal(noDelete.status, 404);
+
     const updated = await request(`/api/v1/products/${productId}`, {
       method: "PATCH",
       body: JSON.stringify({
         status: "paused",
         internalNotes: "Review pricing.",
+        currency: "gbp",
+        domains: ["vamberic.com", "app.vamberic.com"],
+        id: "product_00000000000000000000000000",
+        createdAt: "2000-01-01T00:00:00.000Z",
+        schemaVersion: 99,
+        archived: true,
+        archivedAt: "2000-01-01T00:00:00.000Z",
       }),
     });
     assert.equal(updated.status, 200);
@@ -185,6 +236,16 @@ test("dashboard and product CRUD use the existing Mongo domain model", async () 
     ) as unknown as MemoryCollection<Product>;
     const storedProduct = await products.findOne({ id: productId });
     assert.equal(storedProduct?.internalNotes, "Review pricing.");
+    assert.equal(storedProduct?.id, productId);
+    assert.equal(storedProduct?.currency, "GBP");
+    assert.deepEqual(storedProduct?.domains, [
+      "vamberic.com",
+      "app.vamberic.com",
+    ]);
+    assert.equal(
+      storedProduct?.createdAt.toISOString(),
+      (created.body as Record<string, unknown>).createdAt,
+    );
     assert.equal(storedProduct?.schemaVersion, 1);
     assert.equal(storedProduct?.archived, false);
     assert.equal(storedProduct?.archivedAt, undefined);
