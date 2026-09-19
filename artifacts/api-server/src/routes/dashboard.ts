@@ -1,3 +1,4 @@
+import { readProduct } from "../domain/product-migration";
 import { Router, type IRouter } from "express";
 import { GetDashboardSummaryResponse } from "@workspace/api-zod";
 import { getDomainCollections } from "../db";
@@ -9,6 +10,12 @@ export function createDashboardRouter(mongo: MongoService): IRouter {
   router.get("/api/v1/dashboard/summary", async (_req, res): Promise<void> => {
     const db = await mongo.database();
     const collections = getDomainCollections(db);
+    const products = (
+      await collections.products.find({}).sort({ updatedAt: -1 }).toArray()
+    ).map(readProduct);
+    const liveCount = products.filter(
+      (product) => product.lifecycleStatus === "live",
+    ).length;
     const [
       totalProducts,
       activeProducts,
@@ -17,9 +24,9 @@ export function createDashboardRouter(mongo: MongoService): IRouter {
       totalPeople,
       totalOpportunities,
     ] = await Promise.all([
-      collections.products.countDocuments(),
-      collections.products.countDocuments({ status: "active" }),
-      collections.products.countDocuments({ status: { $ne: "active" } }),
+      Promise.resolve(products.length),
+      Promise.resolve(liveCount),
+      Promise.resolve(products.length - liveCount),
       collections.organisations.countDocuments(),
       collections.people.countDocuments(),
       collections.opportunities.countDocuments(),

@@ -1,11 +1,12 @@
+import { productLabel } from "@/lib/product-labels";
 import { Badge } from "@/components/ui/badge";
 
-export function ProductStatusBadge({ status }: { status: string }) {
+export function ProductStatusBadge({ status }: { status: string | null }) {
   let variant: "default" | "secondary" | "destructive" | "outline" = "outline";
   let colorClass = "";
 
   switch (status) {
-    case "active":
+    case "live":
       variant = "default";
       colorClass = "bg-primary text-primary-foreground hover:bg-primary/90";
       break;
@@ -14,7 +15,8 @@ export function ProductStatusBadge({ status }: { status: string }) {
       colorClass =
         "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-800";
       break;
-    case "validation":
+    case "building":
+    case "pre_launch":
       variant = "secondary";
       colorClass =
         "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-300 hover:bg-amber-200 dark:hover:bg-amber-800";
@@ -34,7 +36,7 @@ export function ProductStatusBadge({ status }: { status: string }) {
       variant={variant}
       className={`uppercase text-[10px] font-bold tracking-wider ${colorClass}`}
     >
-      {status}
+      {status ? productLabel(status) : "Needs review"}
     </Badge>
   );
 }

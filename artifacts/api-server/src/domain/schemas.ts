@@ -95,6 +95,7 @@ const permissionId = id("permission");
 const withId = (prefix: PlatformIdPrefix) => base.extend({ id: id(prefix) });
 
 export const ProductSchema = withId("product").extend({
+  productModelVersion: z.literal(2).default(2),
   name: nonEmpty.max(200),
   slug: z
     .string()
@@ -103,14 +104,72 @@ export const ProductSchema = withId("product").extend({
     .max(100)
     .regex(/^[a-z0-9][a-z0-9-]*$/),
   description: z.string().max(10_000).optional(),
-  status: z.enum(["idea", "validation", "active", "paused", "retired"]),
-  productType: nonEmpty.max(100),
-  domains: z.array(z.string().trim().min(1).max(253)).max(50).default([]),
-  commercialModel: nonEmpty.max(100),
-  oneOffPurchaseAvailable: z.boolean().default(false),
-  subscriptionAvailable: z.boolean().default(false),
-  currency: currency.optional(),
+  productType: z
+    .enum([
+      "software",
+      "consumer_app",
+      "marketplace_app",
+      "service",
+      "agency",
+      "content",
+      "website",
+      "experiment",
+      "other",
+    ])
+    .nullable(),
+  lifecycleStatus: z
+    .enum(["idea", "building", "pre_launch", "live", "paused", "retired"])
+    .nullable(),
+  operatingMode: z
+    .enum(["active", "maintain", "listen"])
+    .nullable()
+    .default(null),
+  businessModel: z
+    .enum([
+      "saas",
+      "professional_services",
+      "transactional",
+      "marketplace",
+      "advertising",
+      "content",
+      "lead_generation",
+      "other",
+    ])
+    .nullable()
+    .default(null),
+  revenueModels: z
+    .array(
+      z.enum([
+        "one_off",
+        "subscription",
+        "retainer",
+        "usage",
+        "marketplace",
+        "advertising",
+        "commission",
+        "free",
+        "other",
+      ]),
+    )
+    .max(9)
+    .refine(
+      (values) => new Set(values).size === values.length,
+      "Revenue models must be unique",
+    )
+    .default([]),
+  primaryDomain: z.string().trim().min(1).max(253).nullable().default(null),
+  additionalDomains: z
+    .array(z.string().trim().min(1).max(253))
+    .max(50)
+    .default([]),
+  currency: currency.nullable().optional(),
+  plannedLaunchDate: z.string().date().nullable().default(null),
+  actualLaunchDate: z.string().date().nullable().default(null),
+  launchHypothesis: z.string().max(20000).nullable().default(null),
+  successMeasures: z.string().max(20000).nullable().default(null),
   internalNotes: z.string().max(20_000).optional(),
+  legacyProductData: z.record(z.unknown()).optional(),
+  migrationWarnings: z.array(z.string()).optional(),
 });
 
 export const PersonSchema = withId("person").extend({

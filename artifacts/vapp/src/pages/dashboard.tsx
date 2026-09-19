@@ -49,7 +49,7 @@ export default function Dashboard() {
           icon={Package}
         />
         <MetricCard
-          title="Active Products"
+          title="Live Products"
           value={summary?.activeProducts}
           isLoading={isLoading}
           icon={CheckCircle2}

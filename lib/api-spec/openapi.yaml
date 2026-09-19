@@ -111,9 +111,9 @@ paths:
             type: string
             maxLength: 200
         - in: query
-          name: status
+          name: lifecycleStatus
           schema:
-            $ref: "#/components/schemas/ProductStatus"
+            $ref: "#/components/schemas/LifecycleStatus"
       responses:
         "401":
           $ref: "#/components/responses/Unauthorized"
@@ -235,62 +235,186 @@ components:
       properties:
         error:
           type: string
-    ProductStatus:
+    ProductType:
       type: string
-      enum: [idea, validation, active, paused, retired]
+      enum:
+        [
+          software,
+          consumer_app,
+          marketplace_app,
+          service,
+          agency,
+          content,
+          website,
+          experiment,
+          other,
+        ]
+    LifecycleStatus:
+      type: string
+      enum: [idea, building, pre_launch, live, paused, retired]
+    OperatingMode:
+      type: string
+      enum: [active, maintain, listen]
+    BusinessModel:
+      type: string
+      enum:
+        [
+          saas,
+          professional_services,
+          transactional,
+          marketplace,
+          advertising,
+          content,
+          lead_generation,
+          other,
+        ]
+    RevenueModel:
+      type: string
+      enum:
+        [
+          one_off,
+          subscription,
+          retainer,
+          usage,
+          marketplace,
+          advertising,
+          commission,
+          free,
+          other,
+        ]
     Product:
       type: object
       additionalProperties: false
       required:
-        - id
-        - name
-        - slug
-        - status
-        - productType
-        - domains
-        - commercialModel
-        - oneOffPurchaseAvailable
-        - subscriptionAvailable
-        - createdAt
-        - updatedAt
+        [
+          id,
+          name,
+          slug,
+          productType,
+          lifecycleStatus,
+          operatingMode,
+          businessModel,
+          revenueModels,
+          primaryDomain,
+          additionalDomains,
+          plannedLaunchDate,
+          actualLaunchDate,
+          launchHypothesis,
+          successMeasures,
+          createdAt,
+          updatedAt,
+        ]
       properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        slug:
+          type: string
+          minLength: 2
+          maxLength: 100
+          pattern: "^[a-z0-9][a-z0-9-]*$"
+        description:
+          type: string
+          maxLength: 10000
+        productType:
+          type: string
+          enum:
+            [
+              software,
+              consumer_app,
+              marketplace_app,
+              service,
+              agency,
+              content,
+              website,
+              experiment,
+              other,
+            ]
+          nullable: true
+        lifecycleStatus:
+          type: string
+          enum: [idea, building, pre_launch, live, paused, retired]
+          nullable: true
+        operatingMode:
+          type: string
+          enum: [active, maintain, listen]
+          nullable: true
+        businessModel:
+          type: string
+          enum:
+            [
+              saas,
+              professional_services,
+              transactional,
+              marketplace,
+              advertising,
+              content,
+              lead_generation,
+              other,
+            ]
+          nullable: true
+        revenueModels:
+          type: array
+          maxItems: 9
+          uniqueItems: true
+          items:
+            $ref: "#/components/schemas/RevenueModel"
+        primaryDomain:
+          type: string
+          minLength: 1
+          maxLength: 253
+          nullable: true
+        additionalDomains:
+          type: array
+          maxItems: 50
+          items:
+            type: string
+            minLength: 1
+            maxLength: 253
+        currency:
+          type: string
+          pattern: "^[A-Za-z]{3}$"
+          nullable: true
+        plannedLaunchDate:
+          type: string
+          pattern: '^\d{4}-\d{2}-\d{2}$'
+          nullable: true
+        actualLaunchDate:
+          type: string
+          pattern: '^\d{4}-\d{2}-\d{2}$'
+          nullable: true
+        launchHypothesis:
+          type: string
+          maxLength: 20000
+          nullable: true
+        successMeasures:
+          type: string
+          maxLength: 20000
+          nullable: true
+        internalNotes:
+          type: string
+          maxLength: 20000
         id:
           type: string
           pattern: "^product_[0-7][0-9abcdefghjkmnpqrstvwxyz]{25}$"
-        name:
-          type: string
-        slug:
-          type: string
-        description:
-          type: string
-        status:
-          $ref: "#/components/schemas/ProductStatus"
-        productType:
-          type: string
-        domains:
-          type: array
-          items:
-            type: string
-        commercialModel:
-          type: string
-        oneOffPurchaseAvailable:
-          type: boolean
-        subscriptionAvailable:
-          type: boolean
-        currency:
-          type: string
-        internalNotes:
-          type: string
         createdAt:
           type: string
           format: date-time
         updatedAt:
           type: string
           format: date-time
+        migrationWarnings:
+          type: array
+          items:
+            type: string
+        legacyProductData:
+          type: object
+          additionalProperties: true
     ProductInput:
       type: object
       additionalProperties: false
-      required: [name, slug, status, productType, commercialModel]
+      required: [name, slug, productType, lifecycleStatus]
       properties:
         name:
           type: string
@@ -304,37 +428,85 @@ components:
         description:
           type: string
           maxLength: 10000
-        status:
-          $ref: "#/components/schemas/ProductStatus"
         productType:
           type: string
+          enum:
+            [
+              software,
+              consumer_app,
+              marketplace_app,
+              service,
+              agency,
+              content,
+              website,
+              experiment,
+              other,
+            ]
+        lifecycleStatus:
+          type: string
+          enum: [idea, building, pre_launch, live, paused, retired]
+        operatingMode:
+          type: string
+          enum: [active, maintain, listen]
+          nullable: true
+        businessModel:
+          type: string
+          enum:
+            [
+              saas,
+              professional_services,
+              transactional,
+              marketplace,
+              advertising,
+              content,
+              lead_generation,
+              other,
+            ]
+          nullable: true
+        revenueModels:
+          type: array
+          maxItems: 9
+          uniqueItems: true
+          items:
+            $ref: "#/components/schemas/RevenueModel"
+        primaryDomain:
+          type: string
           minLength: 1
-          maxLength: 100
-        domains:
+          maxLength: 253
+          nullable: true
+        additionalDomains:
           type: array
           maxItems: 50
           items:
             type: string
             minLength: 1
             maxLength: 253
-        commercialModel:
-          type: string
-          minLength: 1
-          maxLength: 100
-        oneOffPurchaseAvailable:
-          type: boolean
-        subscriptionAvailable:
-          type: boolean
         currency:
           type: string
           pattern: "^[A-Za-z]{3}$"
+          nullable: true
+        plannedLaunchDate:
+          type: string
+          pattern: '^\d{4}-\d{2}-\d{2}$'
+          nullable: true
+        actualLaunchDate:
+          type: string
+          pattern: '^\d{4}-\d{2}-\d{2}$'
+          nullable: true
+        launchHypothesis:
+          type: string
+          maxLength: 20000
+          nullable: true
+        successMeasures:
+          type: string
+          maxLength: 20000
+          nullable: true
         internalNotes:
           type: string
           maxLength: 20000
     ProductUpdate:
       type: object
       additionalProperties: false
-      minProperties: 1
       properties:
         name:
           type: string
@@ -348,30 +520,79 @@ components:
         description:
           type: string
           maxLength: 10000
-        status:
-          $ref: "#/components/schemas/ProductStatus"
         productType:
           type: string
+          enum:
+            [
+              software,
+              consumer_app,
+              marketplace_app,
+              service,
+              agency,
+              content,
+              website,
+              experiment,
+              other,
+            ]
+        lifecycleStatus:
+          type: string
+          enum: [idea, building, pre_launch, live, paused, retired]
+        operatingMode:
+          type: string
+          enum: [active, maintain, listen]
+          nullable: true
+        businessModel:
+          type: string
+          enum:
+            [
+              saas,
+              professional_services,
+              transactional,
+              marketplace,
+              advertising,
+              content,
+              lead_generation,
+              other,
+            ]
+          nullable: true
+        revenueModels:
+          type: array
+          maxItems: 9
+          uniqueItems: true
+          items:
+            $ref: "#/components/schemas/RevenueModel"
+        primaryDomain:
+          type: string
           minLength: 1
-          maxLength: 100
-        domains:
+          maxLength: 253
+          nullable: true
+        additionalDomains:
           type: array
           maxItems: 50
           items:
             type: string
             minLength: 1
             maxLength: 253
-        commercialModel:
-          type: string
-          minLength: 1
-          maxLength: 100
-        oneOffPurchaseAvailable:
-          type: boolean
-        subscriptionAvailable:
-          type: boolean
         currency:
           type: string
           pattern: "^[A-Za-z]{3}$"
+          nullable: true
+        plannedLaunchDate:
+          type: string
+          pattern: '^\d{4}-\d{2}-\d{2}$'
+          nullable: true
+        actualLaunchDate:
+          type: string
+          pattern: '^\d{4}-\d{2}-\d{2}$'
+          nullable: true
+        launchHypothesis:
+          type: string
+          maxLength: 20000
+          nullable: true
+        successMeasures:
+          type: string
+          maxLength: 20000
+          nullable: true
         internalNotes:
           type: string
           maxLength: 20000
@@ -458,4 +679,3 @@ components:
         - environment
         - dependencies
         - timestamp
-

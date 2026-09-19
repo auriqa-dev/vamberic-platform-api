@@ -102,27 +102,60 @@ export const listProductsQuerySearchMax = 200;
 
 export const ListProductsQueryParams = zod.object({
   "search": zod.coerce.string().max(listProductsQuerySearchMax).optional(),
-  "status": zod.enum(['idea', 'validation', 'active', 'paused', 'retired']).optional()
+  "lifecycleStatus": zod.enum(['idea', 'building', 'pre_launch', 'live', 'paused', 'retired']).optional()
 })
+
+export const listProductsResponseNameMax = 200;
+
+export const listProductsResponseSlugMin = 2;
+export const listProductsResponseSlugMax = 100;
+
+
+export const listProductsResponseSlugRegExp = new RegExp('^[a-z0-9][a-z0-9-]*$');
+export const listProductsResponseDescriptionMax = 10000;
+
+export const listProductsResponseRevenueModelsMax = 9;
+
+export const listProductsResponsePrimaryDomainMax = 253;
+
+export const listProductsResponseAdditionalDomainsItemMax = 253;
+
+export const listProductsResponseAdditionalDomainsMax = 50;
+
+export const listProductsResponseCurrencyRegExp = new RegExp('^[A-Za-z]{3}$');
+export const listProductsResponsePlannedLaunchDateRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
+export const listProductsResponseActualLaunchDateRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
+export const listProductsResponseLaunchHypothesisMax = 20000;
+
+export const listProductsResponseSuccessMeasuresMax = 20000;
+
+export const listProductsResponseInternalNotesMax = 20000;
 
 export const listProductsResponseIdRegExp = new RegExp('^product_[0-7][0-9abcdefghjkmnpqrstvwxyz]{25}$');
 
 
 export const ListProductsResponseItem = zod.object({
+  "name": zod.string().min(1).max(listProductsResponseNameMax),
+  "slug": zod.string().min(listProductsResponseSlugMin).max(listProductsResponseSlugMax).regex(listProductsResponseSlugRegExp),
+  "description": zod.string().max(listProductsResponseDescriptionMax).optional(),
+  "productType": zod.enum(['software', 'consumer_app', 'marketplace_app', 'service', 'agency', 'content', 'website', 'experiment', 'other']).nullable(),
+  "lifecycleStatus": zod.enum(['idea', 'building', 'pre_launch', 'live', 'paused', 'retired']).nullable(),
+  "operatingMode": zod.enum(['active', 'maintain', 'listen']).nullable(),
+  "businessModel": zod.enum(['saas', 'professional_services', 'transactional', 'marketplace', 'advertising', 'content', 'lead_generation', 'other']).nullable(),
+  "revenueModels": zod.array(zod.enum(['one_off', 'subscription', 'retainer', 'usage', 'marketplace', 'advertising', 'commission', 'free', 'other'])).max(listProductsResponseRevenueModelsMax),
+  "primaryDomain": zod.string().min(1).max(listProductsResponsePrimaryDomainMax).nullable(),
+  "additionalDomains": zod.array(zod.string().min(1).max(listProductsResponseAdditionalDomainsItemMax)).max(listProductsResponseAdditionalDomainsMax),
+  "currency": zod.string().regex(listProductsResponseCurrencyRegExp).nullish(),
+  "plannedLaunchDate": zod.string().regex(listProductsResponsePlannedLaunchDateRegExp).nullable(),
+  "actualLaunchDate": zod.string().regex(listProductsResponseActualLaunchDateRegExp).nullable(),
+  "launchHypothesis": zod.string().max(listProductsResponseLaunchHypothesisMax).nullable(),
+  "successMeasures": zod.string().max(listProductsResponseSuccessMeasuresMax).nullable(),
+  "internalNotes": zod.string().max(listProductsResponseInternalNotesMax).optional(),
   "id": zod.string().regex(listProductsResponseIdRegExp),
-  "name": zod.string(),
-  "slug": zod.string(),
-  "description": zod.string().optional(),
-  "status": zod.enum(['idea', 'validation', 'active', 'paused', 'retired']),
-  "productType": zod.string(),
-  "domains": zod.array(zod.string()),
-  "commercialModel": zod.string(),
-  "oneOffPurchaseAvailable": zod.boolean(),
-  "subscriptionAvailable": zod.boolean(),
-  "currency": zod.string().optional(),
-  "internalNotes": zod.string().optional(),
   "createdAt": zod.coerce.date(),
-  "updatedAt": zod.coerce.date()
+  "updatedAt": zod.coerce.date(),
+  "migrationWarnings": zod.array(zod.string()).optional(),
+  "legacyProductData": zod.record(zod.string(), zod.unknown()).optional()
 })
 export const ListProductsResponse = zod.array(ListProductsResponseItem)
 
@@ -139,15 +172,21 @@ export const createProductBodySlugMax = 100;
 export const createProductBodySlugRegExp = new RegExp('^[a-z0-9][a-z0-9-]*$');
 export const createProductBodyDescriptionMax = 10000;
 
-export const createProductBodyProductTypeMax = 100;
+export const createProductBodyRevenueModelsMax = 9;
 
-export const createProductBodyDomainsItemMax = 253;
+export const createProductBodyPrimaryDomainMax = 253;
 
-export const createProductBodyDomainsMax = 50;
+export const createProductBodyAdditionalDomainsItemMax = 253;
 
-export const createProductBodyCommercialModelMax = 100;
+export const createProductBodyAdditionalDomainsMax = 50;
 
 export const createProductBodyCurrencyRegExp = new RegExp('^[A-Za-z]{3}$');
+export const createProductBodyPlannedLaunchDateRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
+export const createProductBodyActualLaunchDateRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
+export const createProductBodyLaunchHypothesisMax = 20000;
+
+export const createProductBodySuccessMeasuresMax = 20000;
+
 export const createProductBodyInternalNotesMax = 20000;
 
 
@@ -156,34 +195,72 @@ export const CreateProductBody = zod.object({
   "name": zod.string().min(1).max(createProductBodyNameMax),
   "slug": zod.string().min(createProductBodySlugMin).max(createProductBodySlugMax).regex(createProductBodySlugRegExp),
   "description": zod.string().max(createProductBodyDescriptionMax).optional(),
-  "status": zod.enum(['idea', 'validation', 'active', 'paused', 'retired']),
-  "productType": zod.string().min(1).max(createProductBodyProductTypeMax),
-  "domains": zod.array(zod.string().min(1).max(createProductBodyDomainsItemMax)).max(createProductBodyDomainsMax).optional(),
-  "commercialModel": zod.string().min(1).max(createProductBodyCommercialModelMax),
-  "oneOffPurchaseAvailable": zod.boolean().optional(),
-  "subscriptionAvailable": zod.boolean().optional(),
-  "currency": zod.string().regex(createProductBodyCurrencyRegExp).optional(),
+  "productType": zod.enum(['software', 'consumer_app', 'marketplace_app', 'service', 'agency', 'content', 'website', 'experiment', 'other']),
+  "lifecycleStatus": zod.enum(['idea', 'building', 'pre_launch', 'live', 'paused', 'retired']),
+  "operatingMode": zod.enum(['active', 'maintain', 'listen']).nullish(),
+  "businessModel": zod.enum(['saas', 'professional_services', 'transactional', 'marketplace', 'advertising', 'content', 'lead_generation', 'other']).nullish(),
+  "revenueModels": zod.array(zod.enum(['one_off', 'subscription', 'retainer', 'usage', 'marketplace', 'advertising', 'commission', 'free', 'other'])).max(createProductBodyRevenueModelsMax).optional(),
+  "primaryDomain": zod.string().min(1).max(createProductBodyPrimaryDomainMax).nullish(),
+  "additionalDomains": zod.array(zod.string().min(1).max(createProductBodyAdditionalDomainsItemMax)).max(createProductBodyAdditionalDomainsMax).optional(),
+  "currency": zod.string().regex(createProductBodyCurrencyRegExp).nullish(),
+  "plannedLaunchDate": zod.string().regex(createProductBodyPlannedLaunchDateRegExp).nullish(),
+  "actualLaunchDate": zod.string().regex(createProductBodyActualLaunchDateRegExp).nullish(),
+  "launchHypothesis": zod.string().max(createProductBodyLaunchHypothesisMax).nullish(),
+  "successMeasures": zod.string().max(createProductBodySuccessMeasuresMax).nullish(),
   "internalNotes": zod.string().max(createProductBodyInternalNotesMax).optional()
 })
+
+export const createProductResponseNameMax = 200;
+
+export const createProductResponseSlugMin = 2;
+export const createProductResponseSlugMax = 100;
+
+
+export const createProductResponseSlugRegExp = new RegExp('^[a-z0-9][a-z0-9-]*$');
+export const createProductResponseDescriptionMax = 10000;
+
+export const createProductResponseRevenueModelsMax = 9;
+
+export const createProductResponsePrimaryDomainMax = 253;
+
+export const createProductResponseAdditionalDomainsItemMax = 253;
+
+export const createProductResponseAdditionalDomainsMax = 50;
+
+export const createProductResponseCurrencyRegExp = new RegExp('^[A-Za-z]{3}$');
+export const createProductResponsePlannedLaunchDateRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
+export const createProductResponseActualLaunchDateRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
+export const createProductResponseLaunchHypothesisMax = 20000;
+
+export const createProductResponseSuccessMeasuresMax = 20000;
+
+export const createProductResponseInternalNotesMax = 20000;
 
 export const createProductResponseIdRegExp = new RegExp('^product_[0-7][0-9abcdefghjkmnpqrstvwxyz]{25}$');
 
 
 export const CreateProductResponse = zod.object({
+  "name": zod.string().min(1).max(createProductResponseNameMax),
+  "slug": zod.string().min(createProductResponseSlugMin).max(createProductResponseSlugMax).regex(createProductResponseSlugRegExp),
+  "description": zod.string().max(createProductResponseDescriptionMax).optional(),
+  "productType": zod.enum(['software', 'consumer_app', 'marketplace_app', 'service', 'agency', 'content', 'website', 'experiment', 'other']).nullable(),
+  "lifecycleStatus": zod.enum(['idea', 'building', 'pre_launch', 'live', 'paused', 'retired']).nullable(),
+  "operatingMode": zod.enum(['active', 'maintain', 'listen']).nullable(),
+  "businessModel": zod.enum(['saas', 'professional_services', 'transactional', 'marketplace', 'advertising', 'content', 'lead_generation', 'other']).nullable(),
+  "revenueModels": zod.array(zod.enum(['one_off', 'subscription', 'retainer', 'usage', 'marketplace', 'advertising', 'commission', 'free', 'other'])).max(createProductResponseRevenueModelsMax),
+  "primaryDomain": zod.string().min(1).max(createProductResponsePrimaryDomainMax).nullable(),
+  "additionalDomains": zod.array(zod.string().min(1).max(createProductResponseAdditionalDomainsItemMax)).max(createProductResponseAdditionalDomainsMax),
+  "currency": zod.string().regex(createProductResponseCurrencyRegExp).nullish(),
+  "plannedLaunchDate": zod.string().regex(createProductResponsePlannedLaunchDateRegExp).nullable(),
+  "actualLaunchDate": zod.string().regex(createProductResponseActualLaunchDateRegExp).nullable(),
+  "launchHypothesis": zod.string().max(createProductResponseLaunchHypothesisMax).nullable(),
+  "successMeasures": zod.string().max(createProductResponseSuccessMeasuresMax).nullable(),
+  "internalNotes": zod.string().max(createProductResponseInternalNotesMax).optional(),
   "id": zod.string().regex(createProductResponseIdRegExp),
-  "name": zod.string(),
-  "slug": zod.string(),
-  "description": zod.string().optional(),
-  "status": zod.enum(['idea', 'validation', 'active', 'paused', 'retired']),
-  "productType": zod.string(),
-  "domains": zod.array(zod.string()),
-  "commercialModel": zod.string(),
-  "oneOffPurchaseAvailable": zod.boolean(),
-  "subscriptionAvailable": zod.boolean(),
-  "currency": zod.string().optional(),
-  "internalNotes": zod.string().optional(),
   "createdAt": zod.coerce.date(),
-  "updatedAt": zod.coerce.date()
+  "updatedAt": zod.coerce.date(),
+  "migrationWarnings": zod.array(zod.string()).optional(),
+  "legacyProductData": zod.record(zod.string(), zod.unknown()).optional()
 })
 
 
@@ -197,24 +274,57 @@ export const GetProductParams = zod.object({
   "id": zod.coerce.string().regex(getProductPathIdRegExp)
 })
 
+export const getProductResponseNameMax = 200;
+
+export const getProductResponseSlugMin = 2;
+export const getProductResponseSlugMax = 100;
+
+
+export const getProductResponseSlugRegExp = new RegExp('^[a-z0-9][a-z0-9-]*$');
+export const getProductResponseDescriptionMax = 10000;
+
+export const getProductResponseRevenueModelsMax = 9;
+
+export const getProductResponsePrimaryDomainMax = 253;
+
+export const getProductResponseAdditionalDomainsItemMax = 253;
+
+export const getProductResponseAdditionalDomainsMax = 50;
+
+export const getProductResponseCurrencyRegExp = new RegExp('^[A-Za-z]{3}$');
+export const getProductResponsePlannedLaunchDateRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
+export const getProductResponseActualLaunchDateRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
+export const getProductResponseLaunchHypothesisMax = 20000;
+
+export const getProductResponseSuccessMeasuresMax = 20000;
+
+export const getProductResponseInternalNotesMax = 20000;
+
 export const getProductResponseIdRegExp = new RegExp('^product_[0-7][0-9abcdefghjkmnpqrstvwxyz]{25}$');
 
 
 export const GetProductResponse = zod.object({
+  "name": zod.string().min(1).max(getProductResponseNameMax),
+  "slug": zod.string().min(getProductResponseSlugMin).max(getProductResponseSlugMax).regex(getProductResponseSlugRegExp),
+  "description": zod.string().max(getProductResponseDescriptionMax).optional(),
+  "productType": zod.enum(['software', 'consumer_app', 'marketplace_app', 'service', 'agency', 'content', 'website', 'experiment', 'other']).nullable(),
+  "lifecycleStatus": zod.enum(['idea', 'building', 'pre_launch', 'live', 'paused', 'retired']).nullable(),
+  "operatingMode": zod.enum(['active', 'maintain', 'listen']).nullable(),
+  "businessModel": zod.enum(['saas', 'professional_services', 'transactional', 'marketplace', 'advertising', 'content', 'lead_generation', 'other']).nullable(),
+  "revenueModels": zod.array(zod.enum(['one_off', 'subscription', 'retainer', 'usage', 'marketplace', 'advertising', 'commission', 'free', 'other'])).max(getProductResponseRevenueModelsMax),
+  "primaryDomain": zod.string().min(1).max(getProductResponsePrimaryDomainMax).nullable(),
+  "additionalDomains": zod.array(zod.string().min(1).max(getProductResponseAdditionalDomainsItemMax)).max(getProductResponseAdditionalDomainsMax),
+  "currency": zod.string().regex(getProductResponseCurrencyRegExp).nullish(),
+  "plannedLaunchDate": zod.string().regex(getProductResponsePlannedLaunchDateRegExp).nullable(),
+  "actualLaunchDate": zod.string().regex(getProductResponseActualLaunchDateRegExp).nullable(),
+  "launchHypothesis": zod.string().max(getProductResponseLaunchHypothesisMax).nullable(),
+  "successMeasures": zod.string().max(getProductResponseSuccessMeasuresMax).nullable(),
+  "internalNotes": zod.string().max(getProductResponseInternalNotesMax).optional(),
   "id": zod.string().regex(getProductResponseIdRegExp),
-  "name": zod.string(),
-  "slug": zod.string(),
-  "description": zod.string().optional(),
-  "status": zod.enum(['idea', 'validation', 'active', 'paused', 'retired']),
-  "productType": zod.string(),
-  "domains": zod.array(zod.string()),
-  "commercialModel": zod.string(),
-  "oneOffPurchaseAvailable": zod.boolean(),
-  "subscriptionAvailable": zod.boolean(),
-  "currency": zod.string().optional(),
-  "internalNotes": zod.string().optional(),
   "createdAt": zod.coerce.date(),
-  "updatedAt": zod.coerce.date()
+  "updatedAt": zod.coerce.date(),
+  "migrationWarnings": zod.array(zod.string()).optional(),
+  "legacyProductData": zod.record(zod.string(), zod.unknown()).optional()
 })
 
 
@@ -237,15 +347,21 @@ export const updateProductBodySlugMax = 100;
 export const updateProductBodySlugRegExp = new RegExp('^[a-z0-9][a-z0-9-]*$');
 export const updateProductBodyDescriptionMax = 10000;
 
-export const updateProductBodyProductTypeMax = 100;
+export const updateProductBodyRevenueModelsMax = 9;
 
-export const updateProductBodyDomainsItemMax = 253;
+export const updateProductBodyPrimaryDomainMax = 253;
 
-export const updateProductBodyDomainsMax = 50;
+export const updateProductBodyAdditionalDomainsItemMax = 253;
 
-export const updateProductBodyCommercialModelMax = 100;
+export const updateProductBodyAdditionalDomainsMax = 50;
 
 export const updateProductBodyCurrencyRegExp = new RegExp('^[A-Za-z]{3}$');
+export const updateProductBodyPlannedLaunchDateRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
+export const updateProductBodyActualLaunchDateRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
+export const updateProductBodyLaunchHypothesisMax = 20000;
+
+export const updateProductBodySuccessMeasuresMax = 20000;
+
 export const updateProductBodyInternalNotesMax = 20000;
 
 
@@ -254,34 +370,72 @@ export const UpdateProductBody = zod.object({
   "name": zod.string().min(1).max(updateProductBodyNameMax).optional(),
   "slug": zod.string().min(updateProductBodySlugMin).max(updateProductBodySlugMax).regex(updateProductBodySlugRegExp).optional(),
   "description": zod.string().max(updateProductBodyDescriptionMax).optional(),
-  "status": zod.enum(['idea', 'validation', 'active', 'paused', 'retired']).optional(),
-  "productType": zod.string().min(1).max(updateProductBodyProductTypeMax).optional(),
-  "domains": zod.array(zod.string().min(1).max(updateProductBodyDomainsItemMax)).max(updateProductBodyDomainsMax).optional(),
-  "commercialModel": zod.string().min(1).max(updateProductBodyCommercialModelMax).optional(),
-  "oneOffPurchaseAvailable": zod.boolean().optional(),
-  "subscriptionAvailable": zod.boolean().optional(),
-  "currency": zod.string().regex(updateProductBodyCurrencyRegExp).optional(),
+  "productType": zod.enum(['software', 'consumer_app', 'marketplace_app', 'service', 'agency', 'content', 'website', 'experiment', 'other']).optional(),
+  "lifecycleStatus": zod.enum(['idea', 'building', 'pre_launch', 'live', 'paused', 'retired']).optional(),
+  "operatingMode": zod.enum(['active', 'maintain', 'listen']).nullish(),
+  "businessModel": zod.enum(['saas', 'professional_services', 'transactional', 'marketplace', 'advertising', 'content', 'lead_generation', 'other']).nullish(),
+  "revenueModels": zod.array(zod.enum(['one_off', 'subscription', 'retainer', 'usage', 'marketplace', 'advertising', 'commission', 'free', 'other'])).max(updateProductBodyRevenueModelsMax).optional(),
+  "primaryDomain": zod.string().min(1).max(updateProductBodyPrimaryDomainMax).nullish(),
+  "additionalDomains": zod.array(zod.string().min(1).max(updateProductBodyAdditionalDomainsItemMax)).max(updateProductBodyAdditionalDomainsMax).optional(),
+  "currency": zod.string().regex(updateProductBodyCurrencyRegExp).nullish(),
+  "plannedLaunchDate": zod.string().regex(updateProductBodyPlannedLaunchDateRegExp).nullish(),
+  "actualLaunchDate": zod.string().regex(updateProductBodyActualLaunchDateRegExp).nullish(),
+  "launchHypothesis": zod.string().max(updateProductBodyLaunchHypothesisMax).nullish(),
+  "successMeasures": zod.string().max(updateProductBodySuccessMeasuresMax).nullish(),
   "internalNotes": zod.string().max(updateProductBodyInternalNotesMax).optional()
 })
+
+export const updateProductResponseNameMax = 200;
+
+export const updateProductResponseSlugMin = 2;
+export const updateProductResponseSlugMax = 100;
+
+
+export const updateProductResponseSlugRegExp = new RegExp('^[a-z0-9][a-z0-9-]*$');
+export const updateProductResponseDescriptionMax = 10000;
+
+export const updateProductResponseRevenueModelsMax = 9;
+
+export const updateProductResponsePrimaryDomainMax = 253;
+
+export const updateProductResponseAdditionalDomainsItemMax = 253;
+
+export const updateProductResponseAdditionalDomainsMax = 50;
+
+export const updateProductResponseCurrencyRegExp = new RegExp('^[A-Za-z]{3}$');
+export const updateProductResponsePlannedLaunchDateRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
+export const updateProductResponseActualLaunchDateRegExp = new RegExp('^\\d{4}-\\d{2}-\\d{2}$');
+export const updateProductResponseLaunchHypothesisMax = 20000;
+
+export const updateProductResponseSuccessMeasuresMax = 20000;
+
+export const updateProductResponseInternalNotesMax = 20000;
 
 export const updateProductResponseIdRegExp = new RegExp('^product_[0-7][0-9abcdefghjkmnpqrstvwxyz]{25}$');
 
 
 export const UpdateProductResponse = zod.object({
+  "name": zod.string().min(1).max(updateProductResponseNameMax),
+  "slug": zod.string().min(updateProductResponseSlugMin).max(updateProductResponseSlugMax).regex(updateProductResponseSlugRegExp),
+  "description": zod.string().max(updateProductResponseDescriptionMax).optional(),
+  "productType": zod.enum(['software', 'consumer_app', 'marketplace_app', 'service', 'agency', 'content', 'website', 'experiment', 'other']).nullable(),
+  "lifecycleStatus": zod.enum(['idea', 'building', 'pre_launch', 'live', 'paused', 'retired']).nullable(),
+  "operatingMode": zod.enum(['active', 'maintain', 'listen']).nullable(),
+  "businessModel": zod.enum(['saas', 'professional_services', 'transactional', 'marketplace', 'advertising', 'content', 'lead_generation', 'other']).nullable(),
+  "revenueModels": zod.array(zod.enum(['one_off', 'subscription', 'retainer', 'usage', 'marketplace', 'advertising', 'commission', 'free', 'other'])).max(updateProductResponseRevenueModelsMax),
+  "primaryDomain": zod.string().min(1).max(updateProductResponsePrimaryDomainMax).nullable(),
+  "additionalDomains": zod.array(zod.string().min(1).max(updateProductResponseAdditionalDomainsItemMax)).max(updateProductResponseAdditionalDomainsMax),
+  "currency": zod.string().regex(updateProductResponseCurrencyRegExp).nullish(),
+  "plannedLaunchDate": zod.string().regex(updateProductResponsePlannedLaunchDateRegExp).nullable(),
+  "actualLaunchDate": zod.string().regex(updateProductResponseActualLaunchDateRegExp).nullable(),
+  "launchHypothesis": zod.string().max(updateProductResponseLaunchHypothesisMax).nullable(),
+  "successMeasures": zod.string().max(updateProductResponseSuccessMeasuresMax).nullable(),
+  "internalNotes": zod.string().max(updateProductResponseInternalNotesMax).optional(),
   "id": zod.string().regex(updateProductResponseIdRegExp),
-  "name": zod.string(),
-  "slug": zod.string(),
-  "description": zod.string().optional(),
-  "status": zod.enum(['idea', 'validation', 'active', 'paused', 'retired']),
-  "productType": zod.string(),
-  "domains": zod.array(zod.string()),
-  "commercialModel": zod.string(),
-  "oneOffPurchaseAvailable": zod.boolean(),
-  "subscriptionAvailable": zod.boolean(),
-  "currency": zod.string().optional(),
-  "internalNotes": zod.string().optional(),
   "createdAt": zod.coerce.date(),
-  "updatedAt": zod.coerce.date()
+  "updatedAt": zod.coerce.date(),
+  "migrationWarnings": zod.array(zod.string()).optional(),
+  "legacyProductData": zod.record(zod.string(), zod.unknown()).optional()
 })
 
 

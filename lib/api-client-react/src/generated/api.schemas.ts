@@ -9,34 +9,223 @@ export interface ErrorResponse {
   error: string;
 }
 
-export type ProductStatus = typeof ProductStatus[keyof typeof ProductStatus];
+export type ProductType = typeof ProductType[keyof typeof ProductType];
 
 
-export const ProductStatus = {
+export const ProductType = {
+  software: 'software',
+  consumer_app: 'consumer_app',
+  marketplace_app: 'marketplace_app',
+  service: 'service',
+  agency: 'agency',
+  content: 'content',
+  website: 'website',
+  experiment: 'experiment',
+  other: 'other',
+} as const;
+
+export type LifecycleStatus = typeof LifecycleStatus[keyof typeof LifecycleStatus];
+
+
+export const LifecycleStatus = {
   idea: 'idea',
-  validation: 'validation',
-  active: 'active',
+  building: 'building',
+  pre_launch: 'pre_launch',
+  live: 'live',
   paused: 'paused',
   retired: 'retired',
 } as const;
 
+export type OperatingMode = typeof OperatingMode[keyof typeof OperatingMode];
+
+
+export const OperatingMode = {
+  active: 'active',
+  maintain: 'maintain',
+  listen: 'listen',
+} as const;
+
+export type BusinessModel = typeof BusinessModel[keyof typeof BusinessModel];
+
+
+export const BusinessModel = {
+  saas: 'saas',
+  professional_services: 'professional_services',
+  transactional: 'transactional',
+  marketplace: 'marketplace',
+  advertising: 'advertising',
+  content: 'content',
+  lead_generation: 'lead_generation',
+  other: 'other',
+} as const;
+
+export type RevenueModel = typeof RevenueModel[keyof typeof RevenueModel];
+
+
+export const RevenueModel = {
+  one_off: 'one_off',
+  subscription: 'subscription',
+  retainer: 'retainer',
+  usage: 'usage',
+  marketplace: 'marketplace',
+  advertising: 'advertising',
+  commission: 'commission',
+  free: 'free',
+  other: 'other',
+} as const;
+
+export type ProductProductType = typeof ProductProductType[keyof typeof ProductProductType] | null;
+
+
+export const ProductProductType = {
+  software: 'software',
+  consumer_app: 'consumer_app',
+  marketplace_app: 'marketplace_app',
+  service: 'service',
+  agency: 'agency',
+  content: 'content',
+  website: 'website',
+  experiment: 'experiment',
+  other: 'other',
+} as const;
+
+export type ProductLifecycleStatus = typeof ProductLifecycleStatus[keyof typeof ProductLifecycleStatus] | null;
+
+
+export const ProductLifecycleStatus = {
+  idea: 'idea',
+  building: 'building',
+  pre_launch: 'pre_launch',
+  live: 'live',
+  paused: 'paused',
+  retired: 'retired',
+} as const;
+
+export type ProductOperatingMode = typeof ProductOperatingMode[keyof typeof ProductOperatingMode] | null;
+
+
+export const ProductOperatingMode = {
+  active: 'active',
+  maintain: 'maintain',
+  listen: 'listen',
+} as const;
+
+export type ProductBusinessModel = typeof ProductBusinessModel[keyof typeof ProductBusinessModel] | null;
+
+
+export const ProductBusinessModel = {
+  saas: 'saas',
+  professional_services: 'professional_services',
+  transactional: 'transactional',
+  marketplace: 'marketplace',
+  advertising: 'advertising',
+  content: 'content',
+  lead_generation: 'lead_generation',
+  other: 'other',
+} as const;
+
+export type ProductLegacyProductData = { [key: string]: unknown };
+
 export interface Product {
+  /**
+     * @minLength 1
+     * @maxLength 200
+     */
+  name: string;
+  /**
+     * @minLength 2
+     * @maxLength 100
+     * @pattern ^[a-z0-9][a-z0-9-]*$
+     */
+  slug: string;
+  /** @maxLength 10000 */
+  description?: string;
+  productType: ProductProductType;
+  lifecycleStatus: ProductLifecycleStatus;
+  operatingMode: ProductOperatingMode;
+  businessModel: ProductBusinessModel;
+  /** @maxItems 9 */
+  revenueModels: RevenueModel[];
+  /**
+     * @minLength 1
+     * @maxLength 253
+     */
+  primaryDomain: string | null;
+  /**
+     * @maxItems 50
+     * @items.minLength 1
+     * @items.maxLength 253
+     */
+  additionalDomains: string[];
+  /** @pattern ^[A-Za-z]{3}$ */
+  currency?: string | null;
+  /** @pattern ^\d{4}-\d{2}-\d{2}$ */
+  plannedLaunchDate: string | null;
+  /** @pattern ^\d{4}-\d{2}-\d{2}$ */
+  actualLaunchDate: string | null;
+  /** @maxLength 20000 */
+  launchHypothesis: string | null;
+  /** @maxLength 20000 */
+  successMeasures: string | null;
+  /** @maxLength 20000 */
+  internalNotes?: string;
   /** @pattern ^product_[0-7][0-9abcdefghjkmnpqrstvwxyz]{25}$ */
   id: string;
-  name: string;
-  slug: string;
-  description?: string;
-  status: ProductStatus;
-  productType: string;
-  domains: string[];
-  commercialModel: string;
-  oneOffPurchaseAvailable: boolean;
-  subscriptionAvailable: boolean;
-  currency?: string;
-  internalNotes?: string;
   createdAt: string;
   updatedAt: string;
+  migrationWarnings?: string[];
+  legacyProductData?: ProductLegacyProductData;
 }
+
+export type ProductInputProductType = typeof ProductInputProductType[keyof typeof ProductInputProductType];
+
+
+export const ProductInputProductType = {
+  software: 'software',
+  consumer_app: 'consumer_app',
+  marketplace_app: 'marketplace_app',
+  service: 'service',
+  agency: 'agency',
+  content: 'content',
+  website: 'website',
+  experiment: 'experiment',
+  other: 'other',
+} as const;
+
+export type ProductInputLifecycleStatus = typeof ProductInputLifecycleStatus[keyof typeof ProductInputLifecycleStatus];
+
+
+export const ProductInputLifecycleStatus = {
+  idea: 'idea',
+  building: 'building',
+  pre_launch: 'pre_launch',
+  live: 'live',
+  paused: 'paused',
+  retired: 'retired',
+} as const;
+
+export type ProductInputOperatingMode = typeof ProductInputOperatingMode[keyof typeof ProductInputOperatingMode] | null;
+
+
+export const ProductInputOperatingMode = {
+  active: 'active',
+  maintain: 'maintain',
+  listen: 'listen',
+} as const;
+
+export type ProductInputBusinessModel = typeof ProductInputBusinessModel[keyof typeof ProductInputBusinessModel] | null;
+
+
+export const ProductInputBusinessModel = {
+  saas: 'saas',
+  professional_services: 'professional_services',
+  transactional: 'transactional',
+  marketplace: 'marketplace',
+  advertising: 'advertising',
+  content: 'content',
+  lead_generation: 'lead_generation',
+  other: 'other',
+} as const;
 
 export interface ProductInput {
   /**
@@ -52,30 +241,86 @@ export interface ProductInput {
   slug: string;
   /** @maxLength 10000 */
   description?: string;
-  status: ProductStatus;
+  productType: ProductInputProductType;
+  lifecycleStatus: ProductInputLifecycleStatus;
+  operatingMode?: ProductInputOperatingMode;
+  businessModel?: ProductInputBusinessModel;
+  /** @maxItems 9 */
+  revenueModels?: RevenueModel[];
   /**
      * @minLength 1
-     * @maxLength 100
+     * @maxLength 253
      */
-  productType: string;
+  primaryDomain?: string | null;
   /**
      * @maxItems 50
      * @items.minLength 1
      * @items.maxLength 253
      */
-  domains?: string[];
-  /**
-     * @minLength 1
-     * @maxLength 100
-     */
-  commercialModel: string;
-  oneOffPurchaseAvailable?: boolean;
-  subscriptionAvailable?: boolean;
+  additionalDomains?: string[];
   /** @pattern ^[A-Za-z]{3}$ */
-  currency?: string;
+  currency?: string | null;
+  /** @pattern ^\d{4}-\d{2}-\d{2}$ */
+  plannedLaunchDate?: string | null;
+  /** @pattern ^\d{4}-\d{2}-\d{2}$ */
+  actualLaunchDate?: string | null;
+  /** @maxLength 20000 */
+  launchHypothesis?: string | null;
+  /** @maxLength 20000 */
+  successMeasures?: string | null;
   /** @maxLength 20000 */
   internalNotes?: string;
 }
+
+export type ProductUpdateProductType = typeof ProductUpdateProductType[keyof typeof ProductUpdateProductType];
+
+
+export const ProductUpdateProductType = {
+  software: 'software',
+  consumer_app: 'consumer_app',
+  marketplace_app: 'marketplace_app',
+  service: 'service',
+  agency: 'agency',
+  content: 'content',
+  website: 'website',
+  experiment: 'experiment',
+  other: 'other',
+} as const;
+
+export type ProductUpdateLifecycleStatus = typeof ProductUpdateLifecycleStatus[keyof typeof ProductUpdateLifecycleStatus];
+
+
+export const ProductUpdateLifecycleStatus = {
+  idea: 'idea',
+  building: 'building',
+  pre_launch: 'pre_launch',
+  live: 'live',
+  paused: 'paused',
+  retired: 'retired',
+} as const;
+
+export type ProductUpdateOperatingMode = typeof ProductUpdateOperatingMode[keyof typeof ProductUpdateOperatingMode] | null;
+
+
+export const ProductUpdateOperatingMode = {
+  active: 'active',
+  maintain: 'maintain',
+  listen: 'listen',
+} as const;
+
+export type ProductUpdateBusinessModel = typeof ProductUpdateBusinessModel[keyof typeof ProductUpdateBusinessModel] | null;
+
+
+export const ProductUpdateBusinessModel = {
+  saas: 'saas',
+  professional_services: 'professional_services',
+  transactional: 'transactional',
+  marketplace: 'marketplace',
+  advertising: 'advertising',
+  content: 'content',
+  lead_generation: 'lead_generation',
+  other: 'other',
+} as const;
 
 export interface ProductUpdate {
   /**
@@ -91,27 +336,33 @@ export interface ProductUpdate {
   slug?: string;
   /** @maxLength 10000 */
   description?: string;
-  status?: ProductStatus;
+  productType?: ProductUpdateProductType;
+  lifecycleStatus?: ProductUpdateLifecycleStatus;
+  operatingMode?: ProductUpdateOperatingMode;
+  businessModel?: ProductUpdateBusinessModel;
+  /** @maxItems 9 */
+  revenueModels?: RevenueModel[];
   /**
      * @minLength 1
-     * @maxLength 100
+     * @maxLength 253
      */
-  productType?: string;
+  primaryDomain?: string | null;
   /**
      * @maxItems 50
      * @items.minLength 1
      * @items.maxLength 253
      */
-  domains?: string[];
-  /**
-     * @minLength 1
-     * @maxLength 100
-     */
-  commercialModel?: string;
-  oneOffPurchaseAvailable?: boolean;
-  subscriptionAvailable?: boolean;
+  additionalDomains?: string[];
   /** @pattern ^[A-Za-z]{3}$ */
-  currency?: string;
+  currency?: string | null;
+  /** @pattern ^\d{4}-\d{2}-\d{2}$ */
+  plannedLaunchDate?: string | null;
+  /** @pattern ^\d{4}-\d{2}-\d{2}$ */
+  actualLaunchDate?: string | null;
+  /** @maxLength 20000 */
+  launchHypothesis?: string | null;
+  /** @maxLength 20000 */
+  successMeasures?: string | null;
   /** @maxLength 20000 */
   internalNotes?: string;
 }
@@ -229,6 +480,6 @@ export type ListProductsParams = {
  * @maxLength 200
  */
 search?: string;
-status?: ProductStatus;
+lifecycleStatus?: LifecycleStatus;
 };
 

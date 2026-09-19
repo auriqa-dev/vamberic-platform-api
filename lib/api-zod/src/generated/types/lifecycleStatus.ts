@@ -6,13 +6,14 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export type ProductStatus = typeof ProductStatus[keyof typeof ProductStatus];
+export type LifecycleStatus = typeof LifecycleStatus[keyof typeof LifecycleStatus];
 
 
-export const ProductStatus = {
+export const LifecycleStatus = {
   idea: 'idea',
-  validation: 'validation',
-  active: 'active',
+  building: 'building',
+  pre_launch: 'pre_launch',
+  live: 'live',
   paused: 'paused',
   retired: 'retired',
 } as const;

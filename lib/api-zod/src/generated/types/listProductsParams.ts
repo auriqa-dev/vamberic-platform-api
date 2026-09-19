@@ -5,12 +5,12 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
-import type { ProductStatus } from './productStatus';
+import type { LifecycleStatus } from './lifecycleStatus';
 
 export type ListProductsParams = {
 /**
  * @maxLength 200
  */
 search?: string;
-status?: ProductStatus;
+lifecycleStatus?: LifecycleStatus;
 };

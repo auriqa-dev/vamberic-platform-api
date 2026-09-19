@@ -11,7 +11,8 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "DEPLOYMENT_ENV=test node --import tsx --test test/*.test.ts",
     "lint": "eslint src test",
-    "format:check": "prettier --check \"src/**/*.ts\" \"test/**/*.ts\""
+    "format:check": "prettier --check \"src/**/*.ts\" \"test/**/*.ts\"",
+    "db:migrate-products": "tsx src/commands/migrate-products.ts"
   },
   "dependencies": {
     "@workspace/api-zod": "workspace:*",

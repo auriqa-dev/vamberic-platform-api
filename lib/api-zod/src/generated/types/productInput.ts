@@ -5,7 +5,11 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
-import type { ProductStatus } from './productStatus';
+import type { ProductInputBusinessModel } from './productInputBusinessModel';
+import type { ProductInputLifecycleStatus } from './productInputLifecycleStatus';
+import type { ProductInputOperatingMode } from './productInputOperatingMode';
+import type { ProductInputProductType } from './productInputProductType';
+import type { RevenueModel } from './revenueModel';
 
 export interface ProductInput {
   /**
@@ -21,27 +25,33 @@ export interface ProductInput {
   slug: string;
   /** @maxLength 10000 */
   description?: string;
-  status: ProductStatus;
+  productType: ProductInputProductType;
+  lifecycleStatus: ProductInputLifecycleStatus;
+  operatingMode?: ProductInputOperatingMode;
+  businessModel?: ProductInputBusinessModel;
+  /** @maxItems 9 */
+  revenueModels?: RevenueModel[];
   /**
      * @minLength 1
-     * @maxLength 100
+     * @maxLength 253
      */
-  productType: string;
+  primaryDomain?: string | null;
   /**
      * @maxItems 50
      * @items.minLength 1
      * @items.maxLength 253
      */
-  domains?: string[];
-  /**
-     * @minLength 1
-     * @maxLength 100
-     */
-  commercialModel: string;
-  oneOffPurchaseAvailable?: boolean;
-  subscriptionAvailable?: boolean;
+  additionalDomains?: string[];
   /** @pattern ^[A-Za-z]{3}$ */
-  currency?: string;
+  currency?: string | null;
+  /** @pattern ^\d{4}-\d{2}-\d{2}$ */
+  plannedLaunchDate?: string | null;
+  /** @pattern ^\d{4}-\d{2}-\d{2}$ */
+  actualLaunchDate?: string | null;
+  /** @maxLength 20000 */
+  launchHypothesis?: string | null;
+  /** @maxLength 20000 */
+  successMeasures?: string | null;
   /** @maxLength 20000 */
   internalNotes?: string;
 }

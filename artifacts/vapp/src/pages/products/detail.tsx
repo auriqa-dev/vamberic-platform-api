@@ -8,6 +8,7 @@ import {
   getListProductsQueryKey,
   getGetDashboardSummaryQueryKey,
   type ProductInput,
+  type ProductUpdate,
 } from "@workspace/api-client-react";
 import { useToast } from "@/hooks/use-toast";
 import { ProductForm } from "@/components/product-form";
@@ -40,10 +41,10 @@ export default function ProductDetail() {
 
   const isPending = createMutation.isPending || updateMutation.isPending;
 
-  const handleSubmit = (data: ProductInput) => {
+  const handleSubmit = (data: ProductUpdate) => {
     if (isNew) {
       createMutation.mutate(
-        { data },
+        { data: data as ProductInput },
         {
           onSuccess: (newProduct) => {
             toast({

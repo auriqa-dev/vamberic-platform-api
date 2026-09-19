@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import type { Filter } from "mongodb";
+import { readProduct } from "../domain/product-migration";
 import {
   CreateProductBody,
   CreateProductResponse,
@@ -22,22 +22,7 @@ import type { MongoService } from "../services/mongo";
 
 function productResponse(product: Product) {
   return {
-    id: product.id,
-    name: product.name,
-    slug: product.slug,
-    ...(product.description === undefined
-      ? {}
-      : { description: product.description }),
-    status: product.status,
-    productType: product.productType,
-    domains: product.domains,
-    commercialModel: product.commercialModel,
-    oneOffPurchaseAvailable: product.oneOffPurchaseAvailable,
-    subscriptionAvailable: product.subscriptionAvailable,
-    ...(product.currency === undefined ? {} : { currency: product.currency }),
-    ...(product.internalNotes === undefined
-      ? {}
-      : { internalNotes: product.internalNotes }),
+    ...product,
     createdAt: product.createdAt.toISOString(),
     updatedAt: product.updatedAt.toISOString(),
   };
@@ -62,23 +47,24 @@ export function createProductsRouter(mongo: MongoService): IRouter {
       return;
     }
 
-    const filter: Filter<Product> = {};
-    if (query.data.status) filter.status = query.data.status;
-    if (query.data.search) {
-      const escaped = query.data.search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      filter.$or = [
-        { name: { $regex: escaped, $options: "i" } },
-        { slug: { $regex: escaped, $options: "i" } },
-        { productType: { $regex: escaped, $options: "i" } },
-      ];
-    }
-
     const db = await mongo.database();
-    const products = await getDomainCollections(db)
-      .products.find(filter)
-      .sort({ updatedAt: -1 })
-      .toArray();
-    res.json(ListProductsResponse.parse(products.map(productResponse)));
+    const products = (
+      await getDomainCollections(db)
+        .products.find({})
+        .sort({ updatedAt: -1 })
+        .toArray()
+    ).map(readProduct);
+    const search = query.data.search?.toLowerCase();
+    const filtered = products.filter(
+      (product) =>
+        (!query.data.lifecycleStatus ||
+          product.lifecycleStatus === query.data.lifecycleStatus) &&
+        (!search ||
+          [product.name, product.slug, product.productType ?? ""].some(
+            (value) => value.toLowerCase().includes(search),
+          )),
+    );
+    res.json(ListProductsResponse.parse(filtered.map(productResponse)));
   });
 
   router.post("/api/v1/products", async (req, res): Promise<void> => {
@@ -90,6 +76,7 @@ export function createProductsRouter(mongo: MongoService): IRouter {
 
     const now = new Date();
     const input = ProductInsertSchema.safeParse({
+      currency: "GBP",
       ...body.data,
       id: generatePlatformId("product"),
     });
@@ -116,7 +103,9 @@ export function createProductsRouter(mongo: MongoService): IRouter {
       throw error;
     }
 
-    res.status(201).json(CreateProductResponse.parse(productResponse(product)));
+    res
+      .status(201)
+      .json(CreateProductResponse.parse(productResponse(readProduct(product))));
   });
 
   router.get("/api/v1/products/:id", async (req, res): Promise<void> => {
@@ -134,7 +123,7 @@ export function createProductsRouter(mongo: MongoService): IRouter {
       res.status(404).json({ error: "Product not found" });
       return;
     }
-    res.json(GetProductResponse.parse(productResponse(product)));
+    res.json(GetProductResponse.parse(productResponse(readProduct(product))));
   });
 
   router.patch("/api/v1/products/:id", async (req, res): Promise<void> => {
@@ -158,7 +147,7 @@ export function createProductsRouter(mongo: MongoService): IRouter {
     }
 
     const result = ProductSchema.safeParse({
-      ...current,
+      ...readProduct(current),
       ...body.data,
       updatedAt: new Date(),
     });
@@ -169,7 +158,16 @@ export function createProductsRouter(mongo: MongoService): IRouter {
     const updated = result.data;
 
     try {
-      await products.replaceOne({ id: current.id }, updated);
+      const write = await products.updateOne(
+        { id: current.id, updatedAt: current.updatedAt },
+        { $set: updated },
+      );
+      if (!write.matchedCount) {
+        res
+          .status(409)
+          .json({ error: "Product changed during update; reload and retry" });
+        return;
+      }
     } catch (error: unknown) {
       if (isDuplicateKey(error)) {
         res

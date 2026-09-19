@@ -5,22 +5,60 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
-import type { ProductStatus } from './productStatus';
+import type { ProductBusinessModel } from './productBusinessModel';
+import type { ProductLegacyProductData } from './productLegacyProductData';
+import type { ProductLifecycleStatus } from './productLifecycleStatus';
+import type { ProductOperatingMode } from './productOperatingMode';
+import type { ProductProductType } from './productProductType';
+import type { RevenueModel } from './revenueModel';
 
 export interface Product {
+  /**
+     * @minLength 1
+     * @maxLength 200
+     */
+  name: string;
+  /**
+     * @minLength 2
+     * @maxLength 100
+     * @pattern ^[a-z0-9][a-z0-9-]*$
+     */
+  slug: string;
+  /** @maxLength 10000 */
+  description?: string;
+  productType: ProductProductType;
+  lifecycleStatus: ProductLifecycleStatus;
+  operatingMode: ProductOperatingMode;
+  businessModel: ProductBusinessModel;
+  /** @maxItems 9 */
+  revenueModels: RevenueModel[];
+  /**
+     * @minLength 1
+     * @maxLength 253
+     */
+  primaryDomain: string | null;
+  /**
+     * @maxItems 50
+     * @items.minLength 1
+     * @items.maxLength 253
+     */
+  additionalDomains: string[];
+  /** @pattern ^[A-Za-z]{3}$ */
+  currency?: string | null;
+  /** @pattern ^\d{4}-\d{2}-\d{2}$ */
+  plannedLaunchDate: string | null;
+  /** @pattern ^\d{4}-\d{2}-\d{2}$ */
+  actualLaunchDate: string | null;
+  /** @maxLength 20000 */
+  launchHypothesis: string | null;
+  /** @maxLength 20000 */
+  successMeasures: string | null;
+  /** @maxLength 20000 */
+  internalNotes?: string;
   /** @pattern ^product_[0-7][0-9abcdefghjkmnpqrstvwxyz]{25}$ */
   id: string;
-  name: string;
-  slug: string;
-  description?: string;
-  status: ProductStatus;
-  productType: string;
-  domains: string[];
-  commercialModel: string;
-  oneOffPurchaseAvailable: boolean;
-  subscriptionAvailable: boolean;
-  currency?: string;
-  internalNotes?: string;
   createdAt: Date;
   updatedAt: Date;
+  migrationWarnings?: string[];
+  legacyProductData?: ProductLegacyProductData;
 }

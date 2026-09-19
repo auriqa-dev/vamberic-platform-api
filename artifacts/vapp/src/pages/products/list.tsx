@@ -1,9 +1,7 @@
+import { productLabel } from "@/lib/product-labels";
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
-import {
-  useListProducts,
-  type ProductStatus,
-} from "@workspace/api-client-react";
+import { useListProducts, LifecycleStatus } from "@workspace/api-client-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ProductStatusBadge } from "@/components/product-status-badge";
@@ -21,7 +19,9 @@ export default function ProductsList() {
   const [, setLocation] = useLocation();
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<ProductStatus | undefined>();
+  const [statusFilter, setStatusFilter] = useState<
+    LifecycleStatus | undefined
+  >();
 
   // Use a simple timeout for debounce
   // Note: in a real app we'd use useDebounce from a hook library
@@ -36,7 +36,7 @@ export default function ProductsList() {
     isError,
   } = useListProducts({
     search: debouncedSearch || undefined,
-    status: statusFilter,
+    lifecycleStatus: statusFilter,
   });
 
   return (
@@ -47,7 +47,7 @@ export default function ProductsList() {
             Products
           </h1>
           <p className="text-muted-foreground mt-1">
-            Manage software and physical products.
+            Manage products, services, agencies, and experiments.
           </p>
         </div>
         <Button onClick={() => setLocation("/products/new")}>
@@ -71,13 +71,14 @@ export default function ProductsList() {
           className="flex h-9 w-full sm:w-48 items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
           value={statusFilter || ""}
           onChange={(e) =>
-            setStatusFilter((e.target.value as ProductStatus) || undefined)
+            setStatusFilter((e.target.value as LifecycleStatus) || undefined)
           }
         >
           <option value="">All Statuses</option>
           <option value="idea">Idea</option>
-          <option value="validation">Validation</option>
-          <option value="active">Active</option>
+          <option value="building">Building</option>
+          <option value="pre_launch">Pre-launch</option>
+          <option value="live">Live</option>
           <option value="paused">Paused</option>
           <option value="retired">Retired</option>
         </select>
@@ -89,8 +90,8 @@ export default function ProductsList() {
             <TableRow className="bg-muted/50">
               <TableHead>Name</TableHead>
               <TableHead>Type</TableHead>
-              <TableHead>Model</TableHead>
-              <TableHead>Status</TableHead>
+              <TableHead>Business Model</TableHead>
+              <TableHead>Lifecycle</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -139,16 +140,16 @@ export default function ProductsList() {
                   </TableCell>
                   <TableCell>
                     <span className="capitalize text-sm">
-                      {product.productType}
+                      {productLabel(product.productType)}
                     </span>
                   </TableCell>
                   <TableCell>
                     <span className="capitalize text-sm">
-                      {product.commercialModel}
+                      {productLabel(product.businessModel)}
                     </span>
                   </TableCell>
                   <TableCell>
-                    <ProductStatusBadge status={product.status} />
+                    <ProductStatusBadge status={product.lifecycleStatus} />
                   </TableCell>
                   <TableCell className="text-right">
                     <Button
