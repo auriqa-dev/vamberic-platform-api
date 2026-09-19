@@ -9,6 +9,80 @@ import * as zod from 'zod';
 
 
 /**
+ * Creates shared CRM records atomically. Marketing opt-in requires consent text and version. Separate submissions create separate enquiry events and opportunities.
+ * @summary Submit a product enquiry without signing in
+ */
+export const submitPublicEnquiryPathProductIdRegExp = new RegExp('^product_[0-7][0-9abcdefghjkmnpqrstvwxyz]{25}$');
+
+
+export const SubmitPublicEnquiryParams = zod.object({
+  "productId": zod.coerce.string().regex(submitPublicEnquiryPathProductIdRegExp)
+})
+
+export const submitPublicEnquiryBodyNameMax = 100;
+
+export const submitPublicEnquiryBodyWorkEmailMax = 254;
+
+export const submitPublicEnquiryBodyCompanyMax = 300;
+
+export const submitPublicEnquiryBodyMessageMax = 4000;
+
+export const submitPublicEnquiryBodyWebsiteMax = 253;
+
+export const submitPublicEnquiryBodyJobTitleMax = 200;
+
+export const submitPublicEnquiryBodyServiceInterestMax = 200;
+
+export const submitPublicEnquiryBodySourceMax = 200;
+
+export const submitPublicEnquiryBodyMediumMax = 200;
+
+export const submitPublicEnquiryBodyCampaignMax = 200;
+
+export const submitPublicEnquiryBodyContentMax = 200;
+
+export const submitPublicEnquiryBodyTermMax = 200;
+
+export const submitPublicEnquiryBodyLandingPageMax = 1000;
+
+export const submitPublicEnquiryBodyReferrerMax = 1000;
+
+export const submitPublicEnquiryBodyMarketingConsentTextMax = 1000;
+
+export const submitPublicEnquiryBodyMarketingConsentVersionMax = 100;
+
+
+
+export const SubmitPublicEnquiryBody = zod.object({
+  "name": zod.string().min(1).max(submitPublicEnquiryBodyNameMax).describe('Full name; single-word names accepted'),
+  "workEmail": zod.string().email().min(1).max(submitPublicEnquiryBodyWorkEmailMax).describe('Email address; trimmed and normalized for matching'),
+  "company": zod.string().min(1).max(submitPublicEnquiryBodyCompanyMax).describe('Company name; exact normalized whitespace match only'),
+  "message": zod.string().min(1).max(submitPublicEnquiryBodyMessageMax).describe('Enquiry message; plain text'),
+  "website": zod.string().min(1).max(submitPublicEnquiryBodyWebsiteMax).optional().describe('Domain or HTTP(S) website; never fetched'),
+  "jobTitle": zod.string().min(1).max(submitPublicEnquiryBodyJobTitleMax).optional().describe('Submitted job title'),
+  "serviceInterest": zod.string().min(1).max(submitPublicEnquiryBodyServiceInterestMax).optional().describe('Service of interest; not an Offer identifier'),
+  "source": zod.string().min(1).max(submitPublicEnquiryBodySourceMax).optional().describe('Attribution source'),
+  "medium": zod.string().min(1).max(submitPublicEnquiryBodyMediumMax).optional().describe('Attribution medium'),
+  "campaign": zod.string().min(1).max(submitPublicEnquiryBodyCampaignMax).optional().describe('Campaign label, not an internal Campaign ID'),
+  "content": zod.string().min(1).max(submitPublicEnquiryBodyContentMax).optional().describe('Attribution content'),
+  "term": zod.string().min(1).max(submitPublicEnquiryBodyTermMax).optional().describe('Attribution term'),
+  "landingPage": zod.string().min(1).max(submitPublicEnquiryBodyLandingPageMax).optional().describe('HTTP(S) landing page URL'),
+  "referrer": zod.string().min(1).max(submitPublicEnquiryBodyReferrerMax).optional().describe('HTTP(S) referrer URL'),
+  "marketingConsentText": zod.string().min(1).max(submitPublicEnquiryBodyMarketingConsentTextMax).optional().describe('Exact wording shown; required when marketingOptIn is true'),
+  "marketingConsentVersion": zod.string().min(1).max(submitPublicEnquiryBodyMarketingConsentVersionMax).optional().describe('Wording version; required when marketingOptIn is true'),
+  "marketingOptIn": zod.boolean().optional().describe('Only explicit true with evidence creates a product-scoped email marketing consent decision')
+})
+
+export const submitPublicEnquiryResponseEnquiryIdRegExp = new RegExp('^event_[0-7][0-9abcdefghjkmnpqrstvwxyz]{25}$');
+
+
+export const SubmitPublicEnquiryResponse = zod.object({
+  "status": zod.enum(['received']),
+  "enquiryId": zod.string().regex(submitPublicEnquiryResponseEnquiryIdRegExp)
+})
+
+
+/**
  * Returns safe service health metadata
  * @summary Root health check
  */

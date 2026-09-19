@@ -142,7 +142,7 @@ async function duplicateRisk(
   }
   const keys = Object.keys(index.key ?? {});
   const keyDocument = Object.fromEntries(
-    keys.map((field) => [field, `$${field}`]),
+    keys.map((field, index) => [`key${index}`, `$${field}`]),
   );
   const match: Document = { ...(index.partialFilterExpression ?? {}) };
   if (index.sparse) {
@@ -301,6 +301,11 @@ export async function setupDatabase(db: Db): Promise<DatabaseSetupResult> {
   if (plan.incompatibleIndexes.length > 0) {
     throw new IncompatibleDatabaseSchemaError(
       `Incompatible indexes: ${plan.incompatibleIndexes.join(", ")}`,
+    );
+  }
+  if (plan.uniqueIndexRisks.length > 0) {
+    throw new IncompatibleDatabaseSchemaError(
+      `Unresolved unique index risks: ${plan.uniqueIndexRisks.join(", ")}`,
     );
   }
 

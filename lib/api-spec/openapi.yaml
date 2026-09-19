@@ -17,6 +17,81 @@ tags:
   - name: products
     description: Product management
 paths:
+  /v1/public/products/{productId}/enquiries:
+    post:
+      security: []
+      operationId: submitPublicEnquiry
+      tags: [public-enquiries]
+      summary: Submit a product enquiry without signing in
+      description: Creates shared CRM records atomically. Marketing opt-in requires consent text and version. Separate submissions create separate enquiry events and opportunities.
+      parameters:
+        - in: path
+          name: productId
+          required: true
+          schema:
+            type: string
+            pattern: "^product_[0-7][0-9abcdefghjkmnpqrstvwxyz]{25}$"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PublicEnquiryInput"
+      responses:
+        "201":
+          description: Enquiry received
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublicEnquiryReceived"
+        "400":
+          description: Invalid enquiry
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublicEnquiryError"
+        "403":
+          description: Origin not approved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublicEnquiryError"
+        "404":
+          description: Product unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublicEnquiryError"
+        "409":
+          description: Enquiry cannot be resolved safely
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublicEnquiryError"
+        "413":
+          description: Payload exceeds 16 KiB
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublicEnquiryError"
+        "415":
+          description: JSON content type required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublicEnquiryError"
+        "429":
+          description: Too many requests
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublicEnquiryError"
+        "503":
+          description: Enquiry capture temporarily unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublicEnquiryError"
   /health:
     get:
       security: []
@@ -229,6 +304,120 @@ components:
           schema:
             $ref: "#/components/schemas/ErrorResponse"
   schemas:
+    PublicEnquiryInput:
+      type: object
+      additionalProperties: false
+      required: [name, workEmail, company, message]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+          description: Full name; single-word names accepted
+        workEmail:
+          type: string
+          minLength: 1
+          maxLength: 254
+          description: Email address; trimmed and normalized for matching
+          format: email
+        company:
+          type: string
+          minLength: 1
+          maxLength: 300
+          description: Company name; exact normalized whitespace match only
+        message:
+          type: string
+          minLength: 1
+          maxLength: 4000
+          description: Enquiry message; plain text
+        website:
+          type: string
+          minLength: 1
+          maxLength: 253
+          description: Domain or HTTP(S) website; never fetched
+        jobTitle:
+          type: string
+          minLength: 1
+          maxLength: 200
+          description: Submitted job title
+        serviceInterest:
+          type: string
+          minLength: 1
+          maxLength: 200
+          description: Service of interest; not an Offer identifier
+        source:
+          type: string
+          minLength: 1
+          maxLength: 200
+          description: Attribution source
+        medium:
+          type: string
+          minLength: 1
+          maxLength: 200
+          description: Attribution medium
+        campaign:
+          type: string
+          minLength: 1
+          maxLength: 200
+          description: Campaign label, not an internal Campaign ID
+        content:
+          type: string
+          minLength: 1
+          maxLength: 200
+          description: Attribution content
+        term:
+          type: string
+          minLength: 1
+          maxLength: 200
+          description: Attribution term
+        landingPage:
+          type: string
+          minLength: 1
+          maxLength: 1000
+          description: HTTP(S) landing page URL
+        referrer:
+          type: string
+          minLength: 1
+          maxLength: 1000
+          description: HTTP(S) referrer URL
+        marketingConsentText:
+          type: string
+          minLength: 1
+          maxLength: 1000
+          description: Exact wording shown; required when marketingOptIn is true
+        marketingConsentVersion:
+          type: string
+          minLength: 1
+          maxLength: 100
+          description: Wording version; required when marketingOptIn is true
+        marketingOptIn:
+          type: boolean
+          description: Only explicit true with evidence creates a product-scoped email marketing consent decision
+    PublicEnquiryReceived:
+      type: object
+      additionalProperties: false
+      required: [status, enquiryId]
+      properties:
+        status:
+          type: string
+          enum: [received]
+        enquiryId:
+          type: string
+          pattern: "^event_[0-7][0-9abcdefghjkmnpqrstvwxyz]{25}$"
+    PublicEnquiryError:
+      type: object
+      additionalProperties: false
+      required: [error]
+      properties:
+        error:
+          type: object
+          additionalProperties: false
+          required: [code, message]
+          properties:
+            code:
+              type: string
+            message:
+              type: string
     ErrorResponse:
       type: object
       required: [error]

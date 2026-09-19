@@ -1,3 +1,4 @@
+import { PUBLIC_ENQUIRY_INDEXES } from "./enquiry-indexes";
 import type { IndexDescription } from "mongodb";
 import type { Collection, Db } from "mongodb";
 import type {
@@ -105,6 +106,9 @@ export const COLLECTION_DEFINITIONS: readonly CollectionDefinition[] = [
     indexes: [
       appId(),
       { key: { normalizedValue: 1 }, name: "normalized_value" },
+      ...PUBLIC_ENQUIRY_INDEXES.filter(
+        (item) => item.collection === "contact_points",
+      ).map((item) => item.index),
       {
         key: { personId: 1, type: 1 },
         name: "person_type_primary_unique",
@@ -121,6 +125,9 @@ export const COLLECTION_DEFINITIONS: readonly CollectionDefinition[] = [
     indexes: [
       appId(),
       { key: { domain: 1 }, name: "domain" },
+      ...PUBLIC_ENQUIRY_INDEXES.filter(
+        (item) => item.collection === "organisations",
+      ).map((item) => item.index),
       { key: { lifecycleStatus: 1 }, name: "lifecycle_status" },
     ],
     reason:

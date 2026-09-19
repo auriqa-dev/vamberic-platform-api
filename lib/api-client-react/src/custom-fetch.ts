@@ -1,4 +1,5 @@
 export type CustomFetchOptions = RequestInit & {
+  authentication?: "automatic" | "omit";
   responseType?: "json" | "text" | "blob" | "auto";
 };
 
@@ -361,7 +362,12 @@ export async function customFetch<T = unknown>(
   options: CustomFetchOptions = {},
 ): Promise<T> {
   input = applyBaseUrl(input);
-  const { responseType = "auto", headers: headersInit, ...init } = options;
+  const {
+    responseType = "auto",
+    authentication = "automatic",
+    headers: headersInit,
+    ...init
+  } = options;
 
   const method = resolveMethod(input, init.method);
 
@@ -389,7 +395,9 @@ export async function customFetch<T = unknown>(
   // Attach bearer token when an auth getter is configured and no
   // Authorization header has been explicitly provided.
   const authenticatedApiRequest =
-    Boolean(_authTokenGetter) && isConfiguredApiRequest(input);
+    authentication !== "omit" &&
+    Boolean(_authTokenGetter) &&
+    isConfiguredApiRequest(input);
   if (
     authenticatedApiRequest &&
     _authTokenGetter &&
@@ -399,6 +407,8 @@ export async function customFetch<T = unknown>(
     if (!token) throw new AuthenticationRequiredError();
     headers.set("authorization", `Bearer ${token}`);
   }
+
+  if (authentication === "omit") headers.delete("authorization");
 
   const requestInfo = { method, url: resolveUrl(input) };
 

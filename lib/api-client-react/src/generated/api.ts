@@ -29,10 +29,14 @@ import type {
   Product,
   ProductInput,
   ProductUpdate,
+  PublicEnquiryError,
+  PublicEnquiryInput,
+  PublicEnquiryReceived,
   ReadinessStatus,
   UnauthorizedResponse
 } from './api.schemas';
 
+import { publicFetch } from '../public-fetch';
 import { customFetch } from '../custom-fetch';
 import type { ErrorType , BodyType } from '../custom-fetch';
 
@@ -59,6 +63,79 @@ const withQueryKey = <T extends object, K>(query: T, queryKey: K): T & { queryKe
   }
   return result;
 };
+
+export const getSubmitPublicEnquiryUrl = (productId: string,) => {
+
+
+
+
+  return `/api/v1/public/products/${productId}/enquiries`
+}
+
+/**
+ * Creates shared CRM records atomically. Marketing opt-in requires consent text and version. Separate submissions create separate enquiry events and opportunities.
+ * @summary Submit a product enquiry without signing in
+ */
+export const submitPublicEnquiry = async (productId: string,
+    publicEnquiryInput: PublicEnquiryInput, options?: Parameters<typeof publicFetch>[1]): Promise<PublicEnquiryReceived> => {
+
+  return publicFetch<PublicEnquiryReceived>(getSubmitPublicEnquiryUrl(productId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(publicEnquiryInput)
+  }
+);}
+
+
+
+
+
+export const getSubmitPublicEnquiryMutationOptions = <TError = PublicEnquiryError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof submitPublicEnquiry>>, TError,{productId: string;data: PublicEnquiryInput}, TContext>, request?: SecondParameter<typeof publicFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof submitPublicEnquiry>>, TError,{productId: string;data: PublicEnquiryInput}, TContext> => {
+
+const mutationKey = ['submitPublicEnquiry'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof submitPublicEnquiry>>, {productId: string;data: PublicEnquiryInput}> = (props) => {
+          const {productId,data} = props ?? {};
+
+          return  submitPublicEnquiry(productId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SubmitPublicEnquiryMutationResult = NonNullable<Awaited<ReturnType<typeof submitPublicEnquiry>>>
+    export type SubmitPublicEnquiryMutationBody = PublicEnquiryInput
+    export type SubmitPublicEnquiryMutationError = PublicEnquiryError
+
+    /**
+ * @summary Submit a product enquiry without signing in
+ */
+export const useSubmitPublicEnquiry = <TError = PublicEnquiryError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof submitPublicEnquiry>>, TError,{productId: string;data: PublicEnquiryInput}, TContext>, request?: SecondParameter<typeof publicFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof submitPublicEnquiry>>,
+        TError,
+        {productId: string;data: PublicEnquiryInput},
+        TContext
+      > => {
+      return useMutation(getSubmitPublicEnquiryMutationOptions(options));
+    }
 
 export const getRootHealthCheckUrl = () => {
 

@@ -1,3 +1,4 @@
+import { submitPublicEnquiry } from "../src/generated/api";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
@@ -52,5 +53,53 @@ test("shared fetch attaches tokens only to the configured API, and safely handle
     setBaseUrl(null);
     setAuthTokenGetter(null);
     setUnauthorizedHandler(null);
+  }
+});
+
+test("generated public enquiry client sends no token or cookies even when Vapp auth is configured", async () => {
+  const originalFetch = globalThis.fetch;
+  let authCalls = 0;
+  let captured: RequestInit | undefined;
+  setBaseUrl("https://api.example");
+  setAuthTokenGetter(() => {
+    authCalls++;
+    return null;
+  });
+  globalThis.fetch = async (_input, init) => {
+    captured = init;
+    return new Response(
+      JSON.stringify({
+        status: "received",
+        enquiryId: "event_00000000000000000000000001",
+      }),
+      { status: 201, headers: { "content-type": "application/json" } },
+    );
+  };
+  try {
+    await submitPublicEnquiry(
+      "product_00000000000000000000000001",
+      {
+        name: "Ada",
+        workEmail: "ada@example.com",
+        company: "Example",
+        message: "Hello",
+      },
+      {
+        headers: { authorization: "Bearer should-not-be-sent" },
+        credentials: "include",
+      },
+    );
+    assert.equal(authCalls, 0);
+    assert.equal(new Headers(captured?.headers).get("authorization"), null);
+    assert.equal(captured?.credentials, "omit");
+    await assert.rejects(
+      customFetch("/api/v1/products"),
+      AuthenticationRequiredError,
+    );
+    assert.equal(authCalls, 1);
+  } finally {
+    globalThis.fetch = originalFetch;
+    setBaseUrl(null);
+    setAuthTokenGetter(null);
   }
 });

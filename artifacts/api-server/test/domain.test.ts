@@ -836,3 +836,87 @@ test("command failures never log configuration credentials", async () => {
   }
   process.exitCode = 0;
 });
+
+test("canonical setup plans and provisions only the missing public enquiry indexes", async () => {
+  const db = new FakeDb();
+  await setupDatabase(db as unknown as Db);
+  const required = [
+    ["contact_points", "public_enquiry_email_unique"],
+    ["organisations", "public_enquiry_org_unique"],
+  ];
+  for (const [collection, index] of required) {
+    const target = db.collection(collection);
+    target.indexes = target.indexes.filter((item) => item.name !== index);
+    target.documents.set("existing", {
+      id: "existing",
+      source: { system: "legacy_import" },
+    });
+  }
+  const before = [...db.collections].map(([name, collection]) => [
+    name,
+    collection.mutationCount,
+  ]);
+  const plan = await planDatabaseSetup(db as unknown as Db);
+  assert.deepEqual(
+    plan.indexesToCreate.sort(),
+    required.map(([collection, index]) => `${collection}.${index}`).sort(),
+  );
+  assert.deepEqual(plan.collectionsToCreate, []);
+  assert.deepEqual(plan.uniqueIndexRisks, []);
+  assert.deepEqual(
+    [...db.collections].map(([name, collection]) => [
+      name,
+      collection.mutationCount,
+    ]),
+    before,
+  );
+  const applied = await setupDatabase(db as unknown as Db);
+  assert.deepEqual(applied.createdIndexes.sort(), plan.indexesToCreate.sort());
+  for (const [collection, index] of required) {
+    const target = db.collection(collection);
+    assert.equal(
+      target.indexes.find((item) => item.name === index)?.unique,
+      true,
+    );
+    assert.deepEqual(target.documents.get("existing"), {
+      id: "existing",
+      source: { system: "legacy_import" },
+    });
+  }
+  assert.deepEqual(
+    (await setupDatabase(db as unknown as Db)).createdIndexes,
+    [],
+  );
+});
+
+for (const risk of ["confirmed duplicate", "inspection unavailable"]) {
+  test(`setup refuses ${risk} before creating any resources`, async () => {
+    const db = new FakeDb();
+    const contacts = await db.createCollection("contact_points");
+    contacts.documents.set("existing", {
+      id: "existing",
+      type: "email",
+      normalizedValue: "example@example.com",
+      source: { system: "public_enquiry" },
+    });
+    if (risk === "confirmed duplicate")
+      contacts.aggregateResults = [
+        { _id: { key0: "example@example.com" }, count: 2 },
+      ];
+    else
+      contacts.aggregate = () => ({
+        toArray: async () => {
+          throw new Error("Unavailable");
+        },
+      });
+    const before = [...db.collections.keys()];
+    const mutations = db.mutationCount;
+    await assert.rejects(
+      setupDatabase(db as unknown as Db),
+      /Unresolved unique index risks/,
+    );
+    assert.deepEqual([...db.collections.keys()], before);
+    assert.equal(db.mutationCount, mutations);
+    assert.equal(contacts.mutationCount, 0);
+  });
+}

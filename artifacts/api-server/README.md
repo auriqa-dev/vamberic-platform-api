@@ -223,3 +223,10 @@ and pushes the Docker image to Amazon ECR. It uses the GitHub `dev` environment
 and repository variables `AWS_DEPLOY_ROLE_ARN`, `AWS_REGION`, and
 `ECR_REPOSITORY`. Images are tagged with the short Git commit SHA; the workflow
 does not create a `latest` tag and does not deploy ECS or production.
+
+## Public product enquiries
+
+`POST /api/v1/public/products/:productId/enquiries` is intentionally public and
+writes into the existing shared CRM collections. Its separate origin allowlist,
+rate limit, transaction/index prerequisites, consent contract and HVM integration
+example are documented in [Public product enquiries](../../docs/public-enquiries.md).

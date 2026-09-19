@@ -5,6 +5,7 @@ function isBrowserOrigin(value: string): boolean {
     const url = new URL(value);
     return (
       (url.protocol === "http:" || url.protocol === "https:") &&
+      !value.includes("*") &&
       url.origin === value &&
       url.username === "" &&
       url.password === ""
@@ -49,6 +50,25 @@ const configSchema = z.object({
       message:
         "CORS_ORIGINS must contain comma-separated HTTP(S) origins without paths",
     }),
+  PUBLIC_ENQUIRY_CORS_ORIGINS: z
+    .string()
+    .default("")
+    .transform((value) =>
+      value
+        .split(",")
+        .map((origin) => origin.trim())
+        .filter(Boolean),
+    )
+    .refine(
+      (origins) => origins.every(isBrowserOrigin),
+      "PUBLIC_ENQUIRY_CORS_ORIGINS must list explicit HTTP(S) origins without paths or wildcards",
+    ),
+  PUBLIC_ENQUIRY_RATE_LIMIT_MAX_REQUESTS: z.coerce
+    .number()
+    .int()
+    .min(1)
+    .max(20)
+    .default(5),
   RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(60000),
   RATE_LIMIT_MAX_REQUESTS: z.coerce.number().int().positive().default(100),
   AWS_REGION: z.string().regex(/^[a-z]{2}(?:-[a-z]+)+-\d$/),
@@ -68,6 +88,10 @@ export type AppConfig = {
   version: string;
   logLevel: "fatal" | "error" | "warn" | "info" | "debug" | "trace" | "silent";
   corsOrigins: string[];
+  publicEnquiry: {
+    corsOrigins: string[];
+    rateLimit: { windowMs: number; maxRequests: number };
+  };
   rateLimit: {
     windowMs: number;
     maxRequests: number;
@@ -108,6 +132,13 @@ export function parseConfig(
     version: parsed.data.API_VERSION,
     logLevel: parsed.data.LOG_LEVEL,
     corsOrigins: parsed.data.CORS_ORIGINS,
+    publicEnquiry: {
+      corsOrigins: parsed.data.PUBLIC_ENQUIRY_CORS_ORIGINS,
+      rateLimit: {
+        windowMs: 60000,
+        maxRequests: parsed.data.PUBLIC_ENQUIRY_RATE_LIMIT_MAX_REQUESTS,
+      },
+    },
     rateLimit: {
       windowMs: parsed.data.RATE_LIMIT_WINDOW_MS,
       maxRequests: parsed.data.RATE_LIMIT_MAX_REQUESTS,

@@ -174,7 +174,7 @@ export const ProductSchema = withId("product").extend({
 
 export const PersonSchema = withId("person").extend({
   firstName: nonEmpty.max(100),
-  lastName: nonEmpty.max(100),
+  lastName: nonEmpty.max(100).optional(),
   displayName: nonEmpty.max(220).optional(),
   title: z.string().max(200).optional(),
   lifecycleStatus: z.enum(["active", "inactive", "archived"]).default("active"),

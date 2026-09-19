@@ -5,6 +5,129 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+export interface PublicEnquiryInput {
+  /**
+     * Full name; single-word names accepted
+     * @minLength 1
+     * @maxLength 100
+     */
+  name: string;
+  /**
+     * Email address; trimmed and normalized for matching
+     * @minLength 1
+     * @maxLength 254
+     */
+  workEmail: string;
+  /**
+     * Company name; exact normalized whitespace match only
+     * @minLength 1
+     * @maxLength 300
+     */
+  company: string;
+  /**
+     * Enquiry message; plain text
+     * @minLength 1
+     * @maxLength 4000
+     */
+  message: string;
+  /**
+     * Domain or HTTP(S) website; never fetched
+     * @minLength 1
+     * @maxLength 253
+     */
+  website?: string;
+  /**
+     * Submitted job title
+     * @minLength 1
+     * @maxLength 200
+     */
+  jobTitle?: string;
+  /**
+     * Service of interest; not an Offer identifier
+     * @minLength 1
+     * @maxLength 200
+     */
+  serviceInterest?: string;
+  /**
+     * Attribution source
+     * @minLength 1
+     * @maxLength 200
+     */
+  source?: string;
+  /**
+     * Attribution medium
+     * @minLength 1
+     * @maxLength 200
+     */
+  medium?: string;
+  /**
+     * Campaign label, not an internal Campaign ID
+     * @minLength 1
+     * @maxLength 200
+     */
+  campaign?: string;
+  /**
+     * Attribution content
+     * @minLength 1
+     * @maxLength 200
+     */
+  content?: string;
+  /**
+     * Attribution term
+     * @minLength 1
+     * @maxLength 200
+     */
+  term?: string;
+  /**
+     * HTTP(S) landing page URL
+     * @minLength 1
+     * @maxLength 1000
+     */
+  landingPage?: string;
+  /**
+     * HTTP(S) referrer URL
+     * @minLength 1
+     * @maxLength 1000
+     */
+  referrer?: string;
+  /**
+     * Exact wording shown; required when marketingOptIn is true
+     * @minLength 1
+     * @maxLength 1000
+     */
+  marketingConsentText?: string;
+  /**
+     * Wording version; required when marketingOptIn is true
+     * @minLength 1
+     * @maxLength 100
+     */
+  marketingConsentVersion?: string;
+  /** Only explicit true with evidence creates a product-scoped email marketing consent decision */
+  marketingOptIn?: boolean;
+}
+
+export type PublicEnquiryReceivedStatus = typeof PublicEnquiryReceivedStatus[keyof typeof PublicEnquiryReceivedStatus];
+
+
+export const PublicEnquiryReceivedStatus = {
+  received: 'received',
+} as const;
+
+export interface PublicEnquiryReceived {
+  status: PublicEnquiryReceivedStatus;
+  /** @pattern ^event_[0-7][0-9abcdefghjkmnpqrstvwxyz]{25}$ */
+  enquiryId: string;
+}
+
+export type PublicEnquiryErrorError = {
+  code: string;
+  message: string;
+};
+
+export interface PublicEnquiryError {
+  error: PublicEnquiryErrorError;
+}
+
 export interface ErrorResponse {
   error: string;
 }

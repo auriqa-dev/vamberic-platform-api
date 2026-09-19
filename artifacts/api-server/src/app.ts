@@ -1,3 +1,7 @@
+import {
+  createPublicEnquiriesRouter,
+  type EnquirySpamCheck,
+} from "./routes/public-enquiries";
 import { authenticate, type JwtKeyResolver } from "./middlewares/auth";
 import express, { type Express } from "express";
 import cors from "cors";
@@ -14,7 +18,10 @@ import type { MongoService } from "./services/mongo";
 export function createApp(
   config: AppConfig,
   mongo: MongoService,
-  options: { jwtKeyResolver?: JwtKeyResolver } = {},
+  options: {
+    jwtKeyResolver?: JwtKeyResolver;
+    enquirySpamCheck?: EnquirySpamCheck;
+  } = {},
 ): Express {
   const app: Express = express();
 
@@ -27,6 +34,8 @@ export function createApp(
       genReqId: (req) => req.headers["x-request-id"]?.toString() ?? req.id,
       serializers: {
         req(req) {
+          if (/^\/api\/v1\/public(?:\/|$)/i.test(req.url ?? ""))
+            return { method: req.method, url: "/api/v1/public" };
           return {
             id: req.id,
             method: req.method,
@@ -42,6 +51,10 @@ export function createApp(
     }),
   );
   app.use(helmet());
+  app.use(
+    "/api/v1/public",
+    createPublicEnquiriesRouter(config, mongo, options.enquirySpamCheck),
+  );
   app.use(
     cors({
       origin: config.corsOrigins.length > 0 ? config.corsOrigins : false,

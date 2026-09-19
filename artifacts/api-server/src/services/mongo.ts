@@ -1,4 +1,4 @@
-import { MongoClient, type Db } from "mongodb";
+import { MongoClient, type ClientSession, type Db } from "mongodb";
 
 export const DATABASE_NAME = "vamberic_studio";
 
@@ -6,6 +6,9 @@ export interface MongoService {
   isAvailable(): Promise<boolean>;
   database(): Promise<Db>;
   close(): Promise<void>;
+  withTransaction?<T>(
+    work: (db: Db, session: ClientSession) => Promise<T>,
+  ): Promise<T>;
 }
 
 export class MongoClientService implements MongoService {
@@ -32,6 +35,25 @@ export class MongoClientService implements MongoService {
   async database(): Promise<Db> {
     const client = await this.connect();
     return client.db(DATABASE_NAME);
+  }
+
+  async withTransaction<T>(
+    work: (db: Db, session: ClientSession) => Promise<T>,
+  ): Promise<T> {
+    const client = await this.connect();
+    const session = client.startSession();
+    try {
+      return await session.withTransaction(
+        () => work(client.db(DATABASE_NAME), session),
+        {
+          readConcern: { level: "snapshot" },
+          writeConcern: { w: "majority" },
+          maxCommitTimeMS: 10000,
+        },
+      );
+    } finally {
+      await session.endSession();
+    }
   }
 
   async close(): Promise<void> {
