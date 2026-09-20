@@ -9,6 +9,410 @@ import * as zod from 'zod';
 
 
 /**
+ * Private, read-only CRM projection. Archived records are excluded. Detail events are limited to the most recent 10; linked relationships are current for people and organisations.
+ * @summary List people
+ */
+export const listPeopleQuerySearchMax = 200;
+
+export const listPeopleQueryLimitDefault = 50;
+export const listPeopleQueryLimitMax = 100;
+
+export const listPeopleQueryOffsetDefault = 0;
+export const listPeopleQueryOffsetMin = 0;
+export const listPeopleQueryOffsetMax = 100000;
+
+
+
+export const ListPeopleQueryParams = zod.object({
+  "search": zod.coerce.string().max(listPeopleQuerySearchMax).optional(),
+  "limit": zod.coerce.number().int().min(1).max(listPeopleQueryLimitMax).default(listPeopleQueryLimitDefault),
+  "offset": zod.coerce.number().int().min(listPeopleQueryOffsetMin).max(listPeopleQueryOffsetMax).default(listPeopleQueryOffsetDefault)
+})
+
+export const listPeopleResponseTotalMin = 0;
+
+export const listPeopleResponseLimitMin = 0;
+
+export const listPeopleResponseOffsetMin = 0;
+
+
+
+export const ListPeopleResponse = zod.object({
+  "items": zod.array(zod.object({
+  "id": zod.string(),
+  "createdAt": zod.coerce.date(),
+  "sourceSystem": zod.string().optional(),
+  "firstName": zod.string(),
+  "lastName": zod.string().optional(),
+  "displayName": zod.string(),
+  "primaryEmail": zod.string().optional(),
+  "lifecycleStatus": zod.string(),
+  "currentOrganisations": zod.array(zod.object({
+  "organisation": zod.object({
+  "id": zod.string(),
+  "name": zod.string()
+}),
+  "jobTitle": zod.string().optional()
+}))
+})),
+  "total": zod.number().int().min(listPeopleResponseTotalMin),
+  "limit": zod.number().int().min(listPeopleResponseLimitMin),
+  "offset": zod.number().int().min(listPeopleResponseOffsetMin)
+})
+
+
+/**
+ * Private, read-only CRM projection. Archived records are excluded. Detail events are limited to the most recent 10; linked relationships are current for people and organisations.
+ * @summary Get person detail
+ */
+export const getPersonPathIdRegExp = new RegExp('^person_[0-7][0-9abcdefghjkmnpqrstvwxyz]{25}$');
+
+
+export const GetPersonParams = zod.object({
+  "id": zod.coerce.string().regex(getPersonPathIdRegExp)
+})
+
+export const getPersonResponseTwoOpportunitiesItemEstimatedValueMinorMin = 0;
+
+
+
+export const GetPersonResponse = zod.object({
+  "id": zod.string(),
+  "createdAt": zod.coerce.date(),
+  "sourceSystem": zod.string().optional(),
+  "firstName": zod.string(),
+  "lastName": zod.string().optional(),
+  "displayName": zod.string(),
+  "primaryEmail": zod.string().optional(),
+  "lifecycleStatus": zod.string(),
+  "currentOrganisations": zod.array(zod.object({
+  "organisation": zod.object({
+  "id": zod.string(),
+  "name": zod.string()
+}),
+  "jobTitle": zod.string().optional()
+}))
+}).and(zod.object({
+  "contactPoints": zod.array(zod.object({
+  "id": zod.string(),
+  "type": zod.string(),
+  "value": zod.string(),
+  "primary": zod.boolean(),
+  "validity": zod.string(),
+  "deliverability": zod.string(),
+  "suppressed": zod.boolean()
+})),
+  "products": zod.array(zod.object({
+  "id": zod.string(),
+  "product": zod.object({
+  "id": zod.string(),
+  "name": zod.string()
+}),
+  "status": zod.string(),
+  "acquisitionSource": zod.string().optional()
+})),
+  "opportunities": zod.array(zod.object({
+  "id": zod.string(),
+  "createdAt": zod.coerce.date(),
+  "sourceSystem": zod.string().optional(),
+  "updatedAt": zod.coerce.date(),
+  "name": zod.string(),
+  "product": zod.object({
+  "id": zod.string(),
+  "name": zod.string()
+}),
+  "organisation": zod.object({
+  "id": zod.string(),
+  "name": zod.string()
+}),
+  "people": zod.array(zod.object({
+  "id": zod.string(),
+  "name": zod.string()
+})),
+  "stage": zod.string(),
+  "status": zod.enum(['open', 'won', 'lost', 'paused']),
+  "estimatedValueMinor": zod.number().int().min(getPersonResponseTwoOpportunitiesItemEstimatedValueMinorMin).optional(),
+  "currency": zod.string().optional()
+})),
+  "recentEvents": zod.array(zod.object({
+  "id": zod.string(),
+  "eventType": zod.string(),
+  "occurredAt": zod.coerce.date(),
+  "productId": zod.string().optional(),
+  "personId": zod.string().optional(),
+  "organisationId": zod.string().optional(),
+  "opportunityId": zod.string().optional(),
+  "message": zod.string().optional(),
+  "serviceInterest": zod.string().optional(),
+  "source": zod.string().optional(),
+  "medium": zod.string().optional(),
+  "campaign": zod.string().optional(),
+  "content": zod.string().optional(),
+  "term": zod.string().optional(),
+  "landingPage": zod.string().optional(),
+  "referrer": zod.string().optional()
+}))
+}))
+
+
+/**
+ * Private, read-only CRM projection. Archived records are excluded. Detail events are limited to the most recent 10; linked relationships are current for people and organisations.
+ * @summary List organisations
+ */
+export const listOrganisationsQuerySearchMax = 200;
+
+export const listOrganisationsQueryLimitDefault = 50;
+export const listOrganisationsQueryLimitMax = 100;
+
+export const listOrganisationsQueryOffsetDefault = 0;
+export const listOrganisationsQueryOffsetMin = 0;
+export const listOrganisationsQueryOffsetMax = 100000;
+
+
+
+export const ListOrganisationsQueryParams = zod.object({
+  "search": zod.coerce.string().max(listOrganisationsQuerySearchMax).optional(),
+  "limit": zod.coerce.number().int().min(1).max(listOrganisationsQueryLimitMax).default(listOrganisationsQueryLimitDefault),
+  "offset": zod.coerce.number().int().min(listOrganisationsQueryOffsetMin).max(listOrganisationsQueryOffsetMax).default(listOrganisationsQueryOffsetDefault)
+})
+
+export const listOrganisationsResponseItemsItemPeopleCountMin = 0;
+
+export const listOrganisationsResponseItemsItemOpportunityCountMin = 0;
+
+export const listOrganisationsResponseTotalMin = 0;
+
+export const listOrganisationsResponseLimitMin = 0;
+
+export const listOrganisationsResponseOffsetMin = 0;
+
+
+
+export const ListOrganisationsResponse = zod.object({
+  "items": zod.array(zod.object({
+  "id": zod.string(),
+  "createdAt": zod.coerce.date(),
+  "sourceSystem": zod.string().optional(),
+  "name": zod.string(),
+  "domain": zod.string().optional(),
+  "lifecycleStatus": zod.string(),
+  "peopleCount": zod.number().int().min(listOrganisationsResponseItemsItemPeopleCountMin),
+  "opportunityCount": zod.number().int().min(listOrganisationsResponseItemsItemOpportunityCountMin)
+})),
+  "total": zod.number().int().min(listOrganisationsResponseTotalMin),
+  "limit": zod.number().int().min(listOrganisationsResponseLimitMin),
+  "offset": zod.number().int().min(listOrganisationsResponseOffsetMin)
+})
+
+
+/**
+ * Private, read-only CRM projection. Archived records are excluded. Detail events are limited to the most recent 10; linked relationships are current for people and organisations.
+ * @summary Get organisation detail
+ */
+export const getOrganisationPathIdRegExp = new RegExp('^org_[0-7][0-9abcdefghjkmnpqrstvwxyz]{25}$');
+
+
+export const GetOrganisationParams = zod.object({
+  "id": zod.coerce.string().regex(getOrganisationPathIdRegExp)
+})
+
+export const getOrganisationResponseOnePeopleCountMin = 0;
+
+export const getOrganisationResponseOneOpportunityCountMin = 0;
+
+export const getOrganisationResponseTwoOpportunitiesItemEstimatedValueMinorMin = 0;
+
+
+
+export const GetOrganisationResponse = zod.object({
+  "id": zod.string(),
+  "createdAt": zod.coerce.date(),
+  "sourceSystem": zod.string().optional(),
+  "name": zod.string(),
+  "domain": zod.string().optional(),
+  "lifecycleStatus": zod.string(),
+  "peopleCount": zod.number().int().min(getOrganisationResponseOnePeopleCountMin),
+  "opportunityCount": zod.number().int().min(getOrganisationResponseOneOpportunityCountMin)
+}).and(zod.object({
+  "people": zod.array(zod.object({
+  "id": zod.string(),
+  "createdAt": zod.coerce.date(),
+  "sourceSystem": zod.string().optional(),
+  "firstName": zod.string(),
+  "lastName": zod.string().optional(),
+  "displayName": zod.string(),
+  "primaryEmail": zod.string().optional(),
+  "lifecycleStatus": zod.string(),
+  "currentOrganisations": zod.array(zod.object({
+  "organisation": zod.object({
+  "id": zod.string(),
+  "name": zod.string()
+}),
+  "jobTitle": zod.string().optional()
+}))
+})),
+  "opportunities": zod.array(zod.object({
+  "id": zod.string(),
+  "createdAt": zod.coerce.date(),
+  "sourceSystem": zod.string().optional(),
+  "updatedAt": zod.coerce.date(),
+  "name": zod.string(),
+  "product": zod.object({
+  "id": zod.string(),
+  "name": zod.string()
+}),
+  "organisation": zod.object({
+  "id": zod.string(),
+  "name": zod.string()
+}),
+  "people": zod.array(zod.object({
+  "id": zod.string(),
+  "name": zod.string()
+})),
+  "stage": zod.string(),
+  "status": zod.enum(['open', 'won', 'lost', 'paused']),
+  "estimatedValueMinor": zod.number().int().min(getOrganisationResponseTwoOpportunitiesItemEstimatedValueMinorMin).optional(),
+  "currency": zod.string().optional()
+})),
+  "products": zod.array(zod.object({
+  "id": zod.string(),
+  "product": zod.object({
+  "id": zod.string(),
+  "name": zod.string()
+}),
+  "status": zod.string(),
+  "acquisitionSource": zod.string().optional()
+}))
+}))
+
+
+/**
+ * Private, read-only CRM projection. Archived records are excluded. Detail events are limited to the most recent 10; linked relationships are current for people and organisations.
+ * @summary List opportunities
+ */
+export const listOpportunitiesQuerySearchMax = 200;
+
+export const listOpportunitiesQueryLimitDefault = 50;
+export const listOpportunitiesQueryLimitMax = 100;
+
+export const listOpportunitiesQueryOffsetDefault = 0;
+export const listOpportunitiesQueryOffsetMin = 0;
+export const listOpportunitiesQueryOffsetMax = 100000;
+
+export const listOpportunitiesQueryStageMax = 100;
+
+export const listOpportunitiesQueryProductIdRegExp = new RegExp('^product_[0-7][0-9abcdefghjkmnpqrstvwxyz]{25}$');
+
+
+export const ListOpportunitiesQueryParams = zod.object({
+  "search": zod.coerce.string().max(listOpportunitiesQuerySearchMax).optional(),
+  "limit": zod.coerce.number().int().min(1).max(listOpportunitiesQueryLimitMax).default(listOpportunitiesQueryLimitDefault),
+  "offset": zod.coerce.number().int().min(listOpportunitiesQueryOffsetMin).max(listOpportunitiesQueryOffsetMax).default(listOpportunitiesQueryOffsetDefault),
+  "status": zod.enum(['open', 'won', 'lost', 'paused']).optional(),
+  "stage": zod.coerce.string().min(1).max(listOpportunitiesQueryStageMax).optional(),
+  "productId": zod.coerce.string().regex(listOpportunitiesQueryProductIdRegExp).optional()
+})
+
+export const listOpportunitiesResponseItemsItemEstimatedValueMinorMin = 0;
+
+export const listOpportunitiesResponseTotalMin = 0;
+
+export const listOpportunitiesResponseLimitMin = 0;
+
+export const listOpportunitiesResponseOffsetMin = 0;
+
+
+
+export const ListOpportunitiesResponse = zod.object({
+  "items": zod.array(zod.object({
+  "id": zod.string(),
+  "createdAt": zod.coerce.date(),
+  "sourceSystem": zod.string().optional(),
+  "updatedAt": zod.coerce.date(),
+  "name": zod.string(),
+  "product": zod.object({
+  "id": zod.string(),
+  "name": zod.string()
+}),
+  "organisation": zod.object({
+  "id": zod.string(),
+  "name": zod.string()
+}),
+  "people": zod.array(zod.object({
+  "id": zod.string(),
+  "name": zod.string()
+})),
+  "stage": zod.string(),
+  "status": zod.enum(['open', 'won', 'lost', 'paused']),
+  "estimatedValueMinor": zod.number().int().min(listOpportunitiesResponseItemsItemEstimatedValueMinorMin).optional(),
+  "currency": zod.string().optional()
+})),
+  "total": zod.number().int().min(listOpportunitiesResponseTotalMin),
+  "limit": zod.number().int().min(listOpportunitiesResponseLimitMin),
+  "offset": zod.number().int().min(listOpportunitiesResponseOffsetMin)
+})
+
+
+/**
+ * Private, read-only CRM projection. Archived records are excluded. Detail events are limited to the most recent 10; linked relationships are current for people and organisations.
+ * @summary Get opportunity detail
+ */
+export const getOpportunityPathIdRegExp = new RegExp('^opportunity_[0-7][0-9abcdefghjkmnpqrstvwxyz]{25}$');
+
+
+export const GetOpportunityParams = zod.object({
+  "id": zod.coerce.string().regex(getOpportunityPathIdRegExp)
+})
+
+export const getOpportunityResponseOneEstimatedValueMinorMin = 0;
+
+
+
+export const GetOpportunityResponse = zod.object({
+  "id": zod.string(),
+  "createdAt": zod.coerce.date(),
+  "sourceSystem": zod.string().optional(),
+  "updatedAt": zod.coerce.date(),
+  "name": zod.string(),
+  "product": zod.object({
+  "id": zod.string(),
+  "name": zod.string()
+}),
+  "organisation": zod.object({
+  "id": zod.string(),
+  "name": zod.string()
+}),
+  "people": zod.array(zod.object({
+  "id": zod.string(),
+  "name": zod.string()
+})),
+  "stage": zod.string(),
+  "status": zod.enum(['open', 'won', 'lost', 'paused']),
+  "estimatedValueMinor": zod.number().int().min(getOpportunityResponseOneEstimatedValueMinorMin).optional(),
+  "currency": zod.string().optional()
+}).and(zod.object({
+  "enquiryEvents": zod.array(zod.object({
+  "id": zod.string(),
+  "eventType": zod.string(),
+  "occurredAt": zod.coerce.date(),
+  "productId": zod.string().optional(),
+  "personId": zod.string().optional(),
+  "organisationId": zod.string().optional(),
+  "opportunityId": zod.string().optional(),
+  "message": zod.string().optional(),
+  "serviceInterest": zod.string().optional(),
+  "source": zod.string().optional(),
+  "medium": zod.string().optional(),
+  "campaign": zod.string().optional(),
+  "content": zod.string().optional(),
+  "term": zod.string().optional(),
+  "landingPage": zod.string().optional(),
+  "referrer": zod.string().optional()
+}))
+}))
+
+
+/**
  * Creates shared CRM records atomically. Marketing opt-in requires consent text and version. Separate submissions create separate enquiry events and opportunities.
  * @summary Submit a product enquiry without signing in
  */
@@ -19,7 +423,9 @@ export const SubmitPublicEnquiryParams = zod.object({
   "productId": zod.coerce.string().regex(submitPublicEnquiryPathProductIdRegExp)
 })
 
-export const submitPublicEnquiryBodyNameMax = 100;
+export const submitPublicEnquiryBodyFirstNameMax = 100;
+
+export const submitPublicEnquiryBodyLastNameMax = 100;
 
 export const submitPublicEnquiryBodyWorkEmailMax = 254;
 
@@ -54,7 +460,8 @@ export const submitPublicEnquiryBodyMarketingConsentVersionMax = 100;
 
 
 export const SubmitPublicEnquiryBody = zod.object({
-  "name": zod.string().min(1).max(submitPublicEnquiryBodyNameMax).describe('Full name; single-word names accepted'),
+  "firstName": zod.string().min(1).max(submitPublicEnquiryBodyFirstNameMax).describe('Explicit given name; trimmed, never split'),
+  "lastName": zod.string().min(1).max(submitPublicEnquiryBodyLastNameMax).describe('Explicit family name; trimmed, never split'),
   "workEmail": zod.string().email().min(1).max(submitPublicEnquiryBodyWorkEmailMax).describe('Email address; trimmed and normalized for matching'),
   "company": zod.string().min(1).max(submitPublicEnquiryBodyCompanyMax).describe('Company name; exact normalized whitespace match only'),
   "message": zod.string().min(1).max(submitPublicEnquiryBodyMessageMax).describe('Enquiry message; plain text'),

@@ -10,6 +10,14 @@ import { AppLayout } from "@/components/layout";
 import Dashboard from "@/pages/dashboard";
 import ProductsList from "@/pages/products/list";
 import ProductDetail from "@/pages/products/detail";
+import {
+  PeopleList,
+  PersonDetail,
+  OrganisationsList,
+  OrganisationDetail,
+  OpportunitiesList,
+  OpportunityDetail,
+} from "@/pages/crm";
 import ComingSoon from "@/pages/coming-soon";
 
 import { queryClient } from "./lib/query-client";
@@ -24,15 +32,12 @@ function Router() {
           <Route path="/products" component={ProductsList} />
           <Route path="/products/:id" component={ProductDetail} />
 
-          <Route path="/people">
-            <ComingSoon title="People" />
-          </Route>
-          <Route path="/organisations">
-            <ComingSoon title="Organisations" />
-          </Route>
-          <Route path="/opportunities">
-            <ComingSoon title="Opportunities" />
-          </Route>
+          <Route path="/people" component={PeopleList} />
+          <Route path="/people/:id" component={PersonDetail} />
+          <Route path="/organisations" component={OrganisationsList} />
+          <Route path="/organisations/:id" component={OrganisationDetail} />
+          <Route path="/opportunities" component={OpportunitiesList} />
+          <Route path="/opportunities/:id" component={OpportunityDetail} />
           <Route path="/campaigns">
             <ComingSoon title="Campaigns" />
           </Route>

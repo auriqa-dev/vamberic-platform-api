@@ -22,8 +22,18 @@ import type {
 import type {
   BadRequestResponse,
   ConflictResponse,
+  CrmOpportunitiesPage,
+  CrmOpportunityDetail,
+  CrmOrganisationDetail,
+  CrmOrganisationsPage,
+  CrmPeoplePage,
+  CrmPersonDetail,
   DashboardSummary,
+  ErrorResponse,
   HealthStatus,
+  ListOpportunitiesParams,
+  ListOrganisationsParams,
+  ListPeopleParams,
   ListProductsParams,
   NotFoundResponse,
   Product,
@@ -36,9 +46,9 @@ import type {
   UnauthorizedResponse
 } from './api.schemas';
 
-import { publicFetch } from '../public-fetch';
 import { customFetch } from '../custom-fetch';
 import type { ErrorType , BodyType } from '../custom-fetch';
+import { publicFetch } from '../public-fetch';
 
 type AwaitedInput<T> = PromiseLike<T> | T;
 
@@ -63,6 +73,495 @@ const withQueryKey = <T extends object, K>(query: T, queryKey: K): T & { queryKe
   }
   return result;
 };
+
+export const getListPeopleUrl = (params?: ListPeopleParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/v1/people?${stringifiedParams}` : `/api/v1/people`
+}
+
+/**
+ * Private, read-only CRM projection. Archived records are excluded. Detail events are limited to the most recent 10; linked relationships are current for people and organisations.
+ * @summary List people
+ */
+export const listPeople = async (params?: ListPeopleParams, options?: Parameters<typeof customFetch>[1]): Promise<CrmPeoplePage> => {
+
+  return customFetch<CrmPeoplePage>(getListPeopleUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListPeopleQueryKey = (params?: ListPeopleParams,) => {
+    return [
+    `/api/v1/people`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListPeopleQueryOptions = <TData = Awaited<ReturnType<typeof listPeople>>, TError = ErrorType<ErrorResponse>>(params?: ListPeopleParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listPeople>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListPeopleQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listPeople>>> = ({ signal }) => listPeople(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listPeople>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListPeopleQueryResult = NonNullable<Awaited<ReturnType<typeof listPeople>>>
+export type ListPeopleQueryError = ErrorType<ErrorResponse>
+
+
+/**
+ * @summary List people
+ */
+
+export function useListPeople<TData = Awaited<ReturnType<typeof listPeople>>, TError = ErrorType<ErrorResponse>>(
+ params?: ListPeopleParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listPeople>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListPeopleQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetPersonUrl = (id: string,) => {
+
+
+
+
+  return `/api/v1/people/${id}`
+}
+
+/**
+ * Private, read-only CRM projection. Archived records are excluded. Detail events are limited to the most recent 10; linked relationships are current for people and organisations.
+ * @summary Get person detail
+ */
+export const getPerson = async (id: string, options?: Parameters<typeof customFetch>[1]): Promise<CrmPersonDetail> => {
+
+  return customFetch<CrmPersonDetail>(getGetPersonUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetPersonQueryKey = (id: string,) => {
+    return [
+    `/api/v1/people/${id}`
+    ] as const;
+    }
+
+
+export const getGetPersonQueryOptions = <TData = Awaited<ReturnType<typeof getPerson>>, TError = ErrorType<ErrorResponse>>(id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPerson>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetPersonQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getPerson>>> = ({ signal }) => getPerson(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getPerson>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetPersonQueryResult = NonNullable<Awaited<ReturnType<typeof getPerson>>>
+export type GetPersonQueryError = ErrorType<ErrorResponse>
+
+
+/**
+ * @summary Get person detail
+ */
+
+export function useGetPerson<TData = Awaited<ReturnType<typeof getPerson>>, TError = ErrorType<ErrorResponse>>(
+ id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPerson>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetPersonQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getListOrganisationsUrl = (params?: ListOrganisationsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/v1/organisations?${stringifiedParams}` : `/api/v1/organisations`
+}
+
+/**
+ * Private, read-only CRM projection. Archived records are excluded. Detail events are limited to the most recent 10; linked relationships are current for people and organisations.
+ * @summary List organisations
+ */
+export const listOrganisations = async (params?: ListOrganisationsParams, options?: Parameters<typeof customFetch>[1]): Promise<CrmOrganisationsPage> => {
+
+  return customFetch<CrmOrganisationsPage>(getListOrganisationsUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListOrganisationsQueryKey = (params?: ListOrganisationsParams,) => {
+    return [
+    `/api/v1/organisations`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListOrganisationsQueryOptions = <TData = Awaited<ReturnType<typeof listOrganisations>>, TError = ErrorType<ErrorResponse>>(params?: ListOrganisationsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listOrganisations>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListOrganisationsQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listOrganisations>>> = ({ signal }) => listOrganisations(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listOrganisations>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListOrganisationsQueryResult = NonNullable<Awaited<ReturnType<typeof listOrganisations>>>
+export type ListOrganisationsQueryError = ErrorType<ErrorResponse>
+
+
+/**
+ * @summary List organisations
+ */
+
+export function useListOrganisations<TData = Awaited<ReturnType<typeof listOrganisations>>, TError = ErrorType<ErrorResponse>>(
+ params?: ListOrganisationsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listOrganisations>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListOrganisationsQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetOrganisationUrl = (id: string,) => {
+
+
+
+
+  return `/api/v1/organisations/${id}`
+}
+
+/**
+ * Private, read-only CRM projection. Archived records are excluded. Detail events are limited to the most recent 10; linked relationships are current for people and organisations.
+ * @summary Get organisation detail
+ */
+export const getOrganisation = async (id: string, options?: Parameters<typeof customFetch>[1]): Promise<CrmOrganisationDetail> => {
+
+  return customFetch<CrmOrganisationDetail>(getGetOrganisationUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetOrganisationQueryKey = (id: string,) => {
+    return [
+    `/api/v1/organisations/${id}`
+    ] as const;
+    }
+
+
+export const getGetOrganisationQueryOptions = <TData = Awaited<ReturnType<typeof getOrganisation>>, TError = ErrorType<ErrorResponse>>(id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getOrganisation>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetOrganisationQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getOrganisation>>> = ({ signal }) => getOrganisation(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getOrganisation>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetOrganisationQueryResult = NonNullable<Awaited<ReturnType<typeof getOrganisation>>>
+export type GetOrganisationQueryError = ErrorType<ErrorResponse>
+
+
+/**
+ * @summary Get organisation detail
+ */
+
+export function useGetOrganisation<TData = Awaited<ReturnType<typeof getOrganisation>>, TError = ErrorType<ErrorResponse>>(
+ id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getOrganisation>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetOrganisationQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getListOpportunitiesUrl = (params?: ListOpportunitiesParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/v1/opportunities?${stringifiedParams}` : `/api/v1/opportunities`
+}
+
+/**
+ * Private, read-only CRM projection. Archived records are excluded. Detail events are limited to the most recent 10; linked relationships are current for people and organisations.
+ * @summary List opportunities
+ */
+export const listOpportunities = async (params?: ListOpportunitiesParams, options?: Parameters<typeof customFetch>[1]): Promise<CrmOpportunitiesPage> => {
+
+  return customFetch<CrmOpportunitiesPage>(getListOpportunitiesUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListOpportunitiesQueryKey = (params?: ListOpportunitiesParams,) => {
+    return [
+    `/api/v1/opportunities`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListOpportunitiesQueryOptions = <TData = Awaited<ReturnType<typeof listOpportunities>>, TError = ErrorType<ErrorResponse>>(params?: ListOpportunitiesParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listOpportunities>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListOpportunitiesQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listOpportunities>>> = ({ signal }) => listOpportunities(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listOpportunities>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListOpportunitiesQueryResult = NonNullable<Awaited<ReturnType<typeof listOpportunities>>>
+export type ListOpportunitiesQueryError = ErrorType<ErrorResponse>
+
+
+/**
+ * @summary List opportunities
+ */
+
+export function useListOpportunities<TData = Awaited<ReturnType<typeof listOpportunities>>, TError = ErrorType<ErrorResponse>>(
+ params?: ListOpportunitiesParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listOpportunities>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListOpportunitiesQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetOpportunityUrl = (id: string,) => {
+
+
+
+
+  return `/api/v1/opportunities/${id}`
+}
+
+/**
+ * Private, read-only CRM projection. Archived records are excluded. Detail events are limited to the most recent 10; linked relationships are current for people and organisations.
+ * @summary Get opportunity detail
+ */
+export const getOpportunity = async (id: string, options?: Parameters<typeof customFetch>[1]): Promise<CrmOpportunityDetail> => {
+
+  return customFetch<CrmOpportunityDetail>(getGetOpportunityUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetOpportunityQueryKey = (id: string,) => {
+    return [
+    `/api/v1/opportunities/${id}`
+    ] as const;
+    }
+
+
+export const getGetOpportunityQueryOptions = <TData = Awaited<ReturnType<typeof getOpportunity>>, TError = ErrorType<ErrorResponse>>(id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getOpportunity>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetOpportunityQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getOpportunity>>> = ({ signal }) => getOpportunity(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getOpportunity>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetOpportunityQueryResult = NonNullable<Awaited<ReturnType<typeof getOpportunity>>>
+export type GetOpportunityQueryError = ErrorType<ErrorResponse>
+
+
+/**
+ * @summary Get opportunity detail
+ */
+
+export function useGetOpportunity<TData = Awaited<ReturnType<typeof getOpportunity>>, TError = ErrorType<ErrorResponse>>(
+ id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getOpportunity>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetOpportunityQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getSubmitPublicEnquiryUrl = (productId: string,) => {
 

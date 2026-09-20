@@ -79,7 +79,8 @@ test("generated public enquiry client sends no token or cookies even when Vapp a
     await submitPublicEnquiry(
       "product_00000000000000000000000001",
       {
-        name: "Ada",
+        firstName: "Ada",
+        lastName: "Lovelace",
         workEmail: "ada@example.com",
         company: "Example",
         message: "Hello",

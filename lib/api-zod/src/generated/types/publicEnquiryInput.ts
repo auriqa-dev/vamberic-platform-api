@@ -8,11 +8,17 @@
 
 export interface PublicEnquiryInput {
   /**
-     * Full name; single-word names accepted
+     * Explicit given name; trimmed, never split
      * @minLength 1
      * @maxLength 100
      */
-  name: string;
+  firstName: string;
+  /**
+     * Explicit family name; trimmed, never split
+     * @minLength 1
+     * @maxLength 100
+     */
+  lastName: string;
   /**
      * Email address; trimmed and normalized for matching
      * @minLength 1

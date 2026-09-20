@@ -10,7 +10,8 @@ Send `Content-Type: application/json`. The entire body is limited to **16 KiB**,
 
 | Field                                             | Required    | Limit / meaning                                                                                          |
 | ------------------------------------------------- | ----------- | -------------------------------------------------------------------------------------------------------- |
-| `name`                                            | Yes         | 100 characters; full name; single-word names accepted                                                    |
+| `firstName`                                       | Yes         | 1–100 characters after trimming; explicit given name, never split                                        |
+| `lastName`                                        | Yes         | 1–100 characters after trimming; explicit family name, never split                                       |
 | `workEmail`                                       | Yes         | Valid email, at most 254 characters; no inference from whether the provider is a business email provider |
 | `company`                                         | Yes         | 300 characters                                                                                           |
 | `message`                                         | Yes         | 4,000 characters of plain text                                                                           |
@@ -43,7 +44,7 @@ All records use the existing application ID generator and Zod persistence schema
 | Existing collection          | Mapping                                                                                                                                                          |
 | ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `products`                   | Look up the supplied ID, reject archived/retired/missing products; do not update Product                                                                         |
-| `people`                     | Reuse through normalized email Contact Point; otherwise create first name, optional surname and full `displayName`                                               |
+| `people`                     | Reuse through normalized email Contact Point; otherwise create explicit `firstName`, `lastName` and combined `displayName`                                       |
 | `contact_points`             | Trim/lowercase email using the central normalizer. New contacts are primary email, validity/deliverability unknown; submission does not verify ownership         |
 | `organisations`              | Reuse only exact whitespace-normalized company name plus canonical website domain; otherwise create a prospect                                                   |
 | `organisation_relationships` | Reuse an equivalent non-archived current person–organisation relationship without an end date; otherwise create one with the submitted job title                 |
@@ -52,11 +53,13 @@ All records use the existing application ID generator and Zod persistence schema
 | `events`                     | Append-only `enquiry_submitted`, server `occurredAt`, Product/Person/Organisation IDs and a bounded, explicitly constructed payload                              |
 | `marketing_permissions`      | Append-only consent decision only for explicit opt-in with evidence                                                                                              |
 
-The only CRM schema extension is making `Person.lastName` optional, so a single-word name is not given an invented surname. For multi-word input, the first token is stored as first name and the remaining tokens as surname; the submitted full name always remains in `displayName` and the event. Existing Person identity fields are not overwritten by public input.
+The public request now requires separate `firstName` and `lastName` fields (form version `2`). The API stores each trimmed value intact and sets `displayName` to `firstName + " " + lastName`. This is a deliberate breaking request-contract change at the same endpoint: legacy `name` is rejected with HTTP 400, including when supplied alongside the new fields. HVM is the only known live consumer; coordinate its form update with the API release.
 
-The Event payload holds `opportunityId`, form name/version, submitted name/email/company/message, website domain, job title, service interest, the five attribution labels, sanitized page/referrer, and whether opt-in was explicit. These fields are needed to review and fulfil the enquiry and are private CRM data. Do not render text as HTML or publish these events in a public feed. Tokens, headers, IP addresses and raw request objects are not persisted. Campaign labels are not turned into internal Campaign IDs. The event-to-opportunity link preserves attribution without adding another opportunity type or Offer model.
+The persistence schema still allows historical People without a surname. Existing Person identity fields are never overwritten by repeated public input. No existing Person or enquiry Event is migrated; older events remain readable. Email deduplication, transactions and consent rules are unchanged.
 
-Existing Vapp data structures and dashboard counts can surface these records. No People/Organisations/Opportunities/Events screens or notification delivery are added by this change.
+The Event payload holds `opportunityId`, form name/version, submitted first name/last name/email/company/message, website domain, job title, service interest, the five attribution labels, sanitized page/referrer, and whether opt-in was explicit. These fields are needed to review and fulfil the enquiry and are private CRM data. Do not render text as HTML or publish these events in a public feed. Tokens, headers, IP addresses and raw request objects are not persisted. Campaign labels are not turned into internal Campaign IDs. The event-to-opportunity link preserves attribution without adding another opportunity type or Offer model.
+
+Private read-only People, Organisations and Opportunities screens now surface these records and their links. See [CRM visibility](crm-visibility.md). Dashboard counts remain unchanged. No standalone Events screen or notification delivery is added.
 
 ## Deduplication, concurrency and failure handling
 
@@ -122,7 +125,8 @@ const response = await fetch(
     credentials: "omit",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      name: "Alex Example",
+      firstName: "Alex",
+      lastName: "Example",
       workEmail: "alex@example.com",
       company: "Example Ltd",
       website: "example.com",
@@ -145,15 +149,17 @@ if (!response.ok) {
 
 The generated `submitPublicEnquiry` operation is an alternative to raw fetch. Its dedicated public mutator omits auth headers and cookies even when a Vapp token getter is configured. Private generated operations keep their existing token behavior. Configure the normal client base URL when calling a remote API.
 
-## Before HVM can submit a real enquiry
+## Rollout checklist
+
+The user reports that the HVM enquiry flow is already live. The original setup prerequisites are retained below for reference; this release requires the coordinated first/last-name form update in step 4. No current live configuration was inspected.
 
 1. In a separately authorized rollout, provision the two indexes through the existing setup workflow, reviewing its read-only plan first (`pnpm --filter @workspace/api-server run db:setup --dry-run`). Resolve any reported incompatible indexes or duplicate data before applying setup. No setup command was run as part of implementation.
 2. Deploy the reviewed API build to a transaction-capable MongoDB environment (Atlas/replica set). No deployment or live MongoDB access occurred during this task.
 3. Supply `PUBLIC_ENQUIRY_CORS_ORIGINS=https://h-v-m.agency` in the API runtime. This task does not modify AWS infrastructure or runtime secrets.
-4. Integrate the HVM form using its actual Product ID and handle success, validation, throttling and unavailable responses. Supply exact consent wording/version if offering marketing opt-in.
+4. Update the HVM form to collect separate required first and last names (each 1–100 characters), send `firstName`/`lastName`, and remove `name`. Do not split a single input client-side. Keep its Product ID, endpoint, attribution and consent evidence unchanged. Coordinate this with the API rollout: an old `name`-only form receives 400 from the new API, and the old API rejects the new fields. No HVM website code was changed here.
 5. Perform a separately authorized staging end-to-end check. Current tests use local/in-memory substitutes, so real Mongo transaction behavior and deployed CORS still need rollout verification.
 
-Missing full CRM screens, email notifications, mailbox verification, CAPTCHA and request-level idempotency do not prevent persistence. They remain distinct future capabilities.
+Email notifications, mailbox verification, CAPTCHA and request-level idempotency do not prevent persistence. They remain distinct future capabilities.
 
 ## Deployment readiness review
 
@@ -218,61 +224,6 @@ Multiple origins use a comma-separated string, for example `https://h-v-m.agency
 
 This review changed only deployment safeguards and their regression tests: the unique-index-risk refusal in `db/setup.ts`, wildcard-host rejection in `config.ts`, and tests in `domain.test.ts`/`public-enquiries.test.ts`, plus this handoff documentation. The two index declarations were already canonical and were not changed. No new business functionality was added. A Docker image was not built or pushed during this review; the production workspace build and bundled setup entry point were verified.
 
-## Implementation validation
+## Validation
 
-Validated locally with Node **24.21.0** and pnpm **10.26.1**. No live Atlas connection or database setup/migration was run.
-
-| Check                                                  | Result                                                                                                |
-| ------------------------------------------------------ | ----------------------------------------------------------------------------------------------------- |
-| `PORT=3000 BASE_PATH=/ pnpm run build`                 | Pass; existing Vapp chunk-size warning above 500 kB                                                   |
-| `pnpm --filter @workspace/api-server run lint`         | Pass                                                                                                  |
-| `pnpm run typecheck`                                   | Pass                                                                                                  |
-| `pnpm --filter @workspace/api-server run test`         | **83/83 pass**, including the original 41 tests, 39 enquiry tests, and 3 setup-readiness tests        |
-| `pnpm --filter @workspace/api-server run format:check` | Pass                                                                                                  |
-| `pnpm --filter @workspace/api-spec run codegen`        | Pass; SHA-256 comparison of both generated trees before/after a repeat run found **zero differences** |
-| `git diff --check`                                     | Pass                                                                                                  |
-| Generated-client fetch tests                           | **2/2 pass**, including public omission of auth/cookies and retained private authentication           |
-
-The enquiry tests cover all requested acceptance cases: unauthenticated success, private authentication, Product validation/availability, invalid and oversized input, normalized email reuse, conservative organisation reuse, nonduplicated relationships, distinct opportunities/events, correct cross-Product attribution, UTM data, both marketing consent paths, rate limiting, public/private CORS isolation, and minimal responses. Additional tests cover single-word names, preservation of existing identity/verification/suppression and customer status, ambiguous email ownership, transaction rollback (including permission failure), duplicate-key retry, missing indexes/transactions, URL sanitization and the anti-spam hook.
-
-The transactional test substitute provides serial isolation, rollback and partial uniqueness. It does not claim to emulate all MongoDB server behavior; real replica-set/index verification belongs to the separately authorized rollout.
-
-Files changed are listed below in the final working-tree status. The main implementation is split between `domain/public-enquiry.ts` (validation/normalization), `services/enquiries.ts` (CRM mapping), `routes/public-enquiries.ts` (public HTTP/security boundary), `db/enquiry-indexes.ts` (concurrency prerequisites), and `services/mongo.ts` (transaction adapter). OpenAPI drives every generated change; generated files were not manually edited. All changes remain unstaged/uncommitted, with no push or deployment.
-
-### Final git status
-
-All changes remain unstaged. This is the complete working tree, including the prior enquiry implementation:
-
-```text
- M artifacts/api-server/.env.example
- M artifacts/api-server/README.md
- M artifacts/api-server/src/app.ts
- M artifacts/api-server/src/config.ts
- M artifacts/api-server/src/db/collections.ts
- M artifacts/api-server/src/db/setup.ts
- M artifacts/api-server/src/domain/schemas.ts
- M artifacts/api-server/src/services/mongo.ts
- M artifacts/api-server/test/domain.test.ts
- M lib/api-client-react/src/custom-fetch.ts
- M lib/api-client-react/src/generated/api.schemas.ts
- M lib/api-client-react/src/generated/api.ts
- M lib/api-client-react/test/custom-fetch.test.ts
- M lib/api-spec/openapi.yaml
- M lib/api-spec/orval.config.ts
- M lib/api-zod/src/generated/api.ts
- M lib/api-zod/src/generated/types/index.ts
-?? artifacts/api-server/src/db/enquiry-indexes.ts
-?? artifacts/api-server/src/domain/public-enquiry.ts
-?? artifacts/api-server/src/routes/public-enquiries.ts
-?? artifacts/api-server/src/services/enquiries.ts
-?? artifacts/api-server/test/helpers/enquiry-db.ts
-?? artifacts/api-server/test/public-enquiries.test.ts
-?? docs/public-enquiries.md
-?? lib/api-client-react/src/public-fetch.ts
-?? lib/api-zod/src/generated/types/publicEnquiryError.ts
-?? lib/api-zod/src/generated/types/publicEnquiryErrorError.ts
-?? lib/api-zod/src/generated/types/publicEnquiryInput.ts
-?? lib/api-zod/src/generated/types/publicEnquiryReceived.ts
-?? lib/api-zod/src/generated/types/publicEnquiryReceivedStatus.ts
-
-```
+Current CRM and explicit-name validation results and limitations are recorded in [CRM visibility](crm-visibility.md). Tests use an in-memory transactional substitute and locally signed Cognito-shaped access tokens; they do not connect to live MongoDB. Production replica-set/index behaviour and deployed CORS remain rollout checks.

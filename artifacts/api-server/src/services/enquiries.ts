@@ -99,13 +99,12 @@ async function persistEnquiry(
       options,
     );
   } else {
-    const [firstName, ...rest] = input.name.split(/\s+/);
     person = PersonSchema.parse({
       ...base,
       id: generatePlatformId("person"),
-      firstName,
-      ...(rest.length ? { lastName: rest.join(" ") } : {}),
-      displayName: input.name,
+      firstName: input.firstName,
+      lastName: input.lastName,
+      displayName: `${input.firstName} ${input.lastName}`,
     });
     contact = ContactPointSchema.parse({
       ...base,
@@ -251,8 +250,9 @@ async function persistEnquiry(
     payload: {
       opportunityId: opportunity.id,
       form: "public_product_enquiry",
-      formVersion: "1",
-      name: input.name,
+      formVersion: "2",
+      firstName: input.firstName,
+      lastName: input.lastName,
       workEmail: input.workEmail,
       company: input.company,
       message: input.message,

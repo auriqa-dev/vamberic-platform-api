@@ -16,6 +16,8 @@ function valueAt(record: Document, path: string): unknown {
 }
 function matches(record: Document, filter: Document): boolean {
   return Object.entries(filter).every(([key, expected]) => {
+    if (key === "$or")
+      return expected.some((item: Document) => matches(record, item));
     const actual = valueAt(record, key);
     if (
       expected &&
@@ -25,10 +27,20 @@ function matches(record: Document, filter: Document): boolean {
       if ("$ne" in expected) return actual !== expected.$ne;
       if ("$exists" in expected)
         return (actual !== undefined) === expected.$exists;
-      if ("$in" in expected) return expected.$in.includes(actual);
+      if ("$in" in expected)
+        return Array.isArray(actual)
+          ? actual.some((item) => expected.$in.includes(item))
+          : expected.$in.includes(actual);
+      if ("$regex" in expected)
+        return (
+          typeof actual === "string" &&
+          new RegExp(expected.$regex, expected.$options).test(actual)
+        );
       if ("$type" in expected) return typeof actual === expected.$type;
     }
-    return isDeepStrictEqual(actual, expected);
+    return Array.isArray(actual) && !Array.isArray(expected)
+      ? actual.includes(expected)
+      : isDeepStrictEqual(actual, expected);
   });
 }
 
@@ -53,18 +65,40 @@ export class EnquiryMemoryDb {
       }),
       find: (filter: Document = {}) => {
         let limit = Infinity;
+        let offset = 0;
+        let sort: Record<string, number> = {};
         const cursor = {
           limit(value: number) {
             limit = value;
             return cursor;
           },
-          sort() {
+          skip(value: number) {
+            offset = value;
+            return cursor;
+          },
+          sort(value: Record<string, number>) {
+            sort = value;
             return cursor;
           },
           toArray: async () =>
             this.rows(name)
               .filter((row) => matches(row, filter))
-              .slice(0, limit),
+              .sort((a, b) => {
+                for (const [key, direction] of Object.entries(sort)) {
+                  const left = valueAt(a, key);
+                  const right = valueAt(b, key);
+                  if (isDeepStrictEqual(left, right)) continue;
+                  if (left === undefined) return -direction;
+                  if (right === undefined) return direction;
+                  return (
+                    ((left as string | number) < (right as string | number)
+                      ? -1
+                      : 1) * direction
+                  );
+                }
+                return 0;
+              })
+              .slice(offset, offset + limit),
         };
         return cursor;
       },

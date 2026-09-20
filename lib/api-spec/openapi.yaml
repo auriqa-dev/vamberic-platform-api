@@ -17,6 +17,371 @@ tags:
   - name: products
     description: Product management
 paths:
+  /v1/people:
+    get:
+      operationId: listPeople
+      tags:
+        - people
+      summary: List people
+      description: Private, read-only CRM projection. Archived records are excluded. Detail events are limited to the most recent 10; linked relationships are current for people and organisations.
+      parameters:
+        - in: query
+          name: search
+          schema:
+            type: string
+            maxLength: 200
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+        - in: query
+          name: offset
+          schema:
+            type: integer
+            minimum: 0
+            maximum: 100000
+            default: 0
+      responses:
+        "200":
+          description: CRM records
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CrmPeoplePage"
+        "400":
+          description: Invalid parameters
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Access denied
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Record not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /v1/people/{id}:
+    get:
+      operationId: getPerson
+      tags:
+        - people
+      summary: Get person detail
+      description: Private, read-only CRM projection. Archived records are excluded. Detail events are limited to the most recent 10; linked relationships are current for people and organisations.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            pattern: ^person_[0-7][0-9abcdefghjkmnpqrstvwxyz]{25}$
+      responses:
+        "200":
+          description: CRM records
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CrmPersonDetail"
+        "400":
+          description: Invalid parameters
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Access denied
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Record not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /v1/organisations:
+    get:
+      operationId: listOrganisations
+      tags:
+        - organisations
+      summary: List organisations
+      description: Private, read-only CRM projection. Archived records are excluded. Detail events are limited to the most recent 10; linked relationships are current for people and organisations.
+      parameters:
+        - in: query
+          name: search
+          schema:
+            type: string
+            maxLength: 200
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+        - in: query
+          name: offset
+          schema:
+            type: integer
+            minimum: 0
+            maximum: 100000
+            default: 0
+      responses:
+        "200":
+          description: CRM records
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CrmOrganisationsPage"
+        "400":
+          description: Invalid parameters
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Access denied
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Record not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /v1/organisations/{id}:
+    get:
+      operationId: getOrganisation
+      tags:
+        - organisations
+      summary: Get organisation detail
+      description: Private, read-only CRM projection. Archived records are excluded. Detail events are limited to the most recent 10; linked relationships are current for people and organisations.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            pattern: ^org_[0-7][0-9abcdefghjkmnpqrstvwxyz]{25}$
+      responses:
+        "200":
+          description: CRM records
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CrmOrganisationDetail"
+        "400":
+          description: Invalid parameters
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Access denied
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Record not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /v1/opportunities:
+    get:
+      operationId: listOpportunities
+      tags:
+        - opportunities
+      summary: List opportunities
+      description: Private, read-only CRM projection. Archived records are excluded. Detail events are limited to the most recent 10; linked relationships are current for people and organisations.
+      parameters:
+        - in: query
+          name: search
+          schema:
+            type: string
+            maxLength: 200
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+        - in: query
+          name: offset
+          schema:
+            type: integer
+            minimum: 0
+            maximum: 100000
+            default: 0
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum:
+              - open
+              - won
+              - lost
+              - paused
+        - in: query
+          name: stage
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 100
+        - in: query
+          name: productId
+          schema:
+            type: string
+            pattern: ^product_[0-7][0-9abcdefghjkmnpqrstvwxyz]{25}$
+      responses:
+        "200":
+          description: CRM records
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CrmOpportunitiesPage"
+        "400":
+          description: Invalid parameters
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Access denied
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Record not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /v1/opportunities/{id}:
+    get:
+      operationId: getOpportunity
+      tags:
+        - opportunities
+      summary: Get opportunity detail
+      description: Private, read-only CRM projection. Archived records are excluded. Detail events are limited to the most recent 10; linked relationships are current for people and organisations.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            pattern: ^opportunity_[0-7][0-9abcdefghjkmnpqrstvwxyz]{25}$
+      responses:
+        "200":
+          description: CRM records
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CrmOpportunityDetail"
+        "400":
+          description: Invalid parameters
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Access denied
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Record not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /v1/public/products/{productId}/enquiries:
     post:
       security: []
@@ -307,13 +672,18 @@ components:
     PublicEnquiryInput:
       type: object
       additionalProperties: false
-      required: [name, workEmail, company, message]
+      required: [firstName, lastName, workEmail, company, message]
       properties:
-        name:
+        firstName:
           type: string
           minLength: 1
           maxLength: 100
-          description: Full name; single-word names accepted
+          description: Explicit given name; trimmed, never split
+        lastName:
+          type: string
+          minLength: 1
+          maxLength: 100
+          description: Explicit family name; trimmed, never split
         workEmail:
           type: string
           minLength: 1
@@ -868,3 +1238,330 @@ components:
         - environment
         - dependencies
         - timestamp
+    CrmReference:
+      type: object
+      required:
+        - id
+        - name
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+    CrmOrganisationLink:
+      type: object
+      required:
+        - organisation
+      properties:
+        organisation:
+          $ref: "#/components/schemas/CrmReference"
+        jobTitle:
+          type: string
+    CrmPerson:
+      type: object
+      required:
+        - id
+        - createdAt
+        - firstName
+        - displayName
+        - lifecycleStatus
+        - currentOrganisations
+      properties:
+        id:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        sourceSystem:
+          type: string
+        firstName:
+          type: string
+        lastName:
+          type: string
+        displayName:
+          type: string
+        primaryEmail:
+          type: string
+        lifecycleStatus:
+          type: string
+        currentOrganisations:
+          type: array
+          items:
+            $ref: "#/components/schemas/CrmOrganisationLink"
+    CrmOrganisation:
+      type: object
+      required:
+        - id
+        - createdAt
+        - name
+        - lifecycleStatus
+        - peopleCount
+        - opportunityCount
+      properties:
+        id:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        sourceSystem:
+          type: string
+        name:
+          type: string
+        domain:
+          type: string
+        lifecycleStatus:
+          type: string
+        peopleCount:
+          type: integer
+          minimum: 0
+        opportunityCount:
+          type: integer
+          minimum: 0
+    CrmOpportunity:
+      type: object
+      required:
+        - id
+        - createdAt
+        - updatedAt
+        - name
+        - product
+        - organisation
+        - people
+        - stage
+        - status
+      properties:
+        id:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        sourceSystem:
+          type: string
+        updatedAt:
+          type: string
+          format: date-time
+        name:
+          type: string
+        product:
+          $ref: "#/components/schemas/CrmReference"
+        organisation:
+          $ref: "#/components/schemas/CrmReference"
+        people:
+          type: array
+          items:
+            $ref: "#/components/schemas/CrmReference"
+        stage:
+          type: string
+        status:
+          type: string
+          enum:
+            - open
+            - won
+            - lost
+            - paused
+        estimatedValueMinor:
+          type: integer
+          minimum: 0
+        currency:
+          type: string
+    CrmContactPoint:
+      type: object
+      required:
+        - id
+        - type
+        - value
+        - primary
+        - validity
+        - deliverability
+        - suppressed
+      properties:
+        id:
+          type: string
+        type:
+          type: string
+        value:
+          type: string
+        primary:
+          type: boolean
+        validity:
+          type: string
+        deliverability:
+          type: string
+        suppressed:
+          type: boolean
+    CrmProductLink:
+      type: object
+      required:
+        - id
+        - product
+        - status
+      properties:
+        id:
+          type: string
+        product:
+          $ref: "#/components/schemas/CrmReference"
+        status:
+          type: string
+        acquisitionSource:
+          type: string
+    CrmEvent:
+      type: object
+      required:
+        - id
+        - eventType
+        - occurredAt
+      properties:
+        id:
+          type: string
+        eventType:
+          type: string
+        occurredAt:
+          type: string
+          format: date-time
+        productId:
+          type: string
+        personId:
+          type: string
+        organisationId:
+          type: string
+        opportunityId:
+          type: string
+        message:
+          type: string
+        serviceInterest:
+          type: string
+        source:
+          type: string
+        medium:
+          type: string
+        campaign:
+          type: string
+        content:
+          type: string
+        term:
+          type: string
+        landingPage:
+          type: string
+        referrer:
+          type: string
+    CrmPersonDetail:
+      allOf:
+        - $ref: "#/components/schemas/CrmPerson"
+        - type: object
+          required:
+            - contactPoints
+            - products
+            - opportunities
+            - recentEvents
+          properties:
+            contactPoints:
+              type: array
+              items:
+                $ref: "#/components/schemas/CrmContactPoint"
+            products:
+              type: array
+              items:
+                $ref: "#/components/schemas/CrmProductLink"
+            opportunities:
+              type: array
+              items:
+                $ref: "#/components/schemas/CrmOpportunity"
+            recentEvents:
+              type: array
+              items:
+                $ref: "#/components/schemas/CrmEvent"
+    CrmOrganisationDetail:
+      allOf:
+        - $ref: "#/components/schemas/CrmOrganisation"
+        - type: object
+          required:
+            - people
+            - opportunities
+            - products
+          properties:
+            people:
+              type: array
+              items:
+                $ref: "#/components/schemas/CrmPerson"
+            opportunities:
+              type: array
+              items:
+                $ref: "#/components/schemas/CrmOpportunity"
+            products:
+              type: array
+              items:
+                $ref: "#/components/schemas/CrmProductLink"
+    CrmOpportunityDetail:
+      allOf:
+        - $ref: "#/components/schemas/CrmOpportunity"
+        - type: object
+          required:
+            - enquiryEvents
+          properties:
+            enquiryEvents:
+              type: array
+              items:
+                $ref: "#/components/schemas/CrmEvent"
+    CrmPeoplePage:
+      type: object
+      required:
+        - items
+        - total
+        - limit
+        - offset
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/CrmPerson"
+        total:
+          type: integer
+          minimum: 0
+        limit:
+          type: integer
+          minimum: 0
+        offset:
+          type: integer
+          minimum: 0
+    CrmOrganisationsPage:
+      type: object
+      required:
+        - items
+        - total
+        - limit
+        - offset
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/CrmOrganisation"
+        total:
+          type: integer
+          minimum: 0
+        limit:
+          type: integer
+          minimum: 0
+        offset:
+          type: integer
+          minimum: 0
+    CrmOpportunitiesPage:
+      type: object
+      required:
+        - items
+        - total
+        - limit
+        - offset
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/CrmOpportunity"
+        total:
+          type: integer
+          minimum: 0
+        limit:
+          type: integer
+          minimum: 0
+        offset:
+          type: integer
+          minimum: 0

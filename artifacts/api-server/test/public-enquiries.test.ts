@@ -22,7 +22,8 @@ import type { EnquirySpamCheck } from "../src/routes/public-enquiries";
 const productId = "product_00000000000000000000000001";
 const origin = "https://product.example";
 const input = {
-  name: "Ada Lovelace",
+  firstName: "Ada",
+  lastName: "Lovelace",
   workEmail: "Ada@Example.com",
   company: "Example Ltd",
   message: "Please discuss our requirements.",
@@ -255,14 +256,17 @@ test("organisation reuse requires exact company and domain; similar names or dom
 test("without a website only this person's existing current same-name organisation is reused", async (t) => {
   const { db, request } = await fixture(t);
   const body = {
-    name: "Prince",
+    firstName: "Mary Ann",
+    lastName: "van Buren",
     workEmail: input.workEmail,
     company: input.company,
     message: input.message,
   };
   assert.equal((await request(body)).status, 201);
   assert.equal((await request(body)).status, 201);
-  assert.equal(db.rows("people")[0].lastName, undefined);
+  assert.equal(db.rows("people")[0].firstName, "Mary Ann");
+  assert.equal(db.rows("people")[0].lastName, "van Buren");
+  assert.equal(db.rows("people")[0].displayName, "Mary Ann van Buren");
   assert.equal(db.rows("organisations").length, 1);
   assert.equal(
     (await request({ ...body, workEmail: "other@example.com" })).status,
@@ -273,8 +277,18 @@ test("without a website only this person's existing current same-name organisati
 
 for (const [name, change] of Object.entries({
   "malformed email": { workEmail: "not-an-email" },
-  "empty name": { name: "   " },
-  "long name": { name: "a".repeat(101) },
+  "empty first name": { firstName: "   " },
+  "empty last name": { lastName: "   " },
+  "missing first name": { firstName: undefined },
+  "missing last name": { lastName: undefined },
+  "long first name": { firstName: "a".repeat(101) },
+  "long last name": { lastName: "a".repeat(101) },
+  "legacy name only": {
+    firstName: undefined,
+    lastName: undefined,
+    name: "Ada Lovelace",
+  },
+  "legacy name alongside explicit fields": { name: "Ada Lovelace" },
   "long message": { message: "x".repeat(4001) },
   "long company": { company: "x".repeat(301) },
   "long attribution": { source: "x".repeat(201) },
@@ -628,4 +642,33 @@ test("stale retired legacy status does not override the current Product v2 lifec
   const { db, request } = await fixture(t);
   db.rows("products")[0].status = "retired";
   assert.equal((await request()).status, 201);
+});
+
+test("explicit names are trimmed without splitting and repeat enquiries preserve a historical mononym", async (t) => {
+  const { db, request } = await fixture(t);
+  assert.equal(
+    (
+      await request({
+        ...input,
+        firstName: "  Mary Ann  ",
+        lastName: "  van Buren  ",
+      })
+    ).status,
+    201,
+  );
+  const person = db.rows("people")[0];
+  assert.equal(person.firstName, "Mary Ann");
+  assert.equal(person.lastName, "van Buren");
+  assert.equal(person.displayName, "Mary Ann van Buren");
+  assert.equal(db.rows("events")[0].payload.formVersion, "2");
+  assert.equal(db.rows("events")[0].payload.firstName, "Mary Ann");
+  assert.equal(db.rows("events")[0].payload.lastName, "van Buren");
+  assert.equal("name" in db.rows("events")[0].payload, false);
+  person.firstName = "Prince";
+  person.displayName = "Prince";
+  delete person.lastName;
+  const before = structuredClone(person);
+  assert.equal((await request(input)).status, 201);
+  assert.equal(db.rows("people").length, 1);
+  assert.deepEqual(db.rows("people")[0], before);
 });

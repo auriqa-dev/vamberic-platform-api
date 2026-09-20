@@ -7,11 +7,17 @@
  */
 export interface PublicEnquiryInput {
   /**
-     * Full name; single-word names accepted
+     * Explicit given name; trimmed, never split
      * @minLength 1
      * @maxLength 100
      */
-  name: string;
+  firstName: string;
+  /**
+     * Explicit family name; trimmed, never split
+     * @minLength 1
+     * @maxLength 100
+     */
+  lastName: string;
   /**
      * Email address; trimmed and normalized for matching
      * @minLength 1
@@ -578,6 +584,150 @@ export interface ReadinessStatus {
   timestamp: string;
 }
 
+export interface CrmReference {
+  id: string;
+  name: string;
+}
+
+export interface CrmOrganisationLink {
+  organisation: CrmReference;
+  jobTitle?: string;
+}
+
+export interface CrmPerson {
+  id: string;
+  createdAt: string;
+  sourceSystem?: string;
+  firstName: string;
+  lastName?: string;
+  displayName: string;
+  primaryEmail?: string;
+  lifecycleStatus: string;
+  currentOrganisations: CrmOrganisationLink[];
+}
+
+export interface CrmOrganisation {
+  id: string;
+  createdAt: string;
+  sourceSystem?: string;
+  name: string;
+  domain?: string;
+  lifecycleStatus: string;
+  /** @minimum 0 */
+  peopleCount: number;
+  /** @minimum 0 */
+  opportunityCount: number;
+}
+
+export type CrmOpportunityStatus = typeof CrmOpportunityStatus[keyof typeof CrmOpportunityStatus];
+
+
+export const CrmOpportunityStatus = {
+  open: 'open',
+  won: 'won',
+  lost: 'lost',
+  paused: 'paused',
+} as const;
+
+export interface CrmOpportunity {
+  id: string;
+  createdAt: string;
+  sourceSystem?: string;
+  updatedAt: string;
+  name: string;
+  product: CrmReference;
+  organisation: CrmReference;
+  people: CrmReference[];
+  stage: string;
+  status: CrmOpportunityStatus;
+  /** @minimum 0 */
+  estimatedValueMinor?: number;
+  currency?: string;
+}
+
+export interface CrmContactPoint {
+  id: string;
+  type: string;
+  value: string;
+  primary: boolean;
+  validity: string;
+  deliverability: string;
+  suppressed: boolean;
+}
+
+export interface CrmProductLink {
+  id: string;
+  product: CrmReference;
+  status: string;
+  acquisitionSource?: string;
+}
+
+export interface CrmEvent {
+  id: string;
+  eventType: string;
+  occurredAt: string;
+  productId?: string;
+  personId?: string;
+  organisationId?: string;
+  opportunityId?: string;
+  message?: string;
+  serviceInterest?: string;
+  source?: string;
+  medium?: string;
+  campaign?: string;
+  content?: string;
+  term?: string;
+  landingPage?: string;
+  referrer?: string;
+}
+
+export type CrmPersonDetail = CrmPerson & {
+  contactPoints: CrmContactPoint[];
+  products: CrmProductLink[];
+  opportunities: CrmOpportunity[];
+  recentEvents: CrmEvent[];
+};
+
+export type CrmOrganisationDetail = CrmOrganisation & {
+  people: CrmPerson[];
+  opportunities: CrmOpportunity[];
+  products: CrmProductLink[];
+};
+
+export type CrmOpportunityDetail = CrmOpportunity & {
+  enquiryEvents: CrmEvent[];
+};
+
+export interface CrmPeoplePage {
+  items: CrmPerson[];
+  /** @minimum 0 */
+  total: number;
+  /** @minimum 0 */
+  limit: number;
+  /** @minimum 0 */
+  offset: number;
+}
+
+export interface CrmOrganisationsPage {
+  items: CrmOrganisation[];
+  /** @minimum 0 */
+  total: number;
+  /** @minimum 0 */
+  limit: number;
+  /** @minimum 0 */
+  offset: number;
+}
+
+export interface CrmOpportunitiesPage {
+  items: CrmOpportunity[];
+  /** @minimum 0 */
+  total: number;
+  /** @minimum 0 */
+  limit: number;
+  /** @minimum 0 */
+  offset: number;
+}
+
 /**
  * Missing or invalid Cognito access token
  */
@@ -597,6 +747,77 @@ export type NotFoundResponse = ErrorResponse;
  * Resource conflict
  */
 export type ConflictResponse = ErrorResponse;
+
+export type ListPeopleParams = {
+/**
+ * @maxLength 200
+ */
+search?: string;
+/**
+ * @minimum 1
+ * @maximum 100
+ */
+limit?: number;
+/**
+ * @minimum 0
+ * @maximum 100000
+ */
+offset?: number;
+};
+
+export type ListOrganisationsParams = {
+/**
+ * @maxLength 200
+ */
+search?: string;
+/**
+ * @minimum 1
+ * @maximum 100
+ */
+limit?: number;
+/**
+ * @minimum 0
+ * @maximum 100000
+ */
+offset?: number;
+};
+
+export type ListOpportunitiesParams = {
+/**
+ * @maxLength 200
+ */
+search?: string;
+/**
+ * @minimum 1
+ * @maximum 100
+ */
+limit?: number;
+/**
+ * @minimum 0
+ * @maximum 100000
+ */
+offset?: number;
+status?: ListOpportunitiesStatus;
+/**
+ * @minLength 1
+ * @maxLength 100
+ */
+stage?: string;
+/**
+ * @pattern ^product_[0-7][0-9abcdefghjkmnpqrstvwxyz]{25}$
+ */
+productId?: string;
+};
+
+export type ListOpportunitiesStatus = typeof ListOpportunitiesStatus[keyof typeof ListOpportunitiesStatus];
+
+
+export const ListOpportunitiesStatus = {
+  open: 'open',
+  won: 'won',
+  lost: 'lost',
+  paused: 'paused',
+} as const;
 
 export type ListProductsParams = {
 /**
