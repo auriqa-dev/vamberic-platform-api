@@ -1,4 +1,8 @@
 import {
+  extractSesDiagnostics,
+  type SafeSesDiagnostics,
+} from "./ses-diagnostics";
+import {
   SESClient,
   SendEmailCommand,
   type SendEmailCommandOutput,
@@ -66,10 +70,15 @@ function providerErrorCode(error: unknown): string | undefined {
 }
 export class EmailProviderError extends Error {
   readonly providerErrorCode: string;
-  constructor(code?: string) {
+  readonly diagnostics: Readonly<SafeSesDiagnostics>;
+  constructor(code?: string, providerError?: unknown) {
     super("Email provider unavailable");
     this.name = "EmailProviderError";
     this.providerErrorCode = safeCode(code) ?? "UnknownProviderError";
+    this.diagnostics = extractSesDiagnostics(
+      providerError,
+      this.providerErrorCode,
+    );
   }
 }
 // Small transport seam for unit tests; no credentials or network are needed.
@@ -105,8 +114,8 @@ export class SesEmailProvider implements EmailProvider {
         { abortSignal: signal },
       );
     } catch (error) {
-      // Retain only an allowlisted identifier, never the message, object or cause.
-      throw new EmailProviderError(providerErrorCode(error));
+      // Keep only validated diagnostic fields, never the message, object or cause.
+      throw new EmailProviderError(providerErrorCode(error), error);
     }
   }
 }

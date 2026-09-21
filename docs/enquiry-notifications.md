@@ -46,7 +46,7 @@ Subject: `New enquiry — {Product name} — {Company}`, bounded to 200 characte
 
 Plain text includes Product, submitted name, company, work email, role, canonical website domain, service interest, message, source/medium/campaign attribution, Opportunity ID and server receipt timestamp in UTC. Missing optional fields say “Not supplied.” Scalar fields have newlines/control characters removed; message line breaks are preserved and control/bidirectional override characters removed. No HTML is generated. Submitted markup is inert plain text.
 
-No raw JSON/document, Mongo `_id`, internal DB metadata, request headers, authentication tokens or IP address is copied into the email. The explicit context projection is the boundary; user-written message content itself is still included. Event/Product IDs are used for safe log correlation. SES failures add `providerErrorCode` to the structured failure log. Only an explicitly allowlisted AWS/SES/SDK error name (or code fallback) is retained; unrecognised identifiers become `UnknownProviderError`. Arbitrary identifier text is never logged, even if it contains only letters. Non-provider failures and deadline-only timeouts do not add a provider code. Logs do not contain recipient/sender addresses, names, subjects, bodies, credentials, raw provider errors, stacks or SDK error causes. AWS request logging is not enabled.
+No raw JSON/document, Mongo `_id`, internal DB metadata, request headers, authentication tokens or IP address is copied into the email. The explicit context projection is the boundary; user-written message content itself is still included. Event/Product IDs are used for safe log correlation. SES failures add `providerErrorCode` and, when validated, HTTP status, request ID and AccessDenied-specific fields to the structured failure log (see the diagnostic rules below). Only an explicitly allowlisted AWS/SES/SDK error name (or code fallback) is retained; unrecognised identifiers become `UnknownProviderError`. Arbitrary identifier text is never logged, even if it contains only letters. Non-provider failures and deadline-only timeouts do not add a provider code. Logs do not contain recipient/sender addresses, names, subjects, bodies, credentials, raw provider errors, stacks or SDK error causes. AWS request logging is not enabled.
 
 ## Delivery and failure semantics
 
@@ -117,3 +117,54 @@ All changes are unstaged. Full status:
 ?? artifacts/api-server/test/notifications.test.ts
 ?? docs/enquiry-notifications.md
 ```
+
+## Application request inspection: AccessDenied
+
+The inspected provider uses **AWS SDK v3 `@aws-sdk/client-ses`**, `SESClient` and `SendEmailCommand`. This is the classic SES API (`2010-12-01`), not SES API v2 / `SESv2Client`. The SDK version and the service API version are separate concepts. The complete application command input is:
+
+```ts
+{
+  Source: message.from,
+  Destination: { ToAddresses: [...message.to] },
+  Message: {
+    Subject: { Data: message.subject, Charset: "UTF-8" },
+    Body: {
+      Text: { Data: message.text, Charset: "UTF-8" },
+      // Only included when the caller provides nonempty HTML:
+      ...(message.html
+        ? { Html: { Data: message.html, Charset: "UTF-8" } }
+        : {}),
+    },
+  },
+}
+```
+
+The enquiry renderer supplies no HTML. `message.from` comes from validated `NOTIFICATION_EMAIL_FROM`; recipients come from the Product recipient resolver. The client is constructed with `{ region: config.notifications.region, maxAttempts: 1 }`, where the region comes from `AWS_REGION`. Credentials use the standard SDK chain; application code does not supply credentials, select a role ARN, or override an endpoint. `{ abortSignal: signal }` is passed as a client send option, not an SES request property.
+
+None of `FromEmailAddressIdentityArn`, `SourceArn`, `ReturnPathArn`, `FeedbackForwardingEmailAddressIdentityArn`, configuration-set, tenant or other delegated-sending fields is set. There is also no explicit ReturnPath, ReplyToAddresses or Tags. AWS documents `SourceArn`/`ReturnPathArn` as sending-authorization fields in the [classic API](https://docs.aws.amazon.com/ses/latest/APIReference/API_SendEmail.html); the comparable `FromEmailAddressIdentityArn` field belongs to the [v2 request](https://docs.aws.amazon.com/ses/latest/APIReference-V2/API_SendEmail.html). No request-field removal, API-version migration or identity authorization policy is justified by this inspection.
+
+Two regression tests verify the exact command keys (including optional HTML) and the installed SDK's serialized HTTP request using fake credentials and an in-memory request handler. With region `eu-west-2`, the latter selects `email.eu-west-2.amazonaws.com`, POST `/`, and adds only the Query protocol's `Action=SendEmail` and `Version=2010-12-01` to the form-encoded email fields. Signing/transport headers are SDK-managed; no live request or production payload logging is introduced.
+
+**Root cause is not proven.** Unnecessary delegation fields are ruled out for this repository implementation and its tested serializer, not for an independently inspected deployed image. No live task revision, effective credential identity, runtime sender/recipient values or failed AWS request was inspected. The next evidence to compare with the successful direct send is the deployed image revision, effective AWS principal, region and configured sender/recipient match. A successful direct send and IAM simulation alone do not establish that the application made an equivalent request with the same credentials.
+
+Validation: **125/125 API tests pass**, including the existing privacy-safe failure logging, post-commit behavior, timeouts and 201 acceptance tests. Build, lint, typecheck, format check and `git diff --check` pass; the existing Vapp bundle-size warning remains. Only notification tests and this documentation changed. No IAM, infrastructure, production request logic or logging changes were made; nothing was deployed, committed or pushed.
+
+## Safe SES failure metadata and AccessDenied diagnostics
+
+The log retains `providerErrorCode` using the existing explicit error-name/code allowlist. Optional fields are extracted at the SES adapter boundary and carried in an immutable diagnostic object on the generic `EmailProviderError`. The original AWS error, its message, cause, metadata object, headers and stack are never attached to that wrapper or logged.
+
+| Field                | Acceptance rule                                                                                                                                                                                             |
+| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `providerHttpStatus` | `$metadata.httpStatusCode` must be an integer number from 100 through 599; no coercion                                                                                                                      |
+| `providerRequestId`  | `$metadata.requestId` must be exactly 36 characters in UUID-style hexadecimal `8-4-4-4-12` form; arbitrary identifiers, tokens, whitespace and addresses are discarded                                      |
+| `deniedAction`       | Exactly `ses:SendEmail`                                                                                                                                                                                     |
+| `deniedResource`     | A complete `arn:aws:ses:<region>:<12-digit-account>:identity/<DNS-domain>` ARN, at most 320 characters; no email identities, encoded addresses, arbitrary resource names or other resource types            |
+| `deniedPrincipal`    | A complete `arn:aws:sts::<12-digit-account>:assumed-role/<role>/<32-lowercase-hex-task-id>` ARN; role is 1–64 ASCII letters/digits/underscores/hyphens; no arbitrary human/session names or email addresses |
+
+Denial fields are considered only for `AccessDenied` and `AccessDeniedException`. The parser recognises an anchored, single-line AWS sentence of the form `User: <principal> is not authorized to perform: <action> on resource: <resource>`, optionally followed by ` because ...`. It accepts the conventional colon-less form and matching single/double/backtick quotes around tokens. Messages longer than 4096 characters and unrecognised formats are ignored. It does not search arbitrary prose for ARNs or actions. Only individually validated captures survive; the explanatory suffix never does. Account IDs and role names are not hard-coded to one deployment.
+
+An identity such as `identity/notifications@vamberic.com` is deliberately **omitted**, not logged or partially reconstructed: the no-address privacy requirement takes precedence. A principal with an email or personal name as its session is also omitted. The action and other independently valid fields can still be retained. Metadata may be logged on any SES failure, but denial parsing does not run for other error codes. Deadline-only failures have no fabricated AWS metadata.
+
+The user reports the running image, task role, absence of identity policies/boundary, successful direct sending and IAM simulation have been verified. These application diagnostics do not alter those controls or claim to identify the live cause before new evidence arrives. No infrastructure or IAM was changed, and no live SES send was performed.
+
+Validation for this change: **143/143 API tests pass**, including 18 added diagnostic tests and the earlier command/serialization regression tests. Tests verify exact safe log objects, retained 201/CRM persistence, metadata validation, recognised/quoted denial messages, email identities, personal sessions, unexpected actions/resources, arbitrary/multiline/oversized messages, and absence of raw error content. Build, lint, typecheck, format check and `git diff --check` results are checked before handoff. Existing post-commit best-effort delivery and timeout behavior are unchanged.

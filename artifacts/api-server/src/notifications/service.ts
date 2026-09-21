@@ -1,3 +1,4 @@
+import type { SafeSesDiagnostics } from "./ses-diagnostics";
 import { z } from "zod";
 import { logger } from "../lib/logger";
 import {
@@ -24,8 +25,8 @@ export interface NotificationService {
   notify(context: EnquirySubmittedNotification): Promise<NotificationResult>;
 }
 export interface NotificationLogger {
-  info(fields: Record<string, string>, message: string): void;
-  warn(fields: Record<string, string>, message: string): void;
+  info(fields: Record<string, string | number>, message: string): void;
+  warn(fields: Record<string, string | number>, message: string): void;
 }
 export interface NotificationDependencies {
   provider?: EmailProvider;
@@ -55,14 +56,12 @@ export function createNotificationService(
       };
       const report = (
         result: NotificationResult,
-        providerErrorCode?: string,
+        diagnostics?: SafeSesDiagnostics & { providerErrorCode: string },
       ): NotificationResult => {
         const data = {
           ...fields,
           status: result.status,
-          ...(result.status === "failed" && providerErrorCode
-            ? { providerErrorCode }
-            : {}),
+          ...(result.status === "failed" && diagnostics ? diagnostics : {}),
           ...(result.status !== "sent" ? { reason: result.reason } : {}),
         };
         // Logging must not turn a committed enquiry into an error either.
@@ -118,7 +117,10 @@ export function createNotificationService(
             reason: timedOut ? "timeout" : "delivery_failed",
           },
           error instanceof EmailProviderError
-            ? error.providerErrorCode
+            ? {
+                providerErrorCode: error.providerErrorCode,
+                ...error.diagnostics,
+              }
             : undefined,
         );
       } finally {

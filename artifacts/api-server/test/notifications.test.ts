@@ -3,7 +3,7 @@ import { once } from "node:events";
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 import { test, type TestContext } from "node:test";
-import { SendEmailCommand } from "@aws-sdk/client-ses";
+import { SESClient, SendEmailCommand } from "@aws-sdk/client-ses";
 import { createApp } from "../src/app";
 import { parseConfig } from "../src/config";
 import { ProductSchema } from "../src/domain";
@@ -80,8 +80,11 @@ function records() {
   return db;
 }
 function captureLogs() {
-  const entries: { fields: Record<string, string>; message: string }[] = [];
-  const log = (fields: Record<string, string>, message: string) => {
+  const entries: {
+    fields: Record<string, string | number>;
+    message: string;
+  }[] = [];
+  const log = (fields: Record<string, string | number>, message: string) => {
     entries.push({ fields, message });
   };
   return { entries, logger: { info: log, warn: log } };
@@ -658,3 +661,376 @@ for (const [label, identifier, expected] of [
       assert.equal(serialized.includes(secret), false);
   });
 }
+
+test("SES command omits identity authorization, delegation, configuration-set and tenant fields", async () => {
+  const provider = new SesEmailProvider("eu-west-2", {
+    async send(command) {
+      assert.deepEqual(Object.keys(command.input).sort(), [
+        "Destination",
+        "Message",
+        "Source",
+      ]);
+      for (const field of [
+        "FromEmailAddressIdentityArn",
+        "SourceArn",
+        "ReturnPathArn",
+        "FeedbackForwardingEmailAddressIdentityArn",
+        "ConfigurationSetName",
+        "ConfigurationOverrides",
+        "TenantName",
+        "TenantId",
+        "TenantArn",
+        "ReturnPath",
+        "ReplyToAddresses",
+        "Tags",
+      ])
+        assert.equal(Object.hasOwn(command.input, field), false, field);
+      assert.deepEqual(command.input.Destination, {
+        ToAddresses: ["recipient@example.com"],
+      });
+      assert.equal(command.input.Source, "sender@example.com");
+      assert.deepEqual(command.input.Message, {
+        Subject: { Data: "Subject", Charset: "UTF-8" },
+        Body: {
+          Text: { Data: "Text", Charset: "UTF-8" },
+          Html: { Data: "<p>Text</p>", Charset: "UTF-8" },
+        },
+      });
+      return { $metadata: {} };
+    },
+  });
+  await provider.sendEmail({
+    from: "sender@example.com",
+    to: ["recipient@example.com"],
+    subject: "Subject",
+    text: "Text",
+    html: "<p>Text</p>",
+  });
+});
+
+test("real SES SDK serializes only the same-account email fields and protocol metadata", async () => {
+  let calls = 0;
+  // Static fake credentials and an in-memory handler: no AWS/credential network
+  // calls. Exercise the installed SDK serializer, endpoint selection and signing.
+  const client = new SESClient({
+    region: "eu-west-2",
+    maxAttempts: 1,
+    credentials: { accessKeyId: "TESTKEY", secretAccessKey: "test-secret" },
+    requestHandler: {
+      async handle(request) {
+        calls++;
+        assert.equal(request.hostname, "email.eu-west-2.amazonaws.com");
+        assert.equal(request.method, "POST");
+        assert.equal(request.path, "/");
+        assert.equal(typeof request.body, "string");
+        const body = new URLSearchParams(request.body as string);
+        assert.deepEqual(
+          [...body.entries()].sort(([a], [b]) => a.localeCompare(b)),
+          Object.entries({
+            Action: "SendEmail",
+            Version: "2010-12-01",
+            Source: "sender@example.com",
+            "Destination.ToAddresses.member.1": "recipient@example.com",
+            "Message.Subject.Data": "Subject",
+            "Message.Subject.Charset": "UTF-8",
+            "Message.Body.Text.Data": "Text",
+            "Message.Body.Text.Charset": "UTF-8",
+          }).sort(([a], [b]) => a.localeCompare(b)),
+        );
+        return {
+          response: {
+            statusCode: 200,
+            headers: { "content-type": "text/xml" },
+            body: Buffer.from(
+              '<SendEmailResponse xmlns="http://ses.amazonaws.com/doc/2010-12-01/"><SendEmailResult><MessageId>test-id</MessageId></SendEmailResult><ResponseMetadata><RequestId>test-request</RequestId></ResponseMetadata></SendEmailResponse>',
+            ),
+          },
+        };
+      },
+    },
+  });
+  try {
+    await new SesEmailProvider("eu-west-2", client).sendEmail({
+      from: "sender@example.com",
+      to: ["recipient@example.com"],
+      subject: "Subject",
+      text: "Text",
+    });
+    assert.equal(calls, 1);
+  } finally {
+    client.destroy();
+  }
+});
+
+const diagnosticPrincipal =
+  "arn:aws:sts::755905325223:assumed-role/vamberic-dev-api-task/0123456789abcdef0123456789abcdef";
+const diagnosticResource =
+  "arn:aws:ses:eu-west-2:755905325223:identity/vamberic.com";
+const diagnosticRequestId = "12345678-1234-5678-9abc-123456789abc";
+const denialMessage = `User: ${diagnosticPrincipal} is not authorized to perform: ses:SendEmail on resource: ${diagnosticResource} because no identity-based policy allows the ses:SendEmail action`;
+
+function diagnosticProvider(name: string, message: string, metadata: unknown) {
+  return new SesEmailProvider("eu-west-2", {
+    async send() {
+      throw Object.assign(new Error(message), {
+        name,
+        $metadata: metadata,
+        stack: "secret provider stack",
+        cause: new Error("secret cause"),
+        request: {
+          headers: { authorization: "secret token" },
+          from: "notices@example.com",
+          to: "operator@example.com",
+          body: input.message,
+        },
+      });
+    },
+  });
+}
+
+test("AccessDenied logs validated metadata and parsed denial fields while preserving 201 and committed records", async (t) => {
+  const rawMessage =
+    denialMessage + "; private@example.com secret enquiry body";
+  const provider = diagnosticProvider("AccessDenied", rawMessage, {
+    httpStatusCode: 403,
+    requestId: diagnosticRequestId,
+    extendedRequestId: "secret token",
+    headers: { authorization: "secret credentials" },
+  });
+  const { request, db, logs } = await fixture(t, {}, { provider });
+  const response = await request();
+  assert.equal(response.status, 201);
+  assert.deepEqual(response.body, {
+    status: "received",
+    enquiryId: db.rows("events")[0].id,
+  });
+  for (const collection of [
+    "people",
+    "organisations",
+    "opportunities",
+    "events",
+  ])
+    assert.equal(db.rows(collection).length, 1);
+  assert.equal(db.attempts, 1);
+  assert.deepEqual(logs.entries, [
+    {
+      fields: {
+        productId,
+        notificationType: "enquiry_submitted",
+        eventId: response.body.enquiryId,
+        status: "failed",
+        reason: "delivery_failed",
+        providerErrorCode: "AccessDenied",
+        providerHttpStatus: 403,
+        providerRequestId: diagnosticRequestId,
+        deniedAction: "ses:SendEmail",
+        deniedResource: diagnosticResource,
+        deniedPrincipal: diagnosticPrincipal,
+      },
+      message: "Notification not sent",
+    },
+  ]);
+  for (const secret of [
+    rawMessage,
+    "private@example.com",
+    "secret enquiry body",
+    "secret provider stack",
+    "secret cause",
+    "secret token",
+    "secret credentials",
+    "notices@example.com",
+    "operator@example.com",
+    input.message,
+  ])
+    assert.equal(JSON.stringify(logs.entries).includes(secret), false);
+});
+
+for (const [label, code, message, expected] of [
+  [
+    "quoted standard sentence",
+    "AccessDeniedException",
+    `User '${diagnosticPrincipal}' is not authorized to perform 'ses:SendEmail' on resource '${diagnosticResource}'`,
+    {
+      deniedAction: "ses:SendEmail",
+      deniedResource: diagnosticResource,
+      deniedPrincipal: diagnosticPrincipal,
+    },
+  ],
+  [
+    "email identity and personal session",
+    "AccessDenied",
+    "User: arn:aws:sts::755905325223:assumed-role/vamberic-dev-api-task/alice@example.com is not authorized to perform: ses:SendEmail on resource: arn:aws:ses:eu-west-2:755905325223:identity/notifications@vamberic.com",
+    { deniedAction: "ses:SendEmail" },
+  ],
+  [
+    "human session name",
+    "AccessDenied",
+    denialMessage.replace(
+      "0123456789abcdef0123456789abcdef",
+      "MaryAnnVanBuren",
+    ),
+    { deniedAction: "ses:SendEmail", deniedResource: diagnosticResource },
+  ],
+  [
+    "encoded email identity",
+    "AccessDenied",
+    denialMessage.replace(
+      "identity/vamberic.com",
+      "identity/notifications%40vamberic.com",
+    ),
+    { deniedAction: "ses:SendEmail", deniedPrincipal: diagnosticPrincipal },
+  ],
+  [
+    "unexpected resource type",
+    "AccessDenied",
+    denialMessage.replace(
+      "identity/vamberic.com",
+      "configuration-set/PrivateCustomerName",
+    ),
+    { deniedAction: "ses:SendEmail", deniedPrincipal: diagnosticPrincipal },
+  ],
+  [
+    "unexpected action",
+    "AccessDenied",
+    denialMessage.replaceAll("ses:SendEmail", "s3:GetObject"),
+    {
+      deniedResource: diagnosticResource,
+      deniedPrincipal: diagnosticPrincipal,
+    },
+  ],
+  [
+    "arbitrary prose containing valid ARNs",
+    "AccessDenied",
+    `private enquiry: ${diagnosticPrincipal} ses:SendEmail ${diagnosticResource}`,
+    {},
+  ],
+  [
+    "multiline message",
+    "AccessDenied",
+    denialMessage + "\nprivate@example.com",
+    {},
+  ],
+  ["oversized message", "AccessDenied", denialMessage + "x".repeat(4096), {}],
+  ["non AccessDenied error", "MessageRejected", denialMessage, {}],
+] as const) {
+  test(`SES denial parsing discards unsafe or uncertain data: ${label}`, async () => {
+    const logs = captureLogs();
+    const service = createNotificationService(
+      parseConfig(environment).notifications,
+      {
+        logger: logs.logger,
+        provider: diagnosticProvider(code, message, undefined),
+      },
+    );
+    assert.deepEqual(await service.notify(context), {
+      status: "failed",
+      reason: "delivery_failed",
+    });
+    assert.deepEqual(logs.entries[0].fields, {
+      productId,
+      notificationType: "enquiry_submitted",
+      eventId: context.eventId,
+      status: "failed",
+      reason: "delivery_failed",
+      providerErrorCode: code,
+      ...expected,
+    });
+    for (const secret of [
+      message,
+      "alice@example.com",
+      "notifications@vamberic.com",
+      "notifications%40vamberic.com",
+      "MaryAnnVanBuren",
+      "PrivateCustomerName",
+    ])
+      assert.equal(JSON.stringify(logs.entries).includes(secret), false);
+  });
+}
+
+for (const [label, metadata, expected] of [
+  [
+    "valid metadata on a non-denial error",
+    { httpStatusCode: 400, requestId: diagnosticRequestId },
+    { providerHttpStatus: 400, providerRequestId: diagnosticRequestId },
+  ],
+  ["missing metadata", undefined, {}],
+  [
+    "string status and arbitrary ID",
+    { httpStatusCode: "403", requestId: "private@example.com" },
+    {},
+  ],
+  [
+    "out of range status and newline ID",
+    { httpStatusCode: 999, requestId: diagnosticRequestId + "\n" },
+    {},
+  ],
+  [
+    "fractional status and token ID",
+    { httpStatusCode: 403.5, requestId: "secret-access-token" },
+    {},
+  ],
+  [
+    "non-finite status and object ID",
+    { httpStatusCode: NaN, requestId: { secret: "private@example.com" } },
+    {},
+  ],
+] as const) {
+  test(`SES metadata is strictly projected: ${label}`, async () => {
+    const logs = captureLogs();
+    const service = createNotificationService(
+      parseConfig(environment).notifications,
+      {
+        logger: logs.logger,
+        provider: diagnosticProvider(
+          "MessageRejected",
+          "private@example.com secret message",
+          metadata,
+        ),
+      },
+    );
+    await service.notify(context);
+    assert.deepEqual(logs.entries[0].fields, {
+      productId,
+      notificationType: "enquiry_submitted",
+      eventId: context.eventId,
+      status: "failed",
+      reason: "delivery_failed",
+      providerErrorCode: "MessageRejected",
+      ...expected,
+    });
+    assert.equal(
+      JSON.stringify(logs.entries).includes("private@example.com"),
+      false,
+    );
+  });
+}
+
+test("sanitized provider exception retains no raw error, message, metadata object or cause", async () => {
+  const provider = diagnosticProvider("AccessDenied", denialMessage, {
+    httpStatusCode: 403,
+    requestId: diagnosticRequestId,
+    privateField: "secret token",
+  });
+  await assert.rejects(
+    provider.sendEmail({
+      from: "notices@example.com",
+      to: ["operator@example.com"],
+      subject: "Subject",
+      text: input.message,
+    }),
+    (error) => {
+      assert.ok(error instanceof EmailProviderError);
+      assert.equal(error.message, "Email provider unavailable");
+      assert.equal(error.cause, undefined);
+      assert.deepEqual(Object.keys(error).sort(), [
+        "diagnostics",
+        "name",
+        "providerErrorCode",
+      ]);
+      assert.equal(Object.isFrozen(error.diagnostics), true);
+      assert.equal(JSON.stringify(error).includes("secret"), false);
+      assert.equal(JSON.stringify(error).includes(denialMessage), false);
+      return true;
+    },
+  );
+});
