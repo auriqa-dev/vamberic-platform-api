@@ -14,10 +14,62 @@ export interface EmailMessage {
 export interface EmailProvider {
   sendEmail(message: EmailMessage, signal?: AbortSignal): Promise<void>;
 }
+// Explicit vocabulary, not just a character/length check: even an error name
+// can contain personal data. Unknown identifiers never pass through to logs.
+const safeProviderErrorCodes = new Set([
+  "MessageRejected",
+  "MailFromDomainNotVerifiedException",
+  "ConfigurationSetDoesNotExistException",
+  "ConfigurationSetSendingPausedException",
+  "AccountSendingPausedException",
+  "FromEmailAddressNotVerifiedException",
+  "AccessDenied",
+  "AccessDeniedException",
+  "InvalidClientTokenId",
+  "UnrecognizedClientException",
+  "SignatureDoesNotMatch",
+  "ExpiredToken",
+  "ExpiredTokenException",
+  "CredentialsProviderError",
+  "TokenProviderError",
+  "InvalidParameterValue",
+  "ValidationError",
+  "Throttling",
+  "ThrottlingException",
+  "TooManyRequestsException",
+  "LimitExceededException",
+  "ServiceUnavailable",
+  "InternalFailure",
+  "InternalServerError",
+  "RequestExpired",
+  "TimeoutError",
+  "AbortError",
+  "NetworkingError",
+  "ENOTFOUND",
+  "ECONNRESET",
+  "ECONNREFUSED",
+  "ETIMEDOUT",
+]);
+function safeCode(value: unknown): string | undefined {
+  return typeof value === "string" && safeProviderErrorCodes.has(value)
+    ? value
+    : undefined;
+}
+function providerErrorCode(error: unknown): string | undefined {
+  if (typeof error !== "object" || error === null) return undefined;
+  try {
+    const fields = error as { name?: unknown; code?: unknown };
+    return safeCode(fields.name) ?? safeCode(fields.code);
+  } catch {
+    return undefined;
+  }
+}
 export class EmailProviderError extends Error {
-  constructor() {
+  readonly providerErrorCode: string;
+  constructor(code?: string) {
     super("Email provider unavailable");
     this.name = "EmailProviderError";
+    this.providerErrorCode = safeCode(code) ?? "UnknownProviderError";
   }
 }
 // Small transport seam for unit tests; no credentials or network are needed.
@@ -52,9 +104,9 @@ export class SesEmailProvider implements EmailProvider {
         }),
         { abortSignal: signal },
       );
-    } catch {
-      // Do not retain a cause: SDK errors may contain addresses or request data.
-      throw new EmailProviderError();
+    } catch (error) {
+      // Retain only an allowlisted identifier, never the message, object or cause.
+      throw new EmailProviderError(providerErrorCode(error));
     }
   }
 }

@@ -6,7 +6,11 @@ import {
   type NotificationConfig,
   type NotificationRecipientResolver,
 } from "./config";
-import { SesEmailProvider, type EmailProvider } from "./email-provider";
+import {
+  EmailProviderError,
+  SesEmailProvider,
+  type EmailProvider,
+} from "./email-provider";
 import {
   renderEnquiryEmail,
   type EnquirySubmittedNotification,
@@ -49,10 +53,16 @@ export function createNotificationService(
         notificationType: context.type,
         eventId: context.eventId,
       };
-      const report = (result: NotificationResult): NotificationResult => {
+      const report = (
+        result: NotificationResult,
+        providerErrorCode?: string,
+      ): NotificationResult => {
         const data = {
           ...fields,
           status: result.status,
+          ...(result.status === "failed" && providerErrorCode
+            ? { providerErrorCode }
+            : {}),
           ...(result.status !== "sent" ? { reason: result.reason } : {}),
         };
         // Logging must not turn a committed enquiry into an error either.
@@ -101,11 +111,16 @@ export function createNotificationService(
           return { status: "sent" };
         };
         return report(await Promise.race([delivery(), timeout]));
-      } catch {
-        return report({
-          status: "failed",
-          reason: timedOut ? "timeout" : "delivery_failed",
-        });
+      } catch (error) {
+        return report(
+          {
+            status: "failed",
+            reason: timedOut ? "timeout" : "delivery_failed",
+          },
+          error instanceof EmailProviderError
+            ? error.providerErrorCode
+            : undefined,
+        );
       } finally {
         clearTimeout(timer);
       }

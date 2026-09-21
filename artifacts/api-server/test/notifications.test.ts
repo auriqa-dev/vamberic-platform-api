@@ -579,3 +579,82 @@ test("resolver failure and late resolution cannot reject the enquiry or send aft
   });
   assert.equal(sends, 0);
 });
+
+for (const [label, identifier, expected] of [
+  ["AWS name", { name: "MessageRejected" }, "MessageRejected"],
+  [
+    "AWS code fallback",
+    { name: "Error", code: "AccessDeniedException" },
+    "AccessDeniedException",
+  ],
+  [
+    "address in name",
+    { name: "private@example.com", code: "secret-body" },
+    "UnknownProviderError",
+  ],
+  [
+    "personal name without punctuation",
+    { name: "MaryAnnVanBuren" },
+    "UnknownProviderError",
+  ],
+] as const) {
+  test(`SES failure logs only a safe identifier: ${label}`, async (t) => {
+    const provider = new SesEmailProvider("eu-west-2", {
+      async send() {
+        throw Object.assign(
+          new Error("private@example.com secret enquiry body"),
+          identifier,
+          {
+            stack: "private stack trace",
+            cause: new Error("private cause"),
+            request: {
+              from: "notices@example.com",
+              to: "operator@example.com",
+              body: input.message,
+            },
+          },
+        );
+      },
+    });
+    const { request, db, logs } = await fixture(t, {}, { provider });
+    const response = await request();
+    assert.equal(response.status, 201);
+    assert.deepEqual(response.body, {
+      status: "received",
+      enquiryId: db.rows("events")[0].id,
+    });
+    for (const collection of [
+      "people",
+      "organisations",
+      "opportunities",
+      "events",
+    ])
+      assert.equal(db.rows(collection).length, 1);
+    assert.equal(db.attempts, 1);
+    assert.deepEqual(logs.entries, [
+      {
+        fields: {
+          productId,
+          notificationType: "enquiry_submitted",
+          eventId: response.body.enquiryId,
+          status: "failed",
+          reason: "delivery_failed",
+          providerErrorCode: expected,
+        },
+        message: "Notification not sent",
+      },
+    ]);
+    const serialized = JSON.stringify(logs.entries);
+    for (const secret of [
+      "private@example.com",
+      "secret enquiry body",
+      "private stack trace",
+      "private cause",
+      "notices@example.com",
+      "operator@example.com",
+      input.message,
+      "MaryAnnVanBuren",
+    ])
+      assert.equal(serialized.includes(secret), false);
+  });
+}
