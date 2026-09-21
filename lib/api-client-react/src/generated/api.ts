@@ -22,6 +22,10 @@ import type {
 import type {
   BadRequestResponse,
   ConflictResponse,
+  CrmDeleteError,
+  CrmDeleteInput,
+  CrmDeletePreview,
+  CrmDeleteResult,
   CrmOpportunitiesPage,
   CrmOpportunityDetail,
   CrmOrganisationDetail,
@@ -73,6 +77,240 @@ const withQueryKey = <T extends object, K>(query: T, queryKey: K): T & { queryKe
   }
   return result;
 };
+
+export const getGetPersonDeletePreviewUrl = (id: string,) => {
+
+
+
+
+  return `/api/v1/people/${id}/delete-preview`
+}
+
+/**
+ * Private administrative operation using existing Cognito authentication. Financial/customer history and non-test consent block deletion. DELETE requires exact confirmation and the current preview token; dependencies and blockers are checked again in a transaction.
+ * @summary Preview permanent person deletion
+ */
+export const getPersonDeletePreview = async (id: string, options?: Parameters<typeof customFetch>[1]): Promise<CrmDeletePreview> => {
+
+  return customFetch<CrmDeletePreview>(getGetPersonDeletePreviewUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetPersonDeletePreviewQueryKey = (id: string,) => {
+    return [
+    `/api/v1/people/${id}/delete-preview`
+    ] as const;
+    }
+
+
+export const getGetPersonDeletePreviewQueryOptions = <TData = Awaited<ReturnType<typeof getPersonDeletePreview>>, TError = ErrorType<CrmDeleteError | ErrorResponse>>(id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPersonDeletePreview>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetPersonDeletePreviewQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getPersonDeletePreview>>> = ({ signal }) => getPersonDeletePreview(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getPersonDeletePreview>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetPersonDeletePreviewQueryResult = NonNullable<Awaited<ReturnType<typeof getPersonDeletePreview>>>
+export type GetPersonDeletePreviewQueryError = ErrorType<CrmDeleteError | ErrorResponse>
+
+
+/**
+ * @summary Preview permanent person deletion
+ */
+
+export function useGetPersonDeletePreview<TData = Awaited<ReturnType<typeof getPersonDeletePreview>>, TError = ErrorType<CrmDeleteError | ErrorResponse>>(
+ id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPersonDeletePreview>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetPersonDeletePreviewQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetOrganisationDeletePreviewUrl = (id: string,) => {
+
+
+
+
+  return `/api/v1/organisations/${id}/delete-preview`
+}
+
+/**
+ * Private administrative operation using existing Cognito authentication. Financial/customer history and non-test consent block deletion. DELETE requires exact confirmation and the current preview token; dependencies and blockers are checked again in a transaction.
+ * @summary Preview permanent organisation deletion
+ */
+export const getOrganisationDeletePreview = async (id: string, options?: Parameters<typeof customFetch>[1]): Promise<CrmDeletePreview> => {
+
+  return customFetch<CrmDeletePreview>(getGetOrganisationDeletePreviewUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetOrganisationDeletePreviewQueryKey = (id: string,) => {
+    return [
+    `/api/v1/organisations/${id}/delete-preview`
+    ] as const;
+    }
+
+
+export const getGetOrganisationDeletePreviewQueryOptions = <TData = Awaited<ReturnType<typeof getOrganisationDeletePreview>>, TError = ErrorType<CrmDeleteError | ErrorResponse>>(id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getOrganisationDeletePreview>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetOrganisationDeletePreviewQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getOrganisationDeletePreview>>> = ({ signal }) => getOrganisationDeletePreview(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getOrganisationDeletePreview>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetOrganisationDeletePreviewQueryResult = NonNullable<Awaited<ReturnType<typeof getOrganisationDeletePreview>>>
+export type GetOrganisationDeletePreviewQueryError = ErrorType<CrmDeleteError | ErrorResponse>
+
+
+/**
+ * @summary Preview permanent organisation deletion
+ */
+
+export function useGetOrganisationDeletePreview<TData = Awaited<ReturnType<typeof getOrganisationDeletePreview>>, TError = ErrorType<CrmDeleteError | ErrorResponse>>(
+ id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getOrganisationDeletePreview>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetOrganisationDeletePreviewQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetOpportunityDeletePreviewUrl = (id: string,) => {
+
+
+
+
+  return `/api/v1/opportunities/${id}/delete-preview`
+}
+
+/**
+ * Private administrative operation using existing Cognito authentication. Financial/customer history and non-test consent block deletion. DELETE requires exact confirmation and the current preview token; dependencies and blockers are checked again in a transaction.
+ * @summary Preview permanent opportunity deletion
+ */
+export const getOpportunityDeletePreview = async (id: string, options?: Parameters<typeof customFetch>[1]): Promise<CrmDeletePreview> => {
+
+  return customFetch<CrmDeletePreview>(getGetOpportunityDeletePreviewUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetOpportunityDeletePreviewQueryKey = (id: string,) => {
+    return [
+    `/api/v1/opportunities/${id}/delete-preview`
+    ] as const;
+    }
+
+
+export const getGetOpportunityDeletePreviewQueryOptions = <TData = Awaited<ReturnType<typeof getOpportunityDeletePreview>>, TError = ErrorType<CrmDeleteError | ErrorResponse>>(id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getOpportunityDeletePreview>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetOpportunityDeletePreviewQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getOpportunityDeletePreview>>> = ({ signal }) => getOpportunityDeletePreview(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getOpportunityDeletePreview>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetOpportunityDeletePreviewQueryResult = NonNullable<Awaited<ReturnType<typeof getOpportunityDeletePreview>>>
+export type GetOpportunityDeletePreviewQueryError = ErrorType<CrmDeleteError | ErrorResponse>
+
+
+/**
+ * @summary Preview permanent opportunity deletion
+ */
+
+export function useGetOpportunityDeletePreview<TData = Awaited<ReturnType<typeof getOpportunityDeletePreview>>, TError = ErrorType<CrmDeleteError | ErrorResponse>>(
+ id: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getOpportunityDeletePreview>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetOpportunityDeletePreviewQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getListPeopleUrl = (params?: ListPeopleParams,) => {
   const normalizedParams = new URLSearchParams();
@@ -237,6 +475,79 @@ export function useGetPerson<TData = Awaited<ReturnType<typeof getPerson>>, TErr
 
 
 
+export const getDeletePersonUrl = (id: string,) => {
+
+
+
+
+  return `/api/v1/people/${id}`
+}
+
+/**
+ * Private administrative operation using existing Cognito authentication. Financial/customer history and non-test consent block deletion. DELETE requires exact confirmation and the current preview token; dependencies and blockers are checked again in a transaction.
+ * @summary Permanently delete person
+ */
+export const deletePerson = async (id: string,
+    crmDeleteInput: CrmDeleteInput, options?: Parameters<typeof customFetch>[1]): Promise<CrmDeleteResult> => {
+
+  return customFetch<CrmDeleteResult>(getDeletePersonUrl(id),
+  {
+    ...options,
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(crmDeleteInput)
+  }
+);}
+
+
+
+
+
+export const getDeletePersonMutationOptions = <TError = ErrorType<CrmDeleteError | ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deletePerson>>, TError,{id: string;data: BodyType<CrmDeleteInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deletePerson>>, TError,{id: string;data: BodyType<CrmDeleteInput>}, TContext> => {
+
+const mutationKey = ['deletePerson'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deletePerson>>, {id: string;data: BodyType<CrmDeleteInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  deletePerson(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeletePersonMutationResult = NonNullable<Awaited<ReturnType<typeof deletePerson>>>
+    export type DeletePersonMutationBody = BodyType<CrmDeleteInput>
+    export type DeletePersonMutationError = ErrorType<CrmDeleteError | ErrorResponse>
+
+    /**
+ * @summary Permanently delete person
+ */
+export const useDeletePerson = <TError = ErrorType<CrmDeleteError | ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deletePerson>>, TError,{id: string;data: BodyType<CrmDeleteInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deletePerson>>,
+        TError,
+        {id: string;data: BodyType<CrmDeleteInput>},
+        TContext
+      > => {
+      return useMutation(getDeletePersonMutationOptions(options));
+    }
+
 export const getListOrganisationsUrl = (params?: ListOrganisationsParams,) => {
   const normalizedParams = new URLSearchParams();
 
@@ -400,6 +711,79 @@ export function useGetOrganisation<TData = Awaited<ReturnType<typeof getOrganisa
 
 
 
+export const getDeleteOrganisationUrl = (id: string,) => {
+
+
+
+
+  return `/api/v1/organisations/${id}`
+}
+
+/**
+ * Private administrative operation using existing Cognito authentication. Financial/customer history and non-test consent block deletion. DELETE requires exact confirmation and the current preview token; dependencies and blockers are checked again in a transaction.
+ * @summary Permanently delete organisation
+ */
+export const deleteOrganisation = async (id: string,
+    crmDeleteInput: CrmDeleteInput, options?: Parameters<typeof customFetch>[1]): Promise<CrmDeleteResult> => {
+
+  return customFetch<CrmDeleteResult>(getDeleteOrganisationUrl(id),
+  {
+    ...options,
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(crmDeleteInput)
+  }
+);}
+
+
+
+
+
+export const getDeleteOrganisationMutationOptions = <TError = ErrorType<CrmDeleteError | ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteOrganisation>>, TError,{id: string;data: BodyType<CrmDeleteInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteOrganisation>>, TError,{id: string;data: BodyType<CrmDeleteInput>}, TContext> => {
+
+const mutationKey = ['deleteOrganisation'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteOrganisation>>, {id: string;data: BodyType<CrmDeleteInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  deleteOrganisation(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteOrganisationMutationResult = NonNullable<Awaited<ReturnType<typeof deleteOrganisation>>>
+    export type DeleteOrganisationMutationBody = BodyType<CrmDeleteInput>
+    export type DeleteOrganisationMutationError = ErrorType<CrmDeleteError | ErrorResponse>
+
+    /**
+ * @summary Permanently delete organisation
+ */
+export const useDeleteOrganisation = <TError = ErrorType<CrmDeleteError | ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteOrganisation>>, TError,{id: string;data: BodyType<CrmDeleteInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteOrganisation>>,
+        TError,
+        {id: string;data: BodyType<CrmDeleteInput>},
+        TContext
+      > => {
+      return useMutation(getDeleteOrganisationMutationOptions(options));
+    }
+
 export const getListOpportunitiesUrl = (params?: ListOpportunitiesParams,) => {
   const normalizedParams = new URLSearchParams();
 
@@ -562,6 +946,79 @@ export function useGetOpportunity<TData = Awaited<ReturnType<typeof getOpportuni
 
 
 
+
+export const getDeleteOpportunityUrl = (id: string,) => {
+
+
+
+
+  return `/api/v1/opportunities/${id}`
+}
+
+/**
+ * Private administrative operation using existing Cognito authentication. Financial/customer history and non-test consent block deletion. DELETE requires exact confirmation and the current preview token; dependencies and blockers are checked again in a transaction.
+ * @summary Permanently delete opportunity
+ */
+export const deleteOpportunity = async (id: string,
+    crmDeleteInput: CrmDeleteInput, options?: Parameters<typeof customFetch>[1]): Promise<CrmDeleteResult> => {
+
+  return customFetch<CrmDeleteResult>(getDeleteOpportunityUrl(id),
+  {
+    ...options,
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(crmDeleteInput)
+  }
+);}
+
+
+
+
+
+export const getDeleteOpportunityMutationOptions = <TError = ErrorType<CrmDeleteError | ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteOpportunity>>, TError,{id: string;data: BodyType<CrmDeleteInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteOpportunity>>, TError,{id: string;data: BodyType<CrmDeleteInput>}, TContext> => {
+
+const mutationKey = ['deleteOpportunity'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteOpportunity>>, {id: string;data: BodyType<CrmDeleteInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  deleteOpportunity(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteOpportunityMutationResult = NonNullable<Awaited<ReturnType<typeof deleteOpportunity>>>
+    export type DeleteOpportunityMutationBody = BodyType<CrmDeleteInput>
+    export type DeleteOpportunityMutationError = ErrorType<CrmDeleteError | ErrorResponse>
+
+    /**
+ * @summary Permanently delete opportunity
+ */
+export const useDeleteOpportunity = <TError = ErrorType<CrmDeleteError | ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteOpportunity>>, TError,{id: string;data: BodyType<CrmDeleteInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteOpportunity>>,
+        TError,
+        {id: string;data: BodyType<CrmDeleteInput>},
+        TContext
+      > => {
+      return useMutation(getDeleteOpportunityMutationOptions(options));
+    }
 
 export const getSubmitPublicEnquiryUrl = (productId: string,) => {
 

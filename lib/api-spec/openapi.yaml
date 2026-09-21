@@ -17,6 +17,159 @@ tags:
   - name: products
     description: Product management
 paths:
+  /v1/people/{id}/delete-preview:
+    get:
+      operationId: getPersonDeletePreview
+      tags:
+        - people
+      summary: Preview permanent person deletion
+      description: Private administrative operation using existing Cognito authentication. Financial/customer history and non-test consent block deletion. DELETE requires exact confirmation and the current preview token; dependencies and blockers are checked again in a transaction.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            pattern: ^person_[0-7][0-9abcdefghjkmnpqrstvwxyz]{25}$
+      responses:
+        "200":
+          description: Deletion preview
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CrmDeletePreview"
+        "400":
+          description: Invalid ID or explicit confirmation missing
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CrmDeleteError"
+        "401":
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Record not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CrmDeleteError"
+        "409":
+          description: Protected dependencies, changed preview or excessive scope
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CrmDeleteError"
+        "503":
+          description: Transactional deletion unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CrmDeleteError"
+  /v1/organisations/{id}/delete-preview:
+    get:
+      operationId: getOrganisationDeletePreview
+      tags:
+        - organisations
+      summary: Preview permanent organisation deletion
+      description: Private administrative operation using existing Cognito authentication. Financial/customer history and non-test consent block deletion. DELETE requires exact confirmation and the current preview token; dependencies and blockers are checked again in a transaction.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            pattern: ^org_[0-7][0-9abcdefghjkmnpqrstvwxyz]{25}$
+      responses:
+        "200":
+          description: Deletion preview
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CrmDeletePreview"
+        "400":
+          description: Invalid ID or explicit confirmation missing
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CrmDeleteError"
+        "401":
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Record not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CrmDeleteError"
+        "409":
+          description: Protected dependencies, changed preview or excessive scope
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CrmDeleteError"
+        "503":
+          description: Transactional deletion unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CrmDeleteError"
+  /v1/opportunities/{id}/delete-preview:
+    get:
+      operationId: getOpportunityDeletePreview
+      tags:
+        - opportunities
+      summary: Preview permanent opportunity deletion
+      description: Private administrative operation using existing Cognito authentication. Financial/customer history and non-test consent block deletion. DELETE requires exact confirmation and the current preview token; dependencies and blockers are checked again in a transaction.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            pattern: ^opportunity_[0-7][0-9abcdefghjkmnpqrstvwxyz]{25}$
+      responses:
+        "200":
+          description: Deletion preview
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CrmDeletePreview"
+        "400":
+          description: Invalid ID or explicit confirmation missing
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CrmDeleteError"
+        "401":
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Record not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CrmDeleteError"
+        "409":
+          description: Protected dependencies, changed preview or excessive scope
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CrmDeleteError"
+        "503":
+          description: Transactional deletion unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CrmDeleteError"
   /v1/people:
     get:
       operationId: listPeople
@@ -132,6 +285,62 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      operationId: deletePerson
+      tags:
+        - people
+      summary: Permanently delete person
+      description: Private administrative operation using existing Cognito authentication. Financial/customer history and non-test consent block deletion. DELETE requires exact confirmation and the current preview token; dependencies and blockers are checked again in a transaction.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            pattern: ^person_[0-7][0-9abcdefghjkmnpqrstvwxyz]{25}$
+      responses:
+        "200":
+          description: Permanently deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CrmDeleteResult"
+        "400":
+          description: Invalid ID or explicit confirmation missing
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CrmDeleteError"
+        "401":
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Record not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CrmDeleteError"
+        "409":
+          description: Protected dependencies, changed preview or excessive scope
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CrmDeleteError"
+        "503":
+          description: Transactional deletion unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CrmDeleteError"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CrmDeleteInput"
   /v1/organisations:
     get:
       operationId: listOrganisations
@@ -247,6 +456,62 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      operationId: deleteOrganisation
+      tags:
+        - organisations
+      summary: Permanently delete organisation
+      description: Private administrative operation using existing Cognito authentication. Financial/customer history and non-test consent block deletion. DELETE requires exact confirmation and the current preview token; dependencies and blockers are checked again in a transaction.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            pattern: ^org_[0-7][0-9abcdefghjkmnpqrstvwxyz]{25}$
+      responses:
+        "200":
+          description: Permanently deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CrmDeleteResult"
+        "400":
+          description: Invalid ID or explicit confirmation missing
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CrmDeleteError"
+        "401":
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Record not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CrmDeleteError"
+        "409":
+          description: Protected dependencies, changed preview or excessive scope
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CrmDeleteError"
+        "503":
+          description: Transactional deletion unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CrmDeleteError"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CrmDeleteInput"
   /v1/opportunities:
     get:
       operationId: listOpportunities
@@ -382,6 +647,62 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      operationId: deleteOpportunity
+      tags:
+        - opportunities
+      summary: Permanently delete opportunity
+      description: Private administrative operation using existing Cognito authentication. Financial/customer history and non-test consent block deletion. DELETE requires exact confirmation and the current preview token; dependencies and blockers are checked again in a transaction.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            pattern: ^opportunity_[0-7][0-9abcdefghjkmnpqrstvwxyz]{25}$
+      responses:
+        "200":
+          description: Permanently deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CrmDeleteResult"
+        "400":
+          description: Invalid ID or explicit confirmation missing
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CrmDeleteError"
+        "401":
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Record not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CrmDeleteError"
+        "409":
+          description: Protected dependencies, changed preview or excessive scope
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CrmDeleteError"
+        "503":
+          description: Transactional deletion unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CrmDeleteError"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CrmDeleteInput"
   /v1/public/products/{productId}/enquiries:
     post:
       security: []
@@ -1565,3 +1886,116 @@ components:
         offset:
           type: integer
           minimum: 0
+    CrmDeleteGroup:
+      type: object
+      properties:
+        collection: &a1
+          type: string
+        count:
+          type: integer
+          minimum: 0
+        ids:
+          type: array
+          items: *a1
+      required:
+        - collection
+        - count
+        - ids
+    CrmDeleteBlocker:
+      type: object
+      properties:
+        code: &a2
+          type: string
+        collection: *a2
+        count:
+          type: integer
+          minimum: 1
+        ids:
+          type: array
+          items: *a2
+        reason: *a2
+      required:
+        - code
+        - collection
+        - count
+        - ids
+        - reason
+    CrmDeletePreview:
+      type: object
+      properties:
+        recordId:
+          type: string
+        recordType:
+          type: string
+          enum:
+            - person
+            - organisation
+            - opportunity
+        previewToken:
+          type: string
+          pattern: ^[a-f0-9]{64}$
+        willDelete:
+          type: array
+          items:
+            $ref: "#/components/schemas/CrmDeleteGroup"
+        blockedBy:
+          type: array
+          items:
+            $ref: "#/components/schemas/CrmDeleteBlocker"
+      required:
+        - recordId
+        - recordType
+        - previewToken
+        - willDelete
+        - blockedBy
+    CrmDeleteInput:
+      type: object
+      properties:
+        confirm:
+          type: string
+          enum:
+            - DELETE
+        previewToken:
+          type: string
+          pattern: ^[a-f0-9]{64}$
+      required:
+        - confirm
+        - previewToken
+      additionalProperties: false
+    CrmDeleteResult:
+      type: object
+      properties:
+        recordId:
+          type: string
+        recordType:
+          type: string
+          enum:
+            - person
+            - organisation
+            - opportunity
+        deleted:
+          type: array
+          items:
+            $ref: "#/components/schemas/CrmDeleteGroup"
+      required:
+        - recordId
+        - recordType
+        - deleted
+    CrmDeleteError:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code: &a3
+              type: string
+            message: *a3
+          required:
+            - code
+            - message
+        blockedBy:
+          type: array
+          items:
+            $ref: "#/components/schemas/CrmDeleteBlocker"
+      required:
+        - error

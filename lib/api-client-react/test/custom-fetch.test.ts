@@ -1,4 +1,12 @@
-import { submitPublicEnquiry } from "../src/generated/api";
+import {
+  submitPublicEnquiry,
+  getPersonDeletePreview,
+  getOrganisationDeletePreview,
+  getOpportunityDeletePreview,
+  deletePerson,
+  deleteOrganisation,
+  deleteOpportunity,
+} from "../src/generated/api";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
@@ -98,6 +106,74 @@ test("generated public enquiry client sends no token or cookies even when Vapp a
       AuthenticationRequiredError,
     );
     assert.equal(authCalls, 1);
+  } finally {
+    globalThis.fetch = originalFetch;
+    setBaseUrl(null);
+    setAuthTokenGetter(null);
+  }
+});
+
+test("generated CRM preview and DELETE operations retain private auth and send explicit confirmation JSON", async () => {
+  const originalFetch = globalThis.fetch;
+  const requests: { url: string; init?: RequestInit }[] = [];
+  setBaseUrl("https://api.example");
+  setAuthTokenGetter(() => "test-access-token");
+  const previewToken = "a".repeat(64);
+  globalThis.fetch = async (url, init) => {
+    requests.push({ url: String(url), init });
+    return new Response(JSON.stringify({ previewToken }), {
+      headers: { "content-type": "application/json" },
+    });
+  };
+  try {
+    for (const [plural, prefix, preview, remove] of [
+      ["people", "person", getPersonDeletePreview, deletePerson],
+      [
+        "organisations",
+        "org",
+        getOrganisationDeletePreview,
+        deleteOrganisation,
+      ],
+      [
+        "opportunities",
+        "opportunity",
+        getOpportunityDeletePreview,
+        deleteOpportunity,
+      ],
+    ] as const) {
+      const id = prefix + "_00000000000000000000000001";
+      const result = await preview(id);
+      await remove(id, {
+        confirm: "DELETE",
+        previewToken: result.previewToken,
+      });
+      const [read, deleted] = requests.slice(-2);
+      assert.equal(
+        read.url,
+        `https://api.example/api/v1/${plural}/${id}/delete-preview`,
+      );
+      assert.equal(read.init?.method, "GET");
+      assert.equal(deleted.url, `https://api.example/api/v1/${plural}/${id}`);
+      assert.equal(deleted.init?.method, "DELETE");
+      assert.deepEqual(JSON.parse(String(deleted.init?.body)), {
+        confirm: "DELETE",
+        previewToken,
+      });
+      for (const request of [read, deleted])
+        assert.equal(
+          new Headers(request.init?.headers).get("authorization"),
+          "Bearer test-access-token",
+        );
+    }
+    setAuthTokenGetter(() => null);
+    await assert.rejects(
+      deletePerson("person_00000000000000000000000001", {
+        confirm: "DELETE",
+        previewToken,
+      }),
+      AuthenticationRequiredError,
+    );
+    assert.equal(requests.length, 6);
   } finally {
     globalThis.fetch = originalFetch;
     setBaseUrl(null);

@@ -2,6 +2,7 @@ import { Router, type IRouter } from "express";
 import { createHealthRouter } from "./health";
 import { createReadinessRouter } from "./readiness";
 import { createDashboardRouter } from "./dashboard";
+import { createCrmDeleteRouter } from "./crm-delete";
 import { createCrmRouter } from "./crm";
 import { createProductsRouter } from "./products";
 import type { AppConfig } from "../config";
@@ -15,6 +16,7 @@ export function createRouter(config: AppConfig, mongo: MongoService): IRouter {
   router.use(createDashboardRouter(mongo));
   router.use(createProductsRouter(mongo));
   router.use(createCrmRouter(mongo));
+  router.use(createCrmDeleteRouter(mongo));
 
   return router;
 }

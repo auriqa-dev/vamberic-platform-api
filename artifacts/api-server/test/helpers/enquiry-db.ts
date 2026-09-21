@@ -49,6 +49,7 @@ export class EnquiryMemoryDb {
   records: Record<string, Document[]> = {};
   missingIndexes = false;
   failCollection?: string;
+  failDeleteCollection?: string;
   duplicateOnce = false;
   attempts = 0;
   databaseCalls = 0;
@@ -139,6 +140,15 @@ export class EnquiryMemoryDb {
         if (!record) return { matchedCount: 0 };
         Object.assign(record, update.$set);
         return { matchedCount: 1 };
+      },
+      deleteMany: async (filter: Document) => {
+        if (this.failDeleteCollection === name)
+          throw new Error("private@example.com internal Mongo failure");
+        const before = this.rows(name).length;
+        this.records[name] = this.rows(name).filter(
+          (row) => !matches(row, filter),
+        );
+        return { deletedCount: before - this.records[name].length };
       },
       countDocuments: async (filter: Document = {}) => {
         return this.rows(name).filter((row) => matches(row, filter)).length;

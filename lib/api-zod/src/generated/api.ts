@@ -9,6 +9,114 @@ import * as zod from 'zod';
 
 
 /**
+ * Private administrative operation using existing Cognito authentication. Financial/customer history and non-test consent block deletion. DELETE requires exact confirmation and the current preview token; dependencies and blockers are checked again in a transaction.
+ * @summary Preview permanent person deletion
+ */
+export const getPersonDeletePreviewPathIdRegExp = new RegExp('^person_[0-7][0-9abcdefghjkmnpqrstvwxyz]{25}$');
+
+
+export const GetPersonDeletePreviewParams = zod.object({
+  "id": zod.coerce.string().regex(getPersonDeletePreviewPathIdRegExp)
+})
+
+export const getPersonDeletePreviewResponsePreviewTokenRegExp = new RegExp('^[a-f0-9]{64}$');
+export const getPersonDeletePreviewResponseWillDeleteItemCountMin = 0;
+
+
+
+
+export const GetPersonDeletePreviewResponse = zod.object({
+  "recordId": zod.string(),
+  "recordType": zod.enum(['person', 'organisation', 'opportunity']),
+  "previewToken": zod.string().regex(getPersonDeletePreviewResponsePreviewTokenRegExp),
+  "willDelete": zod.array(zod.object({
+  "collection": zod.string(),
+  "count": zod.number().int().min(getPersonDeletePreviewResponseWillDeleteItemCountMin),
+  "ids": zod.array(zod.string())
+})),
+  "blockedBy": zod.array(zod.object({
+  "code": zod.string(),
+  "collection": zod.string(),
+  "count": zod.number().int().min(1),
+  "ids": zod.array(zod.string()),
+  "reason": zod.string()
+}))
+})
+
+
+/**
+ * Private administrative operation using existing Cognito authentication. Financial/customer history and non-test consent block deletion. DELETE requires exact confirmation and the current preview token; dependencies and blockers are checked again in a transaction.
+ * @summary Preview permanent organisation deletion
+ */
+export const getOrganisationDeletePreviewPathIdRegExp = new RegExp('^org_[0-7][0-9abcdefghjkmnpqrstvwxyz]{25}$');
+
+
+export const GetOrganisationDeletePreviewParams = zod.object({
+  "id": zod.coerce.string().regex(getOrganisationDeletePreviewPathIdRegExp)
+})
+
+export const getOrganisationDeletePreviewResponsePreviewTokenRegExp = new RegExp('^[a-f0-9]{64}$');
+export const getOrganisationDeletePreviewResponseWillDeleteItemCountMin = 0;
+
+
+
+
+export const GetOrganisationDeletePreviewResponse = zod.object({
+  "recordId": zod.string(),
+  "recordType": zod.enum(['person', 'organisation', 'opportunity']),
+  "previewToken": zod.string().regex(getOrganisationDeletePreviewResponsePreviewTokenRegExp),
+  "willDelete": zod.array(zod.object({
+  "collection": zod.string(),
+  "count": zod.number().int().min(getOrganisationDeletePreviewResponseWillDeleteItemCountMin),
+  "ids": zod.array(zod.string())
+})),
+  "blockedBy": zod.array(zod.object({
+  "code": zod.string(),
+  "collection": zod.string(),
+  "count": zod.number().int().min(1),
+  "ids": zod.array(zod.string()),
+  "reason": zod.string()
+}))
+})
+
+
+/**
+ * Private administrative operation using existing Cognito authentication. Financial/customer history and non-test consent block deletion. DELETE requires exact confirmation and the current preview token; dependencies and blockers are checked again in a transaction.
+ * @summary Preview permanent opportunity deletion
+ */
+export const getOpportunityDeletePreviewPathIdRegExp = new RegExp('^opportunity_[0-7][0-9abcdefghjkmnpqrstvwxyz]{25}$');
+
+
+export const GetOpportunityDeletePreviewParams = zod.object({
+  "id": zod.coerce.string().regex(getOpportunityDeletePreviewPathIdRegExp)
+})
+
+export const getOpportunityDeletePreviewResponsePreviewTokenRegExp = new RegExp('^[a-f0-9]{64}$');
+export const getOpportunityDeletePreviewResponseWillDeleteItemCountMin = 0;
+
+
+
+
+export const GetOpportunityDeletePreviewResponse = zod.object({
+  "recordId": zod.string(),
+  "recordType": zod.enum(['person', 'organisation', 'opportunity']),
+  "previewToken": zod.string().regex(getOpportunityDeletePreviewResponsePreviewTokenRegExp),
+  "willDelete": zod.array(zod.object({
+  "collection": zod.string(),
+  "count": zod.number().int().min(getOpportunityDeletePreviewResponseWillDeleteItemCountMin),
+  "ids": zod.array(zod.string())
+})),
+  "blockedBy": zod.array(zod.object({
+  "code": zod.string(),
+  "collection": zod.string(),
+  "count": zod.number().int().min(1),
+  "ids": zod.array(zod.string()),
+  "reason": zod.string()
+}))
+})
+
+
+/**
  * Private, read-only CRM projection. Archived records are excluded. Detail events are limited to the most recent 10; linked relationships are current for people and organisations.
  * @summary List people
  */
@@ -156,6 +264,40 @@ export const GetPersonResponse = zod.object({
 
 
 /**
+ * Private administrative operation using existing Cognito authentication. Financial/customer history and non-test consent block deletion. DELETE requires exact confirmation and the current preview token; dependencies and blockers are checked again in a transaction.
+ * @summary Permanently delete person
+ */
+export const deletePersonPathIdRegExp = new RegExp('^person_[0-7][0-9abcdefghjkmnpqrstvwxyz]{25}$');
+
+
+export const DeletePersonParams = zod.object({
+  "id": zod.coerce.string().regex(deletePersonPathIdRegExp)
+})
+
+export const deletePersonBodyPreviewTokenRegExp = new RegExp('^[a-f0-9]{64}$');
+
+
+export const DeletePersonBody = zod.object({
+  "confirm": zod.enum(['DELETE']),
+  "previewToken": zod.string().regex(deletePersonBodyPreviewTokenRegExp)
+})
+
+export const deletePersonResponseDeletedItemCountMin = 0;
+
+
+
+export const DeletePersonResponse = zod.object({
+  "recordId": zod.string(),
+  "recordType": zod.enum(['person', 'organisation', 'opportunity']),
+  "deleted": zod.array(zod.object({
+  "collection": zod.string(),
+  "count": zod.number().int().min(deletePersonResponseDeletedItemCountMin),
+  "ids": zod.array(zod.string())
+}))
+})
+
+
+/**
  * Private, read-only CRM projection. Archived records are excluded. Detail events are limited to the most recent 10; linked relationships are current for people and organisations.
  * @summary List organisations
  */
@@ -287,6 +429,40 @@ export const GetOrganisationResponse = zod.object({
 
 
 /**
+ * Private administrative operation using existing Cognito authentication. Financial/customer history and non-test consent block deletion. DELETE requires exact confirmation and the current preview token; dependencies and blockers are checked again in a transaction.
+ * @summary Permanently delete organisation
+ */
+export const deleteOrganisationPathIdRegExp = new RegExp('^org_[0-7][0-9abcdefghjkmnpqrstvwxyz]{25}$');
+
+
+export const DeleteOrganisationParams = zod.object({
+  "id": zod.coerce.string().regex(deleteOrganisationPathIdRegExp)
+})
+
+export const deleteOrganisationBodyPreviewTokenRegExp = new RegExp('^[a-f0-9]{64}$');
+
+
+export const DeleteOrganisationBody = zod.object({
+  "confirm": zod.enum(['DELETE']),
+  "previewToken": zod.string().regex(deleteOrganisationBodyPreviewTokenRegExp)
+})
+
+export const deleteOrganisationResponseDeletedItemCountMin = 0;
+
+
+
+export const DeleteOrganisationResponse = zod.object({
+  "recordId": zod.string(),
+  "recordType": zod.enum(['person', 'organisation', 'opportunity']),
+  "deleted": zod.array(zod.object({
+  "collection": zod.string(),
+  "count": zod.number().int().min(deleteOrganisationResponseDeletedItemCountMin),
+  "ids": zod.array(zod.string())
+}))
+})
+
+
+/**
  * Private, read-only CRM projection. Archived records are excluded. Detail events are limited to the most recent 10; linked relationships are current for people and organisations.
  * @summary List opportunities
  */
@@ -410,6 +586,40 @@ export const GetOpportunityResponse = zod.object({
   "referrer": zod.string().optional()
 }))
 }))
+
+
+/**
+ * Private administrative operation using existing Cognito authentication. Financial/customer history and non-test consent block deletion. DELETE requires exact confirmation and the current preview token; dependencies and blockers are checked again in a transaction.
+ * @summary Permanently delete opportunity
+ */
+export const deleteOpportunityPathIdRegExp = new RegExp('^opportunity_[0-7][0-9abcdefghjkmnpqrstvwxyz]{25}$');
+
+
+export const DeleteOpportunityParams = zod.object({
+  "id": zod.coerce.string().regex(deleteOpportunityPathIdRegExp)
+})
+
+export const deleteOpportunityBodyPreviewTokenRegExp = new RegExp('^[a-f0-9]{64}$');
+
+
+export const DeleteOpportunityBody = zod.object({
+  "confirm": zod.enum(['DELETE']),
+  "previewToken": zod.string().regex(deleteOpportunityBodyPreviewTokenRegExp)
+})
+
+export const deleteOpportunityResponseDeletedItemCountMin = 0;
+
+
+
+export const DeleteOpportunityResponse = zod.object({
+  "recordId": zod.string(),
+  "recordType": zod.enum(['person', 'organisation', 'opportunity']),
+  "deleted": zod.array(zod.object({
+  "collection": zod.string(),
+  "count": zod.number().int().min(deleteOpportunityResponseDeletedItemCountMin),
+  "ids": zod.array(zod.string())
+}))
+})
 
 
 /**

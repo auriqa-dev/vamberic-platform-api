@@ -1,3 +1,5 @@
+import { DeleteDangerZone } from "./delete-danger-zone";
+import type { DeletePageKind } from "./delete-workflow";
 import { useEffect, useState, type ReactNode } from "react";
 import { Link, useParams } from "wouter";
 import {
@@ -482,7 +484,7 @@ function DetailFrame({
   id,
   children,
 }: {
-  kind: string;
+  kind: DeletePageKind;
   title: string;
   id: string;
   children: ReactNode;
@@ -497,6 +499,7 @@ function DetailFrame({
         <p className="text-sm text-muted-foreground mt-1 break-all">{id}</p>
       </div>
       {children}
+      <DeleteDangerZone kind={kind} id={id} />
     </div>
   );
 }

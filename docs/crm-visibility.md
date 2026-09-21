@@ -92,3 +92,7 @@ All changes below are unstaged; there are no deletions. Generated files were pro
 ?? lib/api-zod/src/generated/types/listOrganisationsParams.ts
 ?? lib/api-zod/src/generated/types/listPeopleParams.ts
 ```
+
+## Permanent administrative cleanup
+
+People, Organisation and Opportunity detail pages now include a separate preview-and-confirm Danger zone. See [CRM hard delete](crm-hard-delete.md) for exact cascades, history blockers, consent policy and transactional guarantees. The existing read routes and dashboard counts are unchanged.

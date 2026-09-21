@@ -728,6 +728,78 @@ export interface CrmOpportunitiesPage {
   offset: number;
 }
 
+export interface CrmDeleteGroup {
+  collection: string;
+  /** @minimum 0 */
+  count: number;
+  ids: string[];
+}
+
+export interface CrmDeleteBlocker {
+  code: string;
+  collection: string;
+  /** @minimum 1 */
+  count: number;
+  ids: string[];
+  reason: string;
+}
+
+export type CrmDeletePreviewRecordType = typeof CrmDeletePreviewRecordType[keyof typeof CrmDeletePreviewRecordType];
+
+
+export const CrmDeletePreviewRecordType = {
+  person: 'person',
+  organisation: 'organisation',
+  opportunity: 'opportunity',
+} as const;
+
+export interface CrmDeletePreview {
+  recordId: string;
+  recordType: CrmDeletePreviewRecordType;
+  /** @pattern ^[a-f0-9]{64}$ */
+  previewToken: string;
+  willDelete: CrmDeleteGroup[];
+  blockedBy: CrmDeleteBlocker[];
+}
+
+export type CrmDeleteInputConfirm = typeof CrmDeleteInputConfirm[keyof typeof CrmDeleteInputConfirm];
+
+
+export const CrmDeleteInputConfirm = {
+  DELETE: 'DELETE',
+} as const;
+
+export interface CrmDeleteInput {
+  confirm: CrmDeleteInputConfirm;
+  /** @pattern ^[a-f0-9]{64}$ */
+  previewToken: string;
+}
+
+export type CrmDeleteResultRecordType = typeof CrmDeleteResultRecordType[keyof typeof CrmDeleteResultRecordType];
+
+
+export const CrmDeleteResultRecordType = {
+  person: 'person',
+  organisation: 'organisation',
+  opportunity: 'opportunity',
+} as const;
+
+export interface CrmDeleteResult {
+  recordId: string;
+  recordType: CrmDeleteResultRecordType;
+  deleted: CrmDeleteGroup[];
+}
+
+export type CrmDeleteErrorError = {
+  code: string;
+  message: string;
+};
+
+export interface CrmDeleteError {
+  error: CrmDeleteErrorError;
+  blockedBy?: CrmDeleteBlocker[];
+}
+
 /**
  * Missing or invalid Cognito access token
  */
