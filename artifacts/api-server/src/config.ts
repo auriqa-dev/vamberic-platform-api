@@ -1,4 +1,9 @@
 import { z } from "zod";
+import {
+  notificationEmailSchema,
+  notificationRecipientsSchema,
+  type NotificationConfig,
+} from "./notifications/config";
 
 function isBrowserOrigin(value: string): boolean {
   try {
@@ -16,6 +21,9 @@ function isBrowserOrigin(value: string): boolean {
 }
 
 const configSchema = z.object({
+  NOTIFICATION_EMAIL_ENABLED: z.enum(["true", "false"]).default("false"),
+  NOTIFICATION_EMAIL_FROM: z.string().optional(),
+  PRODUCT_ENQUIRY_NOTIFICATION_RECIPIENTS_JSON: notificationRecipientsSchema,
   NODE_ENV: z
     .enum(["development", "test", "production"])
     .default("development"),
@@ -79,6 +87,7 @@ const configSchema = z.object({
 });
 
 export type AppConfig = {
+  notifications: NotificationConfig;
   cognito: { issuer: string; clientId: string };
   deploymentEnvironment: "dev" | "prod" | "test" | "local";
   runtimeMode: "development" | "test" | "production";
@@ -119,7 +128,21 @@ export function parseConfig(
     );
   }
 
+  const sender = notificationEmailSchema.safeParse(
+    parsed.data.NOTIFICATION_EMAIL_FROM,
+  );
+  if (parsed.data.NOTIFICATION_EMAIL_ENABLED === "true" && !sender.success) {
+    throw new Error(
+      "Invalid application configuration: NOTIFICATION_EMAIL_FROM must be a valid email address when NOTIFICATION_EMAIL_ENABLED=true",
+    );
+  }
   return {
+    notifications: {
+      enabled: parsed.data.NOTIFICATION_EMAIL_ENABLED === "true",
+      from: sender.success ? sender.data : undefined,
+      region: parsed.data.AWS_REGION,
+      recipients: parsed.data.PRODUCT_ENQUIRY_NOTIFICATION_RECIPIENTS_JSON,
+    },
     cognito: {
       issuer: `https://cognito-idp.${parsed.data.AWS_REGION}.amazonaws.com/${parsed.data.COGNITO_USER_POOL_ID}`,
       clientId: parsed.data.COGNITO_CLIENT_ID,

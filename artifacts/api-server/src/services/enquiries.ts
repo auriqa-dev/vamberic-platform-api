@@ -21,6 +21,9 @@ import {
 import { getDomainCollections } from "../db";
 import { assertEnquiryIndexes } from "../db/enquiry-indexes";
 import type { MongoService } from "./mongo";
+import type { EnquirySubmittedNotification } from "../notifications/enquiry-email";
+import type { NotificationService } from "../notifications/service";
+import { logger } from "../lib/logger";
 
 export class EnquiryError extends Error {
   constructor(
@@ -43,7 +46,7 @@ async function persistEnquiry(
   session: ClientSession,
   productId: string,
   input: PublicEnquiry,
-): Promise<string> {
+): Promise<EnquirySubmittedNotification> {
   const c = getDomainCollections(db);
   const options = { session };
   const product = await c.products.findOne(
@@ -305,23 +308,43 @@ async function persistEnquiry(
       options,
     );
   }
-  return event.id;
+  return {
+    type: "enquiry_submitted",
+    productId,
+    productName: product.name,
+    personName: `${input.firstName} ${input.lastName}`,
+    workEmail: input.workEmail,
+    company,
+    website: domain,
+    jobTitle: input.jobTitle,
+    serviceInterest: input.serviceInterest,
+    message: input.message,
+    opportunityId: opportunity.id,
+    eventId: event.id,
+    source: input.source,
+    medium: input.medium,
+    campaign: input.campaign,
+    occurredAt: event.occurredAt,
+  };
 }
 
 export async function submitEnquiry(
   mongo: MongoService,
   productId: string,
   input: PublicEnquiry,
+  notifications: NotificationService,
 ): Promise<string> {
   if (!mongo.withTransaction) throw new Error("Transactions unavailable");
   await assertEnquiryIndexes(await mongo.database());
   // The driver retries transient write conflicts. A first-insert unique-index
   // race must restart the whole transaction so it can reuse the winning record.
+  let completed: EnquirySubmittedNotification;
   for (let attempt = 0; ; attempt++) {
     try {
-      return await mongo.withTransaction((db, session) =>
+      completed = await mongo.withTransaction((db, session) =>
         persistEnquiry(db, session, productId, input),
       );
+      break;
     } catch (error) {
       if (
         attempt < 2 &&
@@ -334,4 +357,26 @@ export async function submitEnquiry(
       throw error;
     }
   }
+
+  // Outside both the transaction callback and its retry loop. A future durable
+  // dispatcher can replace this service without changing CRM persistence.
+  try {
+    await notifications.notify(completed);
+  } catch {
+    // Defensive boundary for a replacement dispatcher; never retry persistence.
+    try {
+      logger.warn(
+        {
+          productId,
+          notificationType: completed.type,
+          eventId: completed.eventId,
+          reason: "dispatcher_failed",
+        },
+        "Notification not sent",
+      );
+    } catch {
+      /* A logging failure must not reject the accepted enquiry. */
+    }
+  }
+  return completed.eventId;
 }

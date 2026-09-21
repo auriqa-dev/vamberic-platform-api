@@ -12,6 +12,7 @@ import {
 } from "../domain/public-enquiry";
 import { submitEnquiry, EnquiryError } from "../services/enquiries";
 import { rateLimit } from "../middlewares/rate-limit";
+import type { NotificationService } from "../notifications/service";
 import { logger } from "../lib/logger";
 
 // A future challenge provider can reject before any CRM lookup or write.
@@ -25,6 +26,7 @@ export type EnquirySpamCheck = (context: {
 export function createPublicEnquiriesRouter(
   config: AppConfig,
   mongo: MongoService,
+  notifications: NotificationService,
   spamCheck?: EnquirySpamCheck,
 ) {
   const router = Router();
@@ -89,6 +91,7 @@ export function createPublicEnquiriesRouter(
         mongo,
         params.data.productId,
         input.data,
+        notifications,
       );
       res
         .status(201)

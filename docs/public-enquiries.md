@@ -59,7 +59,7 @@ The persistence schema still allows historical People without a surname. Existin
 
 The Event payload holds `opportunityId`, form name/version, submitted first name/last name/email/company/message, website domain, job title, service interest, the five attribution labels, sanitized page/referrer, and whether opt-in was explicit. These fields are needed to review and fulfil the enquiry and are private CRM data. Do not render text as HTML or publish these events in a public feed. Tokens, headers, IP addresses and raw request objects are not persisted. Campaign labels are not turned into internal Campaign IDs. The event-to-opportunity link preserves attribution without adding another opportunity type or Offer model.
 
-Private read-only People, Organisations and Opportunities screens now surface these records and their links. See [CRM visibility](crm-visibility.md). Dashboard counts remain unchanged. No standalone Events screen or notification delivery is added.
+Private read-only People, Organisations and Opportunities screens now surface these records and their links. See [CRM visibility](crm-visibility.md). Dashboard counts remain unchanged. No standalone Events screen is added. Optional [operator email notifications](enquiry-notifications.md) run after the enquiry transaction commits; notification failure does not change the public response.
 
 ## Deduplication, concurrency and failure handling
 
@@ -159,7 +159,7 @@ The user reports that the HVM enquiry flow is already live. The original setup p
 4. Update the HVM form to collect separate required first and last names (each 1–100 characters), send `firstName`/`lastName`, and remove `name`. Do not split a single input client-side. Keep its Product ID, endpoint, attribution and consent evidence unchanged. Coordinate this with the API rollout: an old `name`-only form receives 400 from the new API, and the old API rejects the new fields. No HVM website code was changed here.
 5. Perform a separately authorized staging end-to-end check. Current tests use local/in-memory substitutes, so real Mongo transaction behavior and deployed CORS still need rollout verification.
 
-Email notifications, mailbox verification, CAPTCHA and request-level idempotency do not prevent persistence. They remain distinct future capabilities.
+Operator email notifications are optional and disabled by default; see [notification configuration](enquiry-notifications.md). Mailbox verification, CAPTCHA and request-level idempotency remain separate future capabilities.
 
 ## Deployment readiness review
 
@@ -227,3 +227,5 @@ This review changed only deployment safeguards and their regression tests: the u
 ## Validation
 
 Current CRM and explicit-name validation results and limitations are recorded in [CRM visibility](crm-visibility.md). Tests use an in-memory transactional substitute and locally signed Cognito-shaped access tokens; they do not connect to live MongoDB. Production replica-set/index behaviour and deployed CORS remain rollout checks.
+
+Post-commit email notification validation is recorded separately in [Enquiry notifications](enquiry-notifications.md). The public success response remains unchanged regardless of notification outcome.

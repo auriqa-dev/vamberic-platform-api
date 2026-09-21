@@ -1,4 +1,8 @@
 import {
+  createNotificationService,
+  type NotificationDependencies,
+} from "./notifications/service";
+import {
   createPublicEnquiriesRouter,
   type EnquirySpamCheck,
 } from "./routes/public-enquiries";
@@ -21,6 +25,7 @@ export function createApp(
   options: {
     jwtKeyResolver?: JwtKeyResolver;
     enquirySpamCheck?: EnquirySpamCheck;
+    notifications?: NotificationDependencies;
   } = {},
 ): Express {
   const app: Express = express();
@@ -53,7 +58,12 @@ export function createApp(
   app.use(helmet());
   app.use(
     "/api/v1/public",
-    createPublicEnquiriesRouter(config, mongo, options.enquirySpamCheck),
+    createPublicEnquiriesRouter(
+      config,
+      mongo,
+      createNotificationService(config.notifications, options.notifications),
+      options.enquirySpamCheck,
+    ),
   );
   app.use(
     cors({

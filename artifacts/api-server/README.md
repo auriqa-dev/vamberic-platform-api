@@ -230,3 +230,7 @@ does not create a `latest` tag and does not deploy ECS or production.
 writes into the existing shared CRM collections. Its separate origin allowlist,
 rate limit, transaction/index prerequisites, consent contract and HVM integration
 example are documented in [Public product enquiries](../../docs/public-enquiries.md).
+
+## Operational enquiry emails
+
+Optional post-commit operator notifications use AWS SES through an injectable provider. Set `NOTIFICATION_EMAIL_ENABLED=true`, `NOTIFICATION_EMAIL_FROM`, and `PRODUCT_ENQUIRY_NOTIFICATION_RECIPIENTS_JSON` after provisioning SES identity verification and task-role permission in the existing `AWS_REGION`. Defaults require no notification configuration and send no mail. See [email notification architecture and deployment prerequisites](../../docs/enquiry-notifications.md). No public API contract or database migration changes are required.
