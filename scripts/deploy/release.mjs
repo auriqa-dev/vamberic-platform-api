@@ -14,6 +14,142 @@ const summary = (text) => {
   if (process.env.GITHUB_STEP_SUMMARY)
     appendFileSync(process.env.GITHUB_STEP_SUMMARY, `${text}\n`);
 };
+// Only classified diagnostics leave this boundary. Never retain raw stderr, stdout,
+// subprocess errors (which contain arguments), or an Error cause with those values.
+export function awsFailure(args, stderr) {
+  const action = args.slice(0, args[1] === "wait" ? 3 : 2).join(" ");
+  const raw = typeof stderr === "string" ? stderr : "";
+  const parsed = raw.match(
+    /An error occurred \(([A-Za-z][A-Za-z0-9.]{0,63})\)(?: when calling the ([A-Za-z]+) operation)?: ([^\r\n]*)/,
+  );
+  const codes = new Set([
+    "AccessDenied",
+    "AccessDeniedException",
+    "UnauthorizedOperation",
+    "ValidationError",
+    "ChangeSetNotFound",
+    "ChangeSetNotFoundException",
+    "InvalidChangeSetStatus",
+    "InvalidChangeSetStatusException",
+    "Throttling",
+    "ThrottlingException",
+    "ExpiredToken",
+    "ExpiredTokenException",
+    "InvalidClientTokenId",
+    "RequestExpired",
+    "ServiceUnavailable",
+    "InternalFailure",
+  ]);
+  const code =
+    parsed && codes.has(parsed[1]) ? parsed[1] : "UnclassifiedCliError";
+  const operations = new Set([
+    "CreateChangeSet",
+    "DescribeChangeSet",
+    "ExecuteChangeSet",
+    "DeleteChangeSet",
+    "DescribeStacks",
+  ]);
+  const apiAction = operations.has(parsed?.[2])
+    ? parsed[2]
+    : args[1] === "wait" && args[2] === "change-set-create-complete"
+      ? "DescribeChangeSet"
+      : undefined;
+  let reason = "AWS CLI failed; unrecognized stderr omitted";
+  let benignCleanup = false;
+  if (
+    ["AccessDenied", "AccessDeniedException", "UnauthorizedOperation"].includes(
+      code,
+    )
+  ) {
+    reason =
+      "AWS authorization denied; inspect the action, resource and policy conditions";
+  } else if (
+    [
+      "ExpiredToken",
+      "ExpiredTokenException",
+      "InvalidClientTokenId",
+      "RequestExpired",
+    ].includes(code)
+  ) {
+    reason = "AWS authentication failed or expired";
+  } else if (code !== "UnclassifiedCliError") {
+    reason = "AWS service rejected the request; free-form message omitted";
+  } else if (/Waiter [A-Za-z]+ failed: Max attempts exceeded/.test(raw)) {
+    reason = "AWS waiter exhausted its attempts";
+  } else if (
+    /Waiter [A-Za-z]+ failed: Waiter encountered a terminal failure state/.test(
+      raw,
+    )
+  ) {
+    reason = "AWS waiter encountered a terminal failure state";
+  }
+  const lifecycle = raw.match(
+    /\b(CREATE_IN_PROGRESS|DELETE_IN_PROGRESS|EXECUTE_IN_PROGRESS|EXECUTE_COMPLETE)\b/,
+  )?.[1];
+  if (
+    ["InvalidChangeSetStatus", "InvalidChangeSetStatusException"].includes(
+      code,
+    ) &&
+    lifecycle
+  ) {
+    reason = `Change set lifecycle prevents this operation: ${lifecycle}`;
+  }
+  if (
+    args[0] === "cloudformation" &&
+    args[1] === "delete-change-set" &&
+    parsed?.[2] === "DeleteChangeSet"
+  ) {
+    const name = args[args.indexOf("--change-set-name") + 1];
+    if (/^app-[a-f0-9]{40}-[0-9]+-[0-9]+$/.test(name ?? "")) {
+      // Match only this change set and complete known messages, never generic
+      // 'not found' text that might describe a missing stack or another failure.
+      const identifier = `(?:${name}|arn:aws:cloudformation:eu-west-2:755905325223:changeSet/${name}/[A-Za-z0-9-]+)`;
+      const absent = new RegExp(
+        `^ChangeSet (?:\\[${identifier}\\]|${identifier}) (?:does not exist|has already been deleted)\\.?$`,
+      );
+      const consumed = new RegExp(
+        `^ChangeSet (?:\\[${identifier}\\]|${identifier}) cannot be deleted because it has already been executed\\.?$`,
+      );
+      benignCleanup =
+        ["ChangeSetNotFound", "ChangeSetNotFoundException"].includes(code) ||
+        ([
+          "ValidationError",
+          "InvalidChangeSetStatus",
+          "InvalidChangeSetStatusException",
+        ].includes(code) &&
+          (absent.test(parsed[3]) || consumed.test(parsed[3])));
+    }
+    if (benignCleanup)
+      reason = "Change set absent or already consumed; cleanup is a no-op";
+  }
+  const error = new Error(
+    `AWS command failed: ${action}; code=${code}; ${apiAction ? `apiAction=${apiAction}; ` : ""}${reason}`,
+  );
+  error.name = "AwsCliError";
+  error.awsCode = code;
+  error.benignCleanup = benignCleanup;
+  return error;
+}
+export function cleanupChangeSet(name) {
+  try {
+    aws(
+      "cloudformation",
+      "delete-change-set",
+      "--stack-name",
+      stackName,
+      "--change-set-name",
+      name,
+    );
+  } catch (error) {
+    if (error.benignCleanup) {
+      console.log(
+        "CloudFormation cleanup: change set absent or consumed (no-op)",
+      );
+      return;
+    }
+    throw error;
+  }
+}
 function aws(...args) {
   // Never print AWS responses: task definitions may contain configuration values.
   try {
@@ -26,8 +162,8 @@ function aws(...args) {
       },
     );
     return result.trim() ? JSON.parse(result) : {};
-  } catch {
-    throw new Error(`AWS command failed: ${args[0]} ${args[1]}`);
+  } catch (error) {
+    throw awsFailure(args, error.stderr);
   }
 }
 export function validatePolicy(policy) {
@@ -255,14 +391,13 @@ async function deploy() {
       );
       validateChanges(changeSet.Changes, ids);
     } catch (error) {
-      aws(
-        "cloudformation",
-        "delete-change-set",
-        "--stack-name",
-        stackName,
-        "--change-set-name",
-        name,
-      );
+      console.error(`Primary deployment failure: ${error.message}`);
+      try {
+        cleanupChangeSet(name);
+      } catch (cleanupError) {
+        console.error(`Additional cleanup failure: ${cleanupError.message}`);
+      }
+      // Cleanup never replaces the primary failure or turns this into success.
       throw error;
     }
     aws(

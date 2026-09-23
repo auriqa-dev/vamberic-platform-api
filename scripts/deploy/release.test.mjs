@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import {
+  awsFailure,
   healthy,
   validateChanges,
   validatePolicy,
@@ -213,6 +214,21 @@ fs.appendFileSync(log, JSON.stringify(a)+"\\n");
 const released = prior.includes('"execute-change-set"') || f.mode === "rerun";
 const revision = released ? "task:2" : "task:1";
 let result;
+function fail(code, operation, message) {
+ console.error('An error occurred ('+code+') when calling the '+operation+' operation: '+message);
+ process.exit(1);
+}
+if (a[0] === "cloudformation" && a[1] === "wait" && a[2] === "change-set-create-complete" && f.mode.startsWith("cleanup-")) {
+ console.error("Waiter ChangeSetCreateComplete failed: An error occurred (AccessDenied): not authorized mongodb+srv://private:password@example.invalid/db token=SUPERSECRET"); process.exit(1);
+}
+if (a[1] === "create-change-set" && f.mode === "create-denied") fail("AccessDenied", "CreateChangeSet", "secret");
+if (a[1] === "delete-change-set" && f.mode.startsWith("cleanup-")) {
+ const name = a[a.indexOf("--change-set-name") + 1];
+ if (f.mode === "cleanup-absent") fail("ValidationError", "DeleteChangeSet", "ChangeSet ["+name+"] does not exist");
+ if (f.mode === "cleanup-consumed") fail("InvalidChangeSetStatusException", "DeleteChangeSet", "ChangeSet ["+name+"] cannot be deleted because it has already been executed");
+ if (f.mode === "cleanup-denied") fail("AccessDenied", "DeleteChangeSet", "secret token=SUPERSECRET");
+ if (f.mode === "cleanup-busy") fail("InvalidChangeSetStatusException", "DeleteChangeSet", "ChangeSet is in status CREATE_IN_PROGRESS");
+}
 switch (a[0]+" "+a[1]) {
 case "cloudformation describe-stacks": result = {Stacks:[{ RoleARN:"arn:aws:iam::755905325223:role/cfn", StackStatus:"UPDATE_COMPLETE", Parameters:[{ParameterKey:"ApiImageTag",ParameterValue:f.mode === "rerun" ? f.tag : "bbbbbbb"},{ParameterKey:"Other",ParameterValue:"untouched"}]}]}; break;
 case "cloudformation get-template": result = {TemplateBody:f.template}; break;
@@ -246,7 +262,13 @@ require("node:fs").appendFileSync(require("node:path").join(__dirname,"calls.jso
   try {
     const result = spawnSync(
       process.execPath,
-      [resolve("scripts/deploy/release.mjs"), command],
+      command === "cleanup"
+        ? [
+            "--input-type=module",
+            "--eval",
+            `import {cleanupChangeSet} from ${JSON.stringify(new URL("./release.mjs", import.meta.url).href)}; cleanupChangeSet("app-${tag}-1-1");`,
+          ]
+        : [resolve("scripts/deploy/release.mjs"), command],
       {
         encoding: "utf8",
         env: {
@@ -282,6 +304,7 @@ test("CLI releases only image parameter and verifies resulting tasks/digest", ()
   assert.match(result.stdout, /Previous task definition: task:1/);
   assert.match(result.stdout, /New task definition: task:2/);
   assert.ok(result.calls.some((a) => a[1] === "describe-tasks"));
+  assert.ok(!result.calls.some((a) => a[1] === "delete-change-set"));
 });
 test("CLI fails closed on drift and unsafe changes before execution", () => {
   for (const mode of ["drift", "unsafe"]) {
@@ -318,4 +341,121 @@ test("publisher reuses existing SHA; missing tag builds and pushes linux/amd64",
     "linux/amd64",
   ]);
   assert.equal(docker[1][1], "push");
+});
+
+const cleanupArgs = [
+  "cloudformation",
+  "delete-change-set",
+  "--change-set-name",
+  `app-${"a".repeat(40)}-1-1`,
+];
+test("only known absent/consumed delete errors are benign, never authorization or busy errors", () => {
+  const name = cleanupArgs.at(-1);
+  const cases = [
+    ["ChangeSetNotFound", "missing", true],
+    ["ValidationError", `ChangeSet [${name}] does not exist`, true],
+    ["ValidationError", `ChangeSet ${name} has already been deleted`, true],
+    [
+      "InvalidChangeSetStatusException",
+      `ChangeSet [${name}] cannot be deleted because it has already been executed`,
+      true,
+    ],
+    [
+      "InvalidChangeSetStatusException",
+      "ChangeSet is in status CREATE_IN_PROGRESS",
+      false,
+    ],
+    ["ValidationError", "Stack VambericDevApi does not exist", false],
+    ["ValidationError", "ChangeSet another does not exist", false],
+    ["AccessDenied", `ChangeSet ${name} does not exist`, false],
+    [
+      "ValidationError",
+      `ChangeSet ${name} does not exist extra arbitrary content`,
+      false,
+    ],
+  ];
+  for (const [code, message, expected] of cases) {
+    const error = awsFailure(
+      cleanupArgs,
+      `An error occurred (${code}) when calling the DeleteChangeSet operation: ${message}`,
+    );
+    assert.equal(error.benignCleanup, expected, message);
+  }
+});
+test("AWS diagnostics retain safe action/code and discard raw message, credentials and subprocess data", () => {
+  const raw =
+    "An error occurred (AccessDenied) when calling the DescribeChangeSet operation: mongodb+srv://user:password@host/db AWS_SECRET_ACCESS_KEY=SECRET token=TOKEN";
+  const error = awsFailure(
+    ["cloudformation", "wait", "change-set-create-complete"],
+    raw,
+  );
+  assert.match(
+    error.message,
+    /cloudformation wait change-set-create-complete; code=AccessDenied/,
+  );
+  assert.doesNotMatch(
+    error.message + JSON.stringify(error),
+    /mongodb|password|SECRET|TOKEN|AWS_SECRET/,
+  );
+  assert.equal(error.cause, undefined);
+  assert.match(
+    awsFailure(cleanupArgs, "arbitrary token=TOKEN").message,
+    /unrecognized stderr omitted/,
+  );
+});
+test("benign cleanup keeps original deployment failure and prevents execution", () => {
+  for (const mode of ["cleanup-absent", "cleanup-consumed"]) {
+    const result = runFake(mode);
+    assert.notEqual(result.status, 0);
+    assert.match(result.stdout, /cleanup: change set absent or consumed/);
+    assert.match(
+      result.stderr,
+      /Primary deployment failure:.*code=AccessDenied/,
+    );
+    assert.doesNotMatch(
+      result.stderr,
+      /Additional cleanup failure|SUPERSECRET|mongodb|password/,
+    );
+    assert.ok(!result.calls.some((a) => a[1] === "execute-change-set"));
+  }
+});
+test("cleanup AccessDenied or busy state is surfaced without replacing original failure", () => {
+  for (const mode of ["cleanup-denied", "cleanup-busy"]) {
+    const result = runFake(mode);
+    assert.notEqual(result.status, 0);
+    assert.match(
+      result.stderr,
+      /Primary deployment failure:.*wait change-set-create-complete; code=AccessDenied/,
+    );
+    assert.match(
+      result.stderr,
+      /Additional cleanup failure:.*delete-change-set; code=/,
+    );
+    if (mode === "cleanup-busy")
+      assert.match(result.stderr, /CREATE_IN_PROGRESS/);
+    assert.doesNotMatch(result.stderr, /SUPERSECRET|mongodb|password/);
+    assert.ok(
+      result.stderr.indexOf("Primary deployment failure") <
+        result.stderr.indexOf("Additional cleanup failure"),
+    );
+    assert.ok(!result.calls.some((a) => a[1] === "execute-change-set"));
+  }
+});
+test("failed creation never attempts cleanup of a change set that may not exist", () => {
+  const result = runFake("create-denied");
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /create-change-set; code=AccessDenied/);
+  assert.ok(!result.calls.some((a) => a[1] === "delete-change-set"));
+});
+
+test("standalone cleanup succeeds for absent/consumed sets but rejects real errors", () => {
+  for (const mode of ["cleanup-absent", "cleanup-consumed"]) {
+    const result = runFake(mode, "cleanup");
+    assert.equal(result.status, 0, result.stderr);
+  }
+  for (const mode of ["cleanup-denied", "cleanup-busy"]) {
+    const result = runFake(mode, "cleanup");
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /delete-change-set; code=/);
+  }
 });

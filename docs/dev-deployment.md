@@ -83,3 +83,17 @@ Infrastructure architecture, HVM, Vamberic public website, Built Matters and Ody
 4. Resolve local build blockers and ensure all validation passes.
 5. Merge the platform workflow replacement. The first main push runs the unified pipeline; the old two workflow files are removed in the same change.
 6. Verify its summary and both application URLs. No deployment was performed while implementing this pipeline.
+
+## First release failure and cleanup diagnostics
+
+Read-only CloudTrail inspection for release `dc4a1d9ef611b9b0bfdad316459922b986adc811` found:
+
+- 2026-09-23 09:41:14 UTC: the GitHub deployment role received `AccessDenied` for `DescribeChangeSet` on `VambericDevApi`.
+- 09:41:15 UTC: failure cleanup attempted `DeleteChangeSet` and received `InvalidChangeSetStatusException` while the change set was `CREATE_IN_PROGRESS`.
+- Subsequent read-only inspection found `app-dc4a1d9ef611b9b0bfdad316459922b986adc811-35844221378-1` in `CREATE_COMPLETE` / `AVAILABLE`, with only the intended task-definition and service changes. It was not executed or deleted during investigation.
+
+The old cleanup catch replaced the primary error with its own error, and the AWS wrapper discarded both AWS error codes. The corrected wrapper emits command/waiter, recognized AWS code, known API action and classified safe explanations. It never retains raw subprocess errors, stderr, stdout or command arguments. Unknown/free-form messages are omitted. Cleanup logs a separate secondary failure and rethrows the primary error. Only narrow absent/deleted/consumed change-set cases are no-ops; `AccessDenied`, creation-in-progress and unrecognized failures are not ignored. Successful execution does not run cleanup.
+
+The deployed `VambericDevApiRelease` policy lists Create/Describe/Execute/DeleteChangeSet on `arn:aws:cloudformation:eu-west-2:755905325223:stack/VambericDevApi/*`, conditioned on `cloudformation:ChangeSetName = app-*`. Create succeeded; Describe was denied; Delete reached lifecycle validation; Execute was never attempted. Thus listing all four actions is not proof that the actual Describe request is authorized. The precise condition context is not included in the denied CloudTrail event. Investigate the condition on DescribeChangeSet in **vamberic-infrastructure**; a narrowly scoped DescribeChangeSet read statement for the same stack without the name condition is a candidate correction. Keep write-action restrictions and test the effective permissions there. Do not broaden IAM from platform-api or claim this diagnostic fix alone resolves the authorization failure.
+
+Vapp still depends on successful API deployment, and no migration or rollback mechanism was added. The original failure remains blocking until the infrastructure authorization issue is resolved.
