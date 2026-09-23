@@ -1,0 +1,136 @@
+name: Deploy dev API and Vapp
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Do not cancel a deployment midway through CloudFormation or S3 publication.
+concurrency:
+  group: deploy-dev-api-vapp
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: eu-west-2
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v5
+      - name: Require current main commit
+        shell: bash
+        run: |
+          test "$GITHUB_REF" = refs/heads/main
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$GITHUB_SHA"
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.26.1
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: bash scripts/deploy/validate.sh
+
+  deploy-api:
+    needs: validate
+    runs-on: ubuntu-latest
+    environment: dev
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+      - name: Reject superseded releases
+        shell: bash
+        run: test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$GITHUB_SHA"
+      - uses: aws-actions/configure-aws-credentials@v5
+        with:
+          role-to-assume: arn:aws:iam::755905325223:role/VambericGitHubApiDeployRole
+          aws-region: eu-west-2
+          allowed-account-ids: "755905325223"
+      - name: Check image ownership and deployment prerequisites
+        run: node scripts/deploy/release.mjs preflight
+      - uses: aws-actions/amazon-ecr-login@v2
+      - name: Build and publish immutable commit image (reuse on rerun)
+        run: node scripts/deploy/release.mjs publish
+      - name: Deploy image-only CloudFormation change set and verify ECS
+        run: node scripts/deploy/release.mjs deploy
+      - name: Verify API health and MongoDB readiness
+        run: node scripts/deploy/release.mjs health
+
+  deploy-vapp:
+    needs: deploy-api
+    runs-on: ubuntu-latest
+    environment: vapp
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.26.1
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Build Vapp
+        env:
+          PORT: "3000"
+          BASE_PATH: /
+          VITE_PLATFORM_API_BASE_URL: https://api.vamberic.com
+          VITE_COGNITO_REGION: eu-west-2
+          VITE_COGNITO_USER_POOL_ID: eu-west-2_CogD1Prpz
+          VITE_COGNITO_CLIENT_ID: 4pnadj0nk0chv865shdqtb4p9r
+          VITE_COGNITO_DOMAIN: https://vamberic-dev-vapp-755905325223.auth.eu-west-2.amazoncognito.com
+        run: pnpm --filter @workspace/vapp run build
+      - name: Verify output and recheck backend after environment approval
+        run: |
+          test -s artifacts/vapp/dist/public/index.html
+          node scripts/deploy/release.mjs health
+      - uses: aws-actions/configure-aws-credentials@v5
+        with:
+          role-to-assume: arn:aws:iam::755905325223:role/VambericDevVapp-VappDeploymentRoleB8CD46CD-y5f4T2p0mWwz
+          aws-region: eu-west-2
+          allowed-account-ids: "755905325223"
+      - name: Sync Vapp
+        run: aws s3 sync artifacts/vapp/dist/public/ s3://vambericdevvapp-vappbucketf8cb2aac-xzrw6jpr9pbm --delete
+      - name: Invalidate CloudFront and wait
+        shell: bash
+        run: |
+          INVALIDATION_ID=$(aws cloudfront create-invalidation --distribution-id EUYTHCWBZ81X4 --paths '/*' --query Invalidation.Id --output text)
+          aws cloudfront wait invalidation-completed --distribution-id EUYTHCWBZ81X4 --id "$INVALIDATION_ID"
+
+  report:
+    if: always()
+    needs: [validate, deploy-api, deploy-vapp]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Release summary
+        env:
+          VALIDATION: ${{ needs.validate.result }}
+          API: ${{ needs.deploy-api.result }}
+          VAPP: ${{ needs.deploy-vapp.result }}
+        run: |
+          {
+            echo "## Dev release $GITHUB_SHA"
+            echo "- Validation: $VALIDATION"
+            echo "- API deployment and readiness: $API"
+            echo "- Vapp deployment and invalidation: $VAPP"
+            echo "- API: https://api.vamberic.com"
+            echo "- Vapp: https://app.vamberic.com"
+            echo "- Database migrations: never run by this workflow"
+          } >> "$GITHUB_STEP_SUMMARY"
+          test "$VALIDATION/$API/$VAPP" = success/success/success
