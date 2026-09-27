@@ -1,3 +1,4 @@
+import { BRAND_MONGO_VALIDATORS } from "./brand-validators";
 import { ONBOARDING_MONGO_VALIDATORS } from "./onboarding-validators";
 import { isDeepStrictEqual } from "node:util";
 import { CRM_MONGO_VALIDATORS } from "./crm-validators";
@@ -17,6 +18,7 @@ import {
   DATABASE_MIGRATION_ID,
   CRM_FOUNDATION_MIGRATION_ID,
   COMMERCIAL_FOUNDATION_MIGRATION_ID,
+  BRAND_FOUNDATION_MIGRATION_ID,
   SCHEMA_VERSIONS_COLLECTION,
   type CollectionDefinition,
   getDomainCollections,
@@ -27,6 +29,7 @@ const MONGO_VALIDATORS = {
   ...COMMERCIAL_MONGO_VALIDATORS,
   ...PARTNER_MONGO_VALIDATORS,
   ...ONBOARDING_MONGO_VALIDATORS,
+  ...BRAND_MONGO_VALIDATORS,
 };
 
 export interface DatabaseSetupResult {
@@ -440,6 +443,7 @@ export async function setupDatabase(db: Db): Promise<DatabaseSetupResult> {
     { id: DATABASE_MIGRATION_ID, version: 1 },
     { id: CRM_FOUNDATION_MIGRATION_ID, version: 2 },
     { id: COMMERCIAL_FOUNDATION_MIGRATION_ID, version: 3 },
+    { id: BRAND_FOUNDATION_MIGRATION_ID, version: 4 },
   ];
   const pending = requiredMigrations.filter(
     (required) => !existingMigrations.some((m) => m.id === required.id),

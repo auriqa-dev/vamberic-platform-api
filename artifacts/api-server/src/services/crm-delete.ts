@@ -384,6 +384,24 @@ async function plan(
     );
   if (kind === "organisation")
     block(
+      "brands",
+      await read("brands", { organisationId: id }),
+      "BRAND_HISTORY",
+      "Brand references must be retained.",
+    );
+  if (kind === "person" && contactPoints.length)
+    block(
+      "brand_kits",
+      await read("brand_kits", {
+        "emailDefaults.replyToContactPointId": {
+          $in: contactPoints.map((c) => c.id),
+        },
+      }),
+      "BRAND_HISTORY",
+      "Brand Kit reply-to references must be retained.",
+    );
+  if (kind === "organisation")
+    block(
       "crm_workspaces",
       await read("crm_workspaces", { clientOrganisationId: id }),
       "CLIENT_WORKSPACE",

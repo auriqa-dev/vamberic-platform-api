@@ -10,3 +10,5 @@ export * from "./commercial-records";
 export * from "./partners";
 
 export * from "./workspace-integrations";
+
+export * from "./brands";

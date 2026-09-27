@@ -33,6 +33,8 @@ export const PLATFORM_ID_PREFIXES = [
   "partnerassignment",
   "partnermembership",
   "integration",
+  "brand",
+  "brandkit",
 ] as const;
 
 export type PlatformIdPrefix = (typeof PLATFORM_ID_PREFIXES)[number];

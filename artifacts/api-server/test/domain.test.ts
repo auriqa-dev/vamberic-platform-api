@@ -40,6 +40,7 @@ import {
   DATABASE_MIGRATION_ID,
   CRM_FOUNDATION_MIGRATION_ID,
   COMMERCIAL_FOUNDATION_MIGRATION_ID,
+  BRAND_FOUNDATION_MIGRATION_ID,
 } from "../src/db/collections";
 import {
   IncompatibleDatabaseSchemaError,
@@ -783,6 +784,7 @@ test("apply backfills a missing baseline migration on compatible metadata", asyn
       DATABASE_MIGRATION_ID,
       CRM_FOUNDATION_MIGRATION_ID,
       COMMERCIAL_FOUNDATION_MIGRATION_ID,
+      BRAND_FOUNDATION_MIGRATION_ID,
     ],
   );
 });
@@ -973,7 +975,7 @@ test("CRM additive upgrade retains baseline history and resumes after interrupte
     )[0],
     { id: DATABASE_MIGRATION_ID, version: 1, appliedAt: baselineAt },
   );
-  assert.equal(ledger?.version, 3);
+  assert.equal(ledger?.version, 4);
   const mutations = db.mutationCount;
   await setupDatabase(db as unknown as Db);
   assert.deepEqual(versions.documents.get("vapp-v1"), ledger);
@@ -1013,7 +1015,7 @@ test("equivalent indexes with different names are reused, not duplicated", async
   );
 });
 
-test("commercial v2 to v3 plans eight collections, nine validators and twenty-three indexes, preserves records and retries idempotently", async () => {
+test("upgrade plans all additive v2 to v4 collections, validators and indexes, preserves records and retries idempotently", async () => {
   const { CRM_MONGO_VALIDATORS } = await import("../src/db/crm-validators");
   const db = new FakeDb();
   await setupDatabase(db as unknown as Db);
@@ -1033,6 +1035,8 @@ test("commercial v2 to v3 plans eight collections, nine validators and twenty-th
   };
   versions.documents.set("vapp-v1", oldLedger);
   const added = [
+    "brands",
+    "brand_kits",
     "hvm_partners",
     "hvm_partner_memberships",
     "workspace_integrations",
@@ -1059,13 +1063,13 @@ test("commercial v2 to v3 plans eight collections, nine validators and twenty-th
   const plan = await planDatabaseSetup(db as unknown as Db);
   assert.equal(db.mutationCount, mutations);
   assert.equal(plan.existingSchemaVersion, 2);
-  assert.equal(plan.schemaVersion, 3);
+  assert.equal(plan.schemaVersion, 4);
   assert.deepEqual(plan.collectionsToCreate.sort(), [...added].sort());
   assert.deepEqual(
     plan.validatorsToApply.sort(),
     [...added, "entitlements"].sort(),
   );
-  assert.equal(plan.indexesToCreate.length, 23);
+  assert.equal(plan.indexesToCreate.length, 28);
   assert.ok(
     plan.indexesToCreate.includes(
       "entitlements.workspace_instance_access_window",
@@ -1077,10 +1081,46 @@ test("commercial v2 to v3 plans eight collections, nine validators and twenty-th
   assert.deepEqual(products.documents, before);
   for (const [name, validator] of Object.entries(CRM_MONGO_VALIDATORS))
     assert.deepEqual(db.collection(name).options.validator, validator);
-  assert.equal(versions.documents.get("vapp-v1")?.version, 3);
+  assert.equal(versions.documents.get("vapp-v1")?.version, 4);
   const applied = structuredClone(versions.documents);
   const after = db.mutationCount;
   await setupDatabase(db as unknown as Db);
   assert.equal(db.mutationCount, after);
   assert.deepEqual(versions.documents, applied);
+});
+
+test("Brand v3 to v4 dry-run proposes only two collections/two validators/five indexes and preserves existing records on retry", async () => {
+  const db = new FakeDb();
+  await setupDatabase(db as unknown as Db);
+  const versions = db.collection(SCHEMA_VERSIONS_COLLECTION);
+  const ledger = versions.documents.get("vapp-v1")!;
+  versions.documents.set("vapp-v1", {
+    ...ledger,
+    version: 3,
+    schemaVersion: 3,
+    migrations: (ledger.migrations as { version: number }[]).filter(
+      (m) => m.version <= 3,
+    ),
+  });
+  db.collections.delete("brands");
+  db.collections.delete("brand_kits");
+  db.collection("products").documents.set("existing", {
+    id: ids.product,
+    name: "Existing portfolio Product",
+  });
+  const before = structuredClone(db.collection("products").documents);
+  const mutations = db.mutationCount;
+  const plan = await planDatabaseSetup(db as unknown as Db);
+  assert.equal(db.mutationCount, mutations);
+  assert.equal(plan.existingSchemaVersion, 3);
+  assert.equal(plan.schemaVersion, 4);
+  assert.deepEqual(plan.collectionsToCreate.sort(), ["brand_kits", "brands"]);
+  assert.deepEqual(plan.validatorsToApply.sort(), ["brand_kits", "brands"]);
+  assert.equal(plan.indexesToCreate.length, 5);
+  assert.deepEqual(plan.validatorConflicts, []);
+  await setupDatabase(db as unknown as Db);
+  assert.deepEqual(db.collection("products").documents, before);
+  const after = db.mutationCount;
+  await setupDatabase(db as unknown as Db);
+  assert.equal(db.mutationCount, after);
 });

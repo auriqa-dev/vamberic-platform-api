@@ -1,3 +1,4 @@
+import type { Brand, BrandKit } from "../domain/brands";
 import type {
   HvmPartner,
   HvmPartnerMembership,
@@ -38,6 +39,8 @@ import type {
 } from "../domain/schemas";
 
 export const COLLECTION_NAMES = [
+  "brands",
+  "brand_kits",
   "hvm_partner_memberships",
   "workspace_integrations",
   "hvm_partners",
@@ -75,6 +78,8 @@ export type DomainCollectionName = (typeof COLLECTION_NAMES)[number];
  * collection with an unrelated document type.
  */
 export interface DomainPersistenceByCollection {
+  brands: Brand;
+  brand_kits: BrandKit;
   hvm_partners: HvmPartner;
   hvm_partner_memberships: HvmPartnerMembership;
   workspace_integrations: WorkspaceIntegration;
@@ -134,6 +139,37 @@ const appId = (name = "id"): IndexDescription => ({
 });
 
 export const COLLECTION_DEFINITIONS: readonly CollectionDefinition[] = [
+  {
+    name: "brands",
+    indexes: [
+      appId(),
+      {
+        key: { workspaceId: 1, slug: 1 },
+        name: "workspace_brand_slug_unique",
+        unique: true,
+      },
+      {
+        key: { workspaceId: 1, organisationId: 1 },
+        name: "workspace_organisation_brands",
+      },
+    ],
+    reason:
+      "Workspace brand listing/slug uniqueness and brands for an Organisation within an authorized workspace.",
+  },
+  {
+    name: "brand_kits",
+    indexes: [
+      appId(),
+      {
+        key: { workspaceId: 1, brandId: 1 },
+        name: "workspace_brand_approved_kit_unique",
+        unique: true,
+        partialFilterExpression: { status: "approved" },
+      },
+    ],
+    reason:
+      "One current approved kit per workspace Brand; drafts and retired history may coexist.",
+  },
   {
     name: "hvm_partner_memberships",
     indexes: [
@@ -509,10 +545,12 @@ export const COLLECTION_DEFINITIONS: readonly CollectionDefinition[] = [
 ];
 
 export const SCHEMA_VERSIONS_COLLECTION = "schema_versions";
-export const DATABASE_SCHEMA_VERSION = 3;
+export const DATABASE_SCHEMA_VERSION = 4;
 export const DATABASE_SCHEMA_VERSION_ID = "vapp-v1";
 export const DATABASE_MIGRATION_ID = "001-vapp-v1-baseline";
 
 export const CRM_FOUNDATION_MIGRATION_ID = "002-crm-foundation";
 
 export const COMMERCIAL_FOUNDATION_MIGRATION_ID = "003-commercial-foundation";
+
+export const BRAND_FOUNDATION_MIGRATION_ID = "004-brand-foundation";

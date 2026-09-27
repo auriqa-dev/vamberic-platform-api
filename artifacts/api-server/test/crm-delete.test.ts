@@ -561,3 +561,30 @@ test("Partner member Person references block hard deletion even after membership
   assert.equal((await remove("people")).status, 409);
   assert.deepEqual(db.records, before);
 });
+
+test("Brand Organisation and Brand Kit reply-to history prevent CRM cascade deletion", async (t) => {
+  const { db, ids, preview, remove } = await fixture(t);
+  db.rows("brands").push({
+    id: generatePlatformId("brand"),
+    organisationId: ids.organisations,
+  });
+  const contacts = db
+    .rows("contact_points")
+    .filter((c) => c.personId === ids.people);
+  assert.ok(contacts.length);
+  db.rows("brand_kits").push({
+    id: generatePlatformId("brandkit"),
+    emailDefaults: { replyToContactPointId: contacts[0].id },
+  });
+  for (const kind of ["organisations", "people"] as const) {
+    const result = await preview(kind);
+    assert.ok(
+      result.body.blockedBy.some(
+        (b: { code: string }) => b.code === "BRAND_HISTORY",
+      ),
+    );
+    const before = structuredClone(db.records);
+    assert.equal((await remove(kind)).status, 409);
+    assert.deepEqual(db.records, before);
+  }
+});

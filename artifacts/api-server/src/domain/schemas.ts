@@ -110,6 +110,7 @@ const withId = (prefix: PlatformIdPrefix) =>
   basePersistenceSchema.extend({ id: id(prefix) });
 
 export const ProductSchema = withId("product").extend({
+  brandId: platformIdSchema("brand").optional(),
   productModelVersion: z.literal(2).default(2),
   name: nonEmpty.max(200),
   slug: z
