@@ -1,3 +1,5 @@
+import { isDeepStrictEqual } from "node:util";
+import { CRM_MONGO_VALIDATORS } from "./crm-validators";
 import type {
   Collection,
   Db,
@@ -10,6 +12,7 @@ import {
   DATABASE_SCHEMA_VERSION,
   DATABASE_SCHEMA_VERSION_ID,
   DATABASE_MIGRATION_ID,
+  CRM_FOUNDATION_MIGRATION_ID,
   SCHEMA_VERSIONS_COLLECTION,
   type CollectionDefinition,
   getDomainCollections,
@@ -23,6 +26,8 @@ export interface DatabaseSetupResult {
 }
 
 export interface DatabaseSetupPlan {
+  validatorsToApply: string[];
+  validatorConflicts: string[];
   schemaVersion: number;
   existingCollections: string[];
   collectionsToCreate: string[];
@@ -54,6 +59,9 @@ type ExistingIndex = {
   unique?: boolean;
   sparse?: boolean;
   partialFilterExpression?: Record<string, unknown>;
+  collation?: Record<string, unknown>;
+  expireAfterSeconds?: number;
+  hidden?: boolean;
 };
 
 function indexMatches(
@@ -62,6 +70,9 @@ function indexMatches(
 ): boolean {
   return (
     JSON.stringify(existing.key) === JSON.stringify(expected.key) &&
+    JSON.stringify(existing.collation) === JSON.stringify(expected.collation) &&
+    existing.expireAfterSeconds === expected.expireAfterSeconds &&
+    Boolean(existing.hidden) === Boolean(expected.hidden) &&
     Boolean(existing.unique) === Boolean(expected.unique) &&
     Boolean(existing.sparse) === Boolean(expected.sparse) &&
     JSON.stringify(existing.partialFilterExpression) ===
@@ -100,17 +111,11 @@ async function inspectIndexes<TSchema extends Document>(
       const sameKeys = existing.find(
         (index) => JSON.stringify(index.key) === JSON.stringify(expected.key),
       );
-      if (
-        sameKeys &&
-        (Boolean(sameKeys.unique) !== Boolean(expected.unique) ||
-          Boolean(sameKeys.sparse) !== Boolean(expected.sparse) ||
-          JSON.stringify(sameKeys.partialFilterExpression) !==
-            JSON.stringify(expected.partialFilterExpression))
-      ) {
+      if (sameKeys && !indexMatches(sameKeys, expected)) {
         incompatible.push(
           `${definition.name}.${name} (conflicting existing key)`,
         );
-      } else {
+      } else if (!sameKeys) {
         missing.push(expected);
       }
     } else if (!indexMatches(found, expected)) {
@@ -142,17 +147,14 @@ async function duplicateRisk(
   }
   const keys = Object.keys(index.key ?? {});
   const keyDocument = Object.fromEntries(
-    keys.map((field, index) => [`key${index}`, `$${field}`]),
+    keys.map((field, index) => [
+      `key${index}`,
+      { $ifNull: [`$${field}`, null] },
+    ]),
   );
   const match: Document = { ...(index.partialFilterExpression ?? {}) };
-  if (index.sparse) {
-    for (const field of keys) {
-      match[field] = {
-        ...(typeof match[field] === "object" ? match[field] : {}),
-        $exists: true,
-      };
-    }
-  }
+  if (index.sparse)
+    match.$or = keys.map((field) => ({ [field]: { $exists: true } }));
   try {
     const rows = await aggregate
       .call(collection, [
@@ -187,6 +189,46 @@ async function duplicateRisk(
  */
 export async function planDatabaseSetup(db: Db): Promise<DatabaseSetupPlan> {
   const names = await listCollectionNames(db);
+  const metadata = await db.listCollections({}, { nameOnly: false }).toArray();
+  const validatorsToApply: string[] = [];
+  const validatorConflicts: string[] = [];
+  for (const [name, validator] of Object.entries(CRM_MONGO_VALIDATORS)) {
+    if (!names.has(name)) {
+      validatorsToApply.push(name);
+      continue;
+    }
+    const options = metadata.find((c) => c.name === name)?.options;
+    const current = options?.validator;
+    if (
+      current &&
+      Object.keys(current).length &&
+      !isDeepStrictEqual(current, validator)
+    ) {
+      validatorConflicts.push(
+        `${name}: existing validator differs; manual review required`,
+      );
+      continue;
+    }
+    if (
+      !isDeepStrictEqual(current, validator) ||
+      (options?.validationLevel ?? "strict") !== "strict" ||
+      (options?.validationAction ?? "error") !== "error"
+    )
+      validatorsToApply.push(name);
+    try {
+      const invalid = await db
+        .collection(name)
+        .countDocuments({ $nor: [validator] });
+      if (invalid)
+        validatorConflicts.push(
+          `${name}: ${invalid} documents incompatible with additive validator`,
+        );
+    } catch {
+      validatorConflicts.push(
+        `${name}: validator compatibility could not be checked`,
+      );
+    }
+  }
   const collectionsToCreate = [
     ...(names.has(SCHEMA_VERSIONS_COLLECTION)
       ? []
@@ -269,6 +311,8 @@ export async function planDatabaseSetup(db: Db): Promise<DatabaseSetupPlan> {
         : "compatible";
 
   return {
+    validatorsToApply,
+    validatorConflicts,
     schemaVersion: DATABASE_SCHEMA_VERSION,
     existingCollections,
     collectionsToCreate,
@@ -284,7 +328,7 @@ export async function planDatabaseSetup(db: Db): Promise<DatabaseSetupPlan> {
 }
 
 /**
- * Applies a previously read-only-compatible v1 plan. It only creates missing
+ * Applies a previously read-only-compatible additive plan. It only creates missing
  * resources and advances metadata; it never drops indexes or rewrites domain
  * documents.
  */
@@ -298,6 +342,10 @@ export async function setupDatabase(db: Db): Promise<DatabaseSetupResult> {
       `Database schema version ${plan.existingSchemaVersion} is newer than supported version ${DATABASE_SCHEMA_VERSION}`,
     );
   }
+  if (plan.validatorConflicts.length)
+    throw new IncompatibleDatabaseSchemaError(
+      plan.validatorConflicts.join("; "),
+    );
   if (plan.incompatibleIndexes.length > 0) {
     throw new IncompatibleDatabaseSchemaError(
       `Incompatible indexes: ${plan.incompatibleIndexes.join(", ")}`,
@@ -311,10 +359,28 @@ export async function setupDatabase(db: Db): Promise<DatabaseSetupResult> {
 
   const createdCollections: string[] = [];
   for (const name of plan.collectionsToCreate) {
-    await db.createCollection(name);
+    await db.createCollection(
+      name,
+      CRM_MONGO_VALIDATORS[name]
+        ? {
+            validator: CRM_MONGO_VALIDATORS[name],
+            validationLevel: "strict",
+            validationAction: "error",
+          }
+        : {},
+    );
     createdCollections.push(name);
   }
 
+  for (const name of plan.validatorsToApply) {
+    if (!plan.collectionsToCreate.includes(name))
+      await db.command({
+        collMod: name,
+        validator: CRM_MONGO_VALIDATORS[name],
+        validationLevel: "strict",
+        validationAction: "error",
+      });
+  }
   const domainCollections = getDomainCollections(db);
   const createdIndexes: string[] = [];
   for (const definition of COLLECTION_DEFINITIONS) {
@@ -347,25 +413,29 @@ export async function setupDatabase(db: Db): Promise<DatabaseSetupResult> {
     migrations?: { id: string; version: number; appliedAt: Date }[];
   }>(SCHEMA_VERSIONS_COLLECTION);
   const current = await versions.findOne({ _id: DATABASE_SCHEMA_VERSION_ID });
+  if (
+    (current?.version ?? current?.schemaVersion ?? 0) > DATABASE_SCHEMA_VERSION
+  )
+    throw new IncompatibleDatabaseSchemaError(
+      "Schema ledger advanced concurrently; rerun preflight",
+    );
   const now = new Date();
   const managedCollections = [
     ...COLLECTION_DEFINITIONS.map(({ name }) => name),
     SCHEMA_VERSIONS_COLLECTION,
   ];
   const existingMigrations = current?.migrations ?? [];
-  const hasBaselineMigration = existingMigrations.some(
-    (migration) => migration.id === DATABASE_MIGRATION_ID,
+  const requiredMigrations = [
+    { id: DATABASE_MIGRATION_ID, version: 1 },
+    { id: CRM_FOUNDATION_MIGRATION_ID, version: 2 },
+  ];
+  const pending = requiredMigrations.filter(
+    (required) => !existingMigrations.some((m) => m.id === required.id),
   );
-  const migrations = hasBaselineMigration
-    ? existingMigrations
-    : [
-        ...existingMigrations,
-        {
-          id: DATABASE_MIGRATION_ID,
-          version: DATABASE_SCHEMA_VERSION,
-          appliedAt: now,
-        },
-      ];
+  const migrations = [
+    ...existingMigrations,
+    ...pending.map((migration) => ({ ...migration, appliedAt: now })),
+  ];
   const versionDocument = {
     _id: DATABASE_SCHEMA_VERSION_ID,
     version: DATABASE_SCHEMA_VERSION,
@@ -378,10 +448,14 @@ export async function setupDatabase(db: Db): Promise<DatabaseSetupResult> {
     await versions.insertOne(versionDocument);
   } else if (
     (current.version ?? current.schemaVersion ?? 0) < DATABASE_SCHEMA_VERSION ||
-    !hasBaselineMigration
+    pending.length > 0
   ) {
-    await versions.updateOne(
-      { _id: DATABASE_SCHEMA_VERSION_ID },
+    const update = await versions.updateOne(
+      {
+        _id: DATABASE_SCHEMA_VERSION_ID,
+        version: current.version ?? { $exists: false },
+        migrations: current.migrations ?? { $exists: false },
+      },
       {
         $set: {
           version: versionDocument.version,
@@ -392,6 +466,10 @@ export async function setupDatabase(db: Db): Promise<DatabaseSetupResult> {
         },
       },
     );
+    if (update.matchedCount !== 1)
+      throw new IncompatibleDatabaseSchemaError(
+        "Schema ledger changed concurrently; rerun preflight",
+      );
   }
 
   return {

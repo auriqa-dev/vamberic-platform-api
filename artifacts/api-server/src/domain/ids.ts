@@ -20,6 +20,11 @@ export const PLATFORM_ID_PREFIXES = [
   "import",
   "event",
   "transaction",
+  "pipeline",
+  "workspace",
+  "lead",
+  "task",
+  "externalref",
 ] as const;
 
 export type PlatformIdPrefix = (typeof PLATFORM_ID_PREFIXES)[number];

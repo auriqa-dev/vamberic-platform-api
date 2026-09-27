@@ -102,7 +102,7 @@ async function plan(
     return rows;
   };
   const target = (await read(targets[kind], { id }))[0];
-  if (!target)
+  if (!target || target.workspaceId)
     throw new CrmDeleteError(404, "RECORD_NOT_FOUND", "Record not found.");
   const blockedBy: DeleteBlocker[] = [];
   const block = (
@@ -136,7 +136,17 @@ async function plan(
         o.nextAction ||
         o.nextActionAt ||
         o.expectedCloseAt ||
-        o.probability !== undefined,
+        o.probability !== undefined ||
+        [
+          "description",
+          "pipelineId",
+          "owner",
+          "priority",
+          "dealType",
+          "wonReason",
+          "buyingRoles",
+          "fieldEvidence",
+        ].some((key) => o[key] !== undefined),
     ),
     "OPPORTUNITY_HISTORY",
     "Only unvalued, open public-enquiry opportunities without follow-up or commercial history can be deleted.",
@@ -196,7 +206,25 @@ async function plan(
   block(
     "product_relationships",
     productRelationships.filter(
-      (r) => !["prospect", "engaged"].includes(r.status) || r.customerSince,
+      (r) =>
+        !["prospect", "engaged"].includes(r.status) ||
+        r.customerSince ||
+        [
+          "salesLifecycleStage",
+          "leadStatus",
+          "owner",
+          "ownerAssignedAt",
+          "targetAccount",
+          "icpTier",
+          "persona",
+          "qualificationReason",
+          "disqualificationReason",
+          "nextAction",
+          "nextActionAt",
+          "firstAttribution",
+          "latestAttribution",
+          "fieldEvidence",
+        ].some((key) => r[key] !== undefined),
     ),
     "CUSTOMER_RELATIONSHIP",
     "Customer, former customer, trial or partner Product history must be retained.",
@@ -220,8 +248,9 @@ async function plan(
   const opportunityIds = opportunities.map((o) => o.id);
   const eventFilters: Filter<Document>[] = [
     { "payload.opportunityId": { $in: opportunityIds } },
+    { opportunityId: { $in: opportunityIds } },
   ];
-  if (kind === "person") eventFilters.push({ personId: id });
+  if (kind === "person") eventFilters.push({ personId: id }, { personIds: id });
   if (kind === "organisation") eventFilters.push({ organisationId: id });
   const events = await read("events", { $or: eventFilters });
   const safeEvents = events.filter((e) => {
@@ -235,6 +264,11 @@ async function plan(
       e.productId === o.productId &&
       e.organisationId === o.organisationId &&
       o.personIds.includes(e.personId) &&
+      !e.workspaceId &&
+      !e.interaction &&
+      !e.taskId &&
+      !e.personIds &&
+      !e.opportunityId &&
       !e.campaignId &&
       !e.externalReference &&
       !e.sessionReference &&
@@ -316,6 +350,76 @@ async function plan(
         ? []
         : [{ collection: targets[kind], rows: [target] }]),
     ];
+  const historyFilter = {
+    $or: [
+      { personId: { $in: kind === "person" ? [id] : [] } },
+      { personIds: { $in: kind === "person" ? [id] : [] } },
+      { organisationId: { $in: kind === "organisation" ? [id] : [] } },
+      { opportunityId: { $in: opportunityIds } },
+    ],
+  };
+  for (const collection of ["crm_leads", "crm_tasks"] as const)
+    block(
+      collection,
+      await read(collection, historyFilter),
+      "CRM_BUSINESS_HISTORY",
+      "Lead and task history cannot be cascaded.",
+    );
+  if (kind === "organisation")
+    block(
+      "crm_workspaces",
+      await read("crm_workspaces", { clientOrganisationId: id }),
+      "CLIENT_WORKSPACE",
+      "Client workspace ownership must be retained.",
+    );
+  for (const item of deletionRows)
+    block(
+      item.collection,
+      item.rows.filter((r) => r.workspaceId),
+      "WORKSPACE_OWNERSHIP",
+      "Vapp cannot operate workspace-owned records.",
+    );
+  const externalFilter = {
+    $or: deletionRows
+      .filter((item) => item.rows.length)
+      .map((item) => ({
+        entityType: item.collection,
+        entityId: { $in: item.rows.map((row) => row.id) },
+      })),
+  };
+  block(
+    "external_references",
+    await read("external_references", externalFilter),
+    "EXTERNAL_MAPPING",
+    "External mappings reference records selected for deletion.",
+  );
+  if (kind === "organisation")
+    block(
+      "organisations",
+      await read("organisations", { parentOrganisationId: id }),
+      "CHILD_ORGANISATION",
+      "A child organisation references this organisation.",
+    );
+  if (organisationRelationships.length)
+    block(
+      "contact_points",
+      (
+        await read("contact_points", {
+          organisationRelationshipId: {
+            $in: organisationRelationships.map((r) => r.id),
+          },
+        })
+      ).filter((c) => !contactPoints.some((deleted) => deleted.id === c.id)),
+      "RETAINED_EMPLOYMENT_CONTACT",
+      "A retained contact references an employment record selected for deletion.",
+    );
+  for (const item of deletionRows)
+    block(
+      item.collection,
+      item.rows.filter((row) => row.fieldEvidence?.length),
+      "ENRICHMENT_HISTORY",
+      "Field evidence must be retained and reviewed before deletion.",
+    );
   const willDelete = deletionRows
     .filter((item) => item.rows.length)
     .map((item) => group(item.collection, item.rows));

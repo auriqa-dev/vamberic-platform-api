@@ -2,7 +2,10 @@ import type { Filter } from "mongodb";
 import type { DomainCollections } from "../db/collections";
 import type { Person, Organisation, Opportunity, Event } from "../domain";
 
-const active = { archived: { $ne: true } } as const;
+const active = {
+  workspaceId: { $exists: false },
+  archived: { $ne: true },
+} as const;
 const current = { ...active, current: true, endDate: { $exists: false } };
 export function literalSearch(search: string) {
   return {
@@ -81,7 +84,7 @@ export function crmReader(c: DomainCollections) {
   }
   async function opportunity(o: Opportunity) {
     const [product, organisation, people] = await Promise.all([
-      reference("products", o.productId),
+      reference("products", o.productId!),
       reference("organisations", o.organisationId),
       c.people.find({ ...active, id: { $in: o.personIds } }).toArray(),
     ]);

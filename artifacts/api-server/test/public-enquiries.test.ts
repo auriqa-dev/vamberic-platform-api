@@ -672,3 +672,32 @@ test("explicit names are trimmed without splitting and repeat enquiries preserve
   assert.equal(db.rows("people").length, 1);
   assert.deepEqual(db.rows("people")[0], before);
 });
+
+test("public enquiries never reuse or modify workspace-owned client identities", async (t) => {
+  const { db, request } = await fixture(t);
+  assert.equal((await request()).status, 201);
+  const workspaceId = generatePlatformId("workspace");
+  const scoped = [
+    "people",
+    "contact_points",
+    "organisations",
+    "organisation_relationships",
+    "product_relationships",
+    "opportunities",
+    "events",
+  ];
+  for (const name of scoped)
+    for (const record of db.rows(name)) {
+      record.workspaceId = workspaceId;
+      record.source = { system: "client_fixture" };
+    }
+  const previous = structuredClone(
+    Object.fromEntries(scoped.map((name) => [name, db.rows(name)[0]])),
+  );
+  assert.equal((await request()).status, 201);
+  for (const name of scoped) {
+    assert.equal(db.rows(name).length, 2);
+    assert.deepEqual(db.rows(name)[0], previous[name]);
+    assert.equal(db.rows(name)[1].workspaceId, undefined);
+  }
+});

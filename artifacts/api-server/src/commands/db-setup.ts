@@ -52,6 +52,8 @@ export async function runDatabaseSetup(
       const plan = await planDatabaseSetup(db);
       dependencies.logger.info(
         {
+          validatorsToApply: plan.validatorsToApply,
+          validatorConflicts: plan.validatorConflicts,
           schemaVersion: plan.schemaVersion,
           existingCollections: plan.existingCollections,
           collectionsToCreate: plan.collectionsToCreate,

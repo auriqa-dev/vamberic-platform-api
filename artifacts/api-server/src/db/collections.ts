@@ -1,3 +1,10 @@
+import type {
+  CrmPipeline,
+  CrmWorkspace,
+  CrmLead,
+  CrmTask,
+  ExternalReference,
+} from "../domain/crm-records";
 import { PUBLIC_ENQUIRY_INDEXES } from "./enquiry-indexes";
 import type { IndexDescription } from "mongodb";
 import type { Collection, Db } from "mongodb";
@@ -33,6 +40,11 @@ export const COLLECTION_NAMES = [
   "imports",
   "events",
   "transactions",
+  "crm_pipelines",
+  "crm_workspaces",
+  "crm_leads",
+  "crm_tasks",
+  "external_references",
 ] as const;
 
 export type DomainCollectionName = (typeof COLLECTION_NAMES)[number];
@@ -43,6 +55,11 @@ export type DomainCollectionName = (typeof COLLECTION_NAMES)[number];
  * collection with an unrelated document type.
  */
 export interface DomainPersistenceByCollection {
+  crm_pipelines: CrmPipeline;
+  crm_workspaces: CrmWorkspace;
+  crm_leads: CrmLead;
+  crm_tasks: CrmTask;
+  external_references: ExternalReference;
   products: Product;
   people: Person;
   contact_points: ContactPoint;
@@ -277,9 +294,53 @@ export const COLLECTION_DEFINITIONS: readonly CollectionDefinition[] = [
     reason:
       "External transaction IDs are reconciliation keys; product/time and status/time support revenue reporting.",
   },
+  {
+    name: "crm_pipelines",
+    indexes: [appId()],
+    reason: "Product pipeline selection including archive state.",
+  },
+  {
+    name: "crm_workspaces",
+    indexes: [appId()],
+    reason: "Ownership root lookup; no implied access grants.",
+  },
+  {
+    name: "crm_leads",
+    indexes: [appId()],
+    reason:
+      "Workspace qualification identity; queue indexes deferred until consumers exist.",
+  },
+  {
+    name: "crm_tasks",
+    indexes: [appId()],
+    reason:
+      "Product owner queues and opportunity follow-up, overdue derived at read time.",
+  },
+  {
+    name: "external_references",
+    indexes: [
+      appId(),
+      {
+        key: {
+          workspaceId: 1,
+          provider: 1,
+          providerAccountId: 1,
+          objectType: 1,
+          externalId: 1,
+        },
+        name: "workspace_provider_account_object_external_unique",
+        unique: true,
+      },
+      { key: { entityType: 1, entityId: 1 }, name: "entity_references" },
+    ],
+    reason:
+      "Account-scoped external identity dedupe and reverse mapping lookup.",
+  },
 ];
 
 export const SCHEMA_VERSIONS_COLLECTION = "schema_versions";
-export const DATABASE_SCHEMA_VERSION = 1;
+export const DATABASE_SCHEMA_VERSION = 2;
 export const DATABASE_SCHEMA_VERSION_ID = "vapp-v1";
 export const DATABASE_MIGRATION_ID = "001-vapp-v1-baseline";
+
+export const CRM_FOUNDATION_MIGRATION_ID = "002-crm-foundation";

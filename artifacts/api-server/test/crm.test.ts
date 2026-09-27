@@ -306,3 +306,24 @@ test("missing CRM records return 404, invalid IDs/filters return 400, empty list
   ])
     assert.equal((await get(`opportunities?${query}`)).status, 400);
 });
+
+test("Vapp lists and detail routes exclude workspace-owned client CRM records", async (t) => {
+  const { db, get } = await fixture(t);
+  const workspaceId = generatePlatformId("workspace");
+  for (const name of ["people", "organisations", "opportunities"] as const) {
+    const internal = db.rows(name)[0];
+    const prefix =
+      name === "people"
+        ? "person"
+        : name === "organisations"
+          ? "org"
+          : "opportunity";
+    const client = { ...internal, id: generatePlatformId(prefix), workspaceId };
+    db.rows(name).push(client);
+    const list = await get(name);
+    assert.equal(list.status, 200);
+    assert.equal(list.body.total, 1);
+    assert.equal(list.body.items[0].id, internal.id);
+    assert.equal((await get(`${name}/${client.id}`)).status, 404);
+  }
+});

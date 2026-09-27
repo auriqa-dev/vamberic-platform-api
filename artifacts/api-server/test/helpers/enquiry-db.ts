@@ -138,7 +138,12 @@ export class EnquiryMemoryDb {
       updateOne: async (filter: Document, update: Document) => {
         const record = this.rows(name).find((row) => matches(row, filter));
         if (!record) return { matchedCount: 0 };
-        Object.assign(record, update.$set);
+        for (const [path, value] of Object.entries(update.$set ?? {})) {
+          const keys = path.split(".");
+          let target = record;
+          for (const key of keys.slice(0, -1)) target = target[key] ??= {};
+          target[keys.at(-1)!] = value;
+        }
         return { matchedCount: 1 };
       },
       deleteMany: async (filter: Document) => {

@@ -38,6 +38,7 @@ import {
   SCHEMA_VERSIONS_COLLECTION,
   getDomainCollections,
   DATABASE_MIGRATION_ID,
+  CRM_FOUNDATION_MIGRATION_ID,
 } from "../src/db/collections";
 import {
   IncompatibleDatabaseSchemaError,
@@ -283,7 +284,7 @@ test("application IDs and relationship targets are validated", () => {
   );
 });
 
-test("collection definitions cover exactly the fourteen domain collections", () => {
+test("collection definitions cover exactly the nineteen domain collections", () => {
   assert.deepEqual(
     COLLECTION_DEFINITIONS.map((definition) => definition.name),
     [...COLLECTION_NAMES],
@@ -376,7 +377,10 @@ class FakeCollection {
     return indexes.map((index) => index.name as string);
   }
 
-  async countDocuments() {
+  validatorInvalidCount = 0;
+  options: Record<string, unknown> = {};
+  async countDocuments(filter?: Record<string, unknown>) {
+    if (filter?.$nor) return this.validatorInvalidCount;
     return this.documents.size;
   }
 
@@ -400,6 +404,7 @@ class FakeCollection {
       ...existing,
       ...update.$set,
     });
+    return { matchedCount: 1 };
   }
 }
 
@@ -410,13 +415,26 @@ class FakeDb {
   listCollections() {
     return {
       toArray: async () =>
-        [...this.collections.keys()].map((name) => ({ name })),
+        [...this.collections].map(([name, collection]) => ({
+          name,
+          options: collection.options,
+        })),
     };
   }
 
-  async createCollection(name: string) {
+  async command(input: Record<string, unknown>) {
+    this.mutationCount++;
+    this.collection(input.collMod as string).options = {
+      validator: input.validator,
+      validationLevel: input.validationLevel,
+      validationAction: input.validationAction,
+    };
+  }
+
+  async createCollection(name: string, options: Record<string, unknown> = {}) {
     this.mutationCount += 1;
     const collection = new FakeCollection();
+    collection.options = options;
     this.collections.set(name, collection);
     return collection;
   }
@@ -441,7 +459,7 @@ test("database setup is repeatable and preserves existing documents", async () =
   });
   const second = await setupDatabase(db as unknown as Db);
 
-  assert.equal(first.createdCollections.length, 15);
+  assert.equal(first.createdCollections.length, COLLECTION_NAMES.length + 1);
   assert.equal(second.createdCollections.length, 0);
   assert.equal(second.createdIndexes.length, 0);
   assert.deepEqual(products.documents.get("business-record"), {
@@ -609,7 +627,7 @@ test("dry-run planning is read-only and CLI mode is explicit", async () => {
   const before = [...db.collections.keys()];
   const plan = await planDatabaseSetup(db as unknown as Db);
   assert.deepEqual([...db.collections.keys()], before);
-  assert.equal(plan.collectionsToCreate.length, 15);
+  assert.equal(plan.collectionsToCreate.length, COLLECTION_NAMES.length + 1);
   assert.ok(plan.indexesToCreate.length > 0);
   assert.equal(parseSetupMode(["--dry-run"]), "dry-run");
   assert.equal(parseSetupMode(["--apply"]), "apply");
@@ -760,7 +778,7 @@ test("apply backfills a missing baseline migration on compatible metadata", asyn
   };
   assert.deepEqual(
     document.migrations.map((migration) => migration.id),
-    [DATABASE_MIGRATION_ID],
+    [DATABASE_MIGRATION_ID, CRM_FOUNDATION_MIGRATION_ID],
   );
 });
 
@@ -920,3 +938,72 @@ for (const risk of ["confirmed duplicate", "inspection unavailable"]) {
     assert.equal(contacts.mutationCount, 0);
   });
 }
+
+test("CRM additive upgrade retains baseline history and resumes after interrupted index creation", async () => {
+  const db = new FakeDb();
+  const versions = await db.createCollection(SCHEMA_VERSIONS_COLLECTION);
+  const baselineAt = new Date("2025-01-01Z");
+  versions.documents.set("vapp-v1", {
+    _id: "vapp-v1",
+    version: 1,
+    schemaVersion: 1,
+    appliedAt: baselineAt,
+    migrations: [
+      { id: DATABASE_MIGRATION_ID, version: 1, appliedAt: baselineAt },
+    ],
+  });
+  const external = await db.createCollection("external_references");
+  const original = external.createIndexes.bind(external);
+  external.createIndexes = async () => {
+    throw new Error("interrupted");
+  };
+  await assert.rejects(setupDatabase(db as unknown as Db), /interrupted/);
+  assert.equal(versions.documents.get("vapp-v1")?.version, 1);
+  external.createIndexes = original;
+  await setupDatabase(db as unknown as Db);
+  const ledger = structuredClone(versions.documents.get("vapp-v1"));
+  assert.deepEqual(
+    (
+      ledger?.migrations as { id: string; version: number; appliedAt: Date }[]
+    )[0],
+    { id: DATABASE_MIGRATION_ID, version: 1, appliedAt: baselineAt },
+  );
+  assert.equal(ledger?.version, 2);
+  const mutations = db.mutationCount;
+  await setupDatabase(db as unknown as Db);
+  assert.deepEqual(versions.documents.get("vapp-v1"), ledger);
+  assert.equal(db.mutationCount, mutations);
+});
+test("validator preflight is read-only and conflicts stop apply before any writes", async () => {
+  for (const conflict of ["options", "records"]) {
+    const db = new FakeDb();
+    const people = await db.createCollection("people");
+    if (conflict === "options")
+      people.options = { validator: { required: ["legacy"] } };
+    else people.validatorInvalidCount = 1;
+    const mutations = db.mutationCount;
+    const plan = await planDatabaseSetup(db as unknown as Db);
+    assert.ok(plan.validatorConflicts.length);
+    assert.equal(db.mutationCount, mutations);
+    await assert.rejects(
+      setupDatabase(db as unknown as Db),
+      IncompatibleDatabaseSchemaError,
+    );
+    assert.equal(db.mutationCount, mutations);
+    assert.equal(people.mutationCount, 0);
+  }
+});
+test("equivalent indexes with different names are reused, not duplicated", async () => {
+  const db = new FakeDb();
+  const organisations = await db.createCollection("organisations");
+  organisations.indexes.push({
+    key: { normalizedDomain: 1 },
+    name: "existing_domain_candidates",
+  });
+  const plan = await planDatabaseSetup(db as unknown as Db);
+  assert.ok(
+    !plan.indexesToCreate.includes(
+      "organisations.normalized_domain_candidates",
+    ),
+  );
+});

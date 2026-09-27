@@ -49,8 +49,9 @@ async function persistEnquiry(
 ): Promise<EnquirySubmittedNotification> {
   const c = getDomainCollections(db);
   const options = { session };
+  const internalScope = { workspaceId: { $exists: false } } as const;
   const product = await c.products.findOne(
-    { id: productId, archived: { $ne: true } },
+    { ...internalScope, id: productId, archived: { $ne: true } },
     options,
   );
   if (
@@ -70,14 +71,20 @@ async function persistEnquiry(
   };
   const normalizedEmail = normalizeContactValue("email", input.workEmail);
   const contacts = await c.contact_points
-    .find({ type: "email", normalizedValue: normalizedEmail }, options)
+    .find(
+      { ...internalScope, type: "email", normalizedValue: normalizedEmail },
+      options,
+    )
     .limit(2)
     .toArray();
   if (contacts.length > 1) throw ambiguous();
   let contact: ContactPoint | undefined = contacts[0];
   let person;
   if (contact) {
-    person = await c.people.findOne({ id: contact.personId }, options);
+    person = await c.people.findOne(
+      { ...internalScope, id: contact.personId },
+      options,
+    );
     if (
       !person ||
       person.archived ||
@@ -129,7 +136,7 @@ async function persistEnquiry(
   if (domain) {
     // Both facts must agree exactly. Never merge by fuzzy name or email domain.
     const matches = await c.organisations
-      .find({ name: company, domain }, options)
+      .find({ ...internalScope, name: company, domain }, options)
       .limit(2)
       .toArray();
     if (matches.length > 1) throw ambiguous();
@@ -140,6 +147,7 @@ async function persistEnquiry(
     const relationships = await c.organisation_relationships
       .find(
         {
+          ...internalScope,
           personId: person.id,
           current: true,
           archived: { $ne: true },
@@ -151,6 +159,7 @@ async function persistEnquiry(
     const matches = await c.organisations
       .find(
         {
+          ...internalScope,
           id: { $in: relationships.map((item) => item.organisationId) },
           name: company,
           archived: { $ne: true },
@@ -186,6 +195,7 @@ async function persistEnquiry(
   }
 
   const employment = {
+    ...internalScope,
     personId: person.id,
     organisationId: organisation.id,
     current: true,
@@ -208,6 +218,7 @@ async function persistEnquiry(
   if (
     !(await c.product_relationships.findOne(
       {
+        ...internalScope,
         productId,
         personId: person.id,
         organisationId: organisation.id,

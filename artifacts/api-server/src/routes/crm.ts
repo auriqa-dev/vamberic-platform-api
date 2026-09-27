@@ -19,7 +19,10 @@ import { getDomainCollections } from "../db";
 import { crmReader, literalSearch } from "../services/crm";
 import type { MongoService } from "../services/mongo";
 
-const active = { archived: { $ne: true } } as const;
+const active = {
+  workspaceId: { $exists: false },
+  archived: { $ne: true },
+} as const;
 export function createCrmRouter(mongo: MongoService): IRouter {
   const router: IRouter = Router();
   // All six handlers are mounted behind the application's Cognito middleware.

@@ -1,3 +1,15 @@
+import { interactionDetailsSchema } from "./crm-interactions";
+import {
+  webUrlSchema,
+  socialProfilesSchema,
+  linkedinUrlSchema,
+  normalizedDomainSchema,
+  crmActorSchema,
+  crmOwnerSchema,
+  prioritySchema,
+  qualificationFields,
+  fieldEvidenceListSchema,
+} from "./crm-fields";
 import { z } from "zod";
 import {
   PLATFORM_ID_PREFIXES,
@@ -66,8 +78,9 @@ const lifecycleFields = {
   updatedBy: actorSchema.optional(),
 };
 
-const base = z.object({
+export const basePersistenceSchema = z.object({
   id: applicationIdSchema,
+  workspaceId: platformIdSchema("workspace").optional(),
   ...lifecycleFields,
   source: sourceSchema.optional(),
 });
@@ -92,7 +105,8 @@ const productId = id("product");
 const contactPointId = id("contact");
 const permissionId = id("permission");
 
-const withId = (prefix: PlatformIdPrefix) => base.extend({ id: id(prefix) });
+const withId = (prefix: PlatformIdPrefix) =>
+  basePersistenceSchema.extend({ id: id(prefix) });
 
 export const ProductSchema = withId("product").extend({
   productModelVersion: z.literal(2).default(2),
@@ -177,6 +191,31 @@ export const PersonSchema = withId("person").extend({
   lastName: nonEmpty.max(100).optional(),
   displayName: nonEmpty.max(220).optional(),
   title: z.string().max(200).optional(),
+  preferredLanguage: z
+    .string()
+    .max(100)
+    .refine((v) => {
+      try {
+        return Intl.getCanonicalLocales(v).length === 1;
+      } catch {
+        return false;
+      }
+    }, "must be a language tag")
+    .optional(),
+  timezone: z
+    .string()
+    .max(100)
+    .refine((v) => {
+      try {
+        new Intl.DateTimeFormat("en", { timeZone: v });
+        return true;
+      } catch {
+        return false;
+      }
+    }, "must be a timezone")
+    .optional(),
+  socialProfiles: socialProfilesSchema.optional(),
+  fieldEvidence: fieldEvidenceListSchema.optional(),
   lifecycleStatus: z.enum(["active", "inactive", "archived"]).default("active"),
 });
 
@@ -222,6 +261,10 @@ const ContactPointRecordSchema = withId("contact").extend({
   suppressed: z.boolean().default(false),
   firstSeenAt: optionalDate,
   lastValidatedAt: optionalDate,
+  label: z.enum(["work", "personal", "mobile", "other"]).optional(),
+  sourceVerifiedAt: optionalDate,
+  sourceVerificationReason: z.string().max(2000).optional(),
+  organisationRelationshipId: organisationRelationshipIdSchema.optional(),
 });
 export const ContactPointPersistenceSchema =
   ContactPointRecordSchema.superRefine((value, context) => {
@@ -241,6 +284,40 @@ export const ContactPointSchema = ContactPointPersistenceSchema;
 export const OrganisationSchema = withId("org").extend({
   name: nonEmpty.max(300),
   legalName: z.string().max(300).optional(),
+  description: z.string().max(10000).optional(),
+  website: webUrlSchema.optional(),
+  normalizedDomain: normalizedDomainSchema.optional(),
+  address: z
+    .object({
+      line1: z.string().max(300).optional(),
+      line2: z.string().max(300).optional(),
+      city: z.string().max(200).optional(),
+      region: z.string().max(200).optional(),
+      postalCode: z.string().max(50).optional(),
+      countryCode: z
+        .string()
+        .regex(/^[A-Z]{2}$/)
+        .optional(),
+    })
+    .strict()
+    .optional(),
+  industryGroup: z.string().max(200).optional(),
+  foundedYear: z.number().int().min(1).max(9999).optional(),
+  linkedinUrl: linkedinUrlSchema.optional(),
+  parentOrganisationId: organisationId.optional(),
+  revenueBand: z.string().max(100).optional(),
+  annualRevenue: z
+    .object({ amountMinor: minorAmount, currency, observedAt: dateSchema })
+    .strict()
+    .optional(),
+  telephone: z
+    .object({
+      label: z.enum(["main", "support", "sales", "other"]),
+      value: nonEmpty.max(100),
+    })
+    .strict()
+    .optional(),
+  fieldEvidence: fieldEvidenceListSchema.optional(),
   domain: z.string().trim().max(253).optional(),
   type: z.enum(["prospect", "customer", "partner", "vendor", "other"]),
   industry: z.string().max(200).optional(),
@@ -259,6 +336,8 @@ export const OrganisationRelationshipSchema = withId("orgrel").extend({
   personId,
   organisationId,
   jobTitle: z.string().max(200).optional(),
+  employmentRole: z.string().max(200).optional(),
+  fieldEvidence: fieldEvidenceListSchema.optional(),
   department: z.string().max(200).optional(),
   seniority: z.string().max(100).optional(),
   startDate: optionalDate,
@@ -290,6 +369,8 @@ const requireProductRelationshipTarget = (
   }
 };
 const ProductRelationshipRecordSchema = withId("prodrel").extend({
+  ...qualificationFields,
+  fieldEvidence: fieldEvidenceListSchema.optional(),
   productId,
   personId: personId.optional(),
   organisationId: organisationId.optional(),
@@ -336,6 +417,7 @@ const requireMarketingPermissionScope = (
     contactPointId?: string;
     productId?: string;
     portfolioWide?: boolean;
+    workspaceId?: string;
   },
   context: z.RefinementCtx,
 ) => {
@@ -346,11 +428,15 @@ const requireMarketingPermissionScope = (
       message: "personId or contactPointId is required",
     });
   }
-  if (!value.productId && !value.portfolioWide) {
+  if (
+    (!value.productId && !value.portfolioWide && !value.workspaceId) ||
+    (value.workspaceId && value.portfolioWide)
+  ) {
     context.addIssue({
       code: z.ZodIssueCode.custom,
       path: ["productId"],
-      message: "productId or portfolioWide scope is required",
+      message:
+        "Use workspace scope, optionally product-specific, or an internal product/portfolio scope",
     });
   }
 };
@@ -377,8 +463,47 @@ const requireMoneyCurrencyPair = (
   }
 };
 
+export const requireCrmContext = (
+  value: { productId?: string; workspaceId?: string },
+  ctx: z.RefinementCtx,
+) => {
+  if (!value.productId && !value.workspaceId)
+    ctx.addIssue({
+      code: "custom",
+      path: ["productId"],
+      message: "Product or workspace context required",
+    });
+};
 const OpportunityRecordSchema = withId("opportunity").extend({
-  productId,
+  description: z.string().max(10000).optional(),
+  pipelineId: id("pipeline").optional(),
+  owner: crmOwnerSchema.optional(),
+  priority: prioritySchema.optional(),
+  dealType: z
+    .enum(["new_business", "renewal", "expansion", "other"])
+    .optional(),
+  wonReason: z.string().max(2000).optional(),
+  buyingRoles: z
+    .array(
+      z
+        .object({
+          personId,
+          role: z.enum([
+            "decision_maker",
+            "champion",
+            "economic_buyer",
+            "technical_buyer",
+            "influencer",
+            "end_user",
+            "blocker",
+          ]),
+        })
+        .strict(),
+    )
+    .max(100)
+    .optional(),
+  fieldEvidence: fieldEvidenceListSchema.optional(),
+  productId: productId.optional(),
   organisationId,
   personIds: z.array(personId).max(100).default([]),
   name: nonEmpty.max(300),
@@ -395,10 +520,34 @@ const OpportunityRecordSchema = withId("opportunity").extend({
   lostAt: optionalDate,
   lostReason: z.string().max(1_000).optional(),
 });
-export const OpportunitySchema = OpportunityRecordSchema.superRefine(
-  (value, context) =>
-    requireMoneyCurrencyPair(value, "estimatedValueMinor", context),
-);
+const opportunityIntegrity = (
+  value: z.infer<typeof OpportunityRecordSchema>,
+  context: z.RefinementCtx,
+) => {
+  requireCrmContext(value, context);
+  requireMoneyCurrencyPair(value, "estimatedValueMinor", context);
+  if (
+    value.buyingRoles?.some(
+      (r: { personId: string }) => !value.personIds.includes(r.personId),
+    )
+  )
+    context.addIssue({
+      code: "custom",
+      path: ["buyingRoles"],
+      message: "Buying-role people must be linked to the opportunity",
+    });
+  if (
+    new Set(value.buyingRoles?.map((r) => `${r.personId}:${r.role}`)).size !==
+    (value.buyingRoles?.length ?? 0)
+  )
+    context.addIssue({
+      code: "custom",
+      path: ["buyingRoles"],
+      message: "Duplicate buying role",
+    });
+};
+export const OpportunitySchema =
+  OpportunityRecordSchema.superRefine(opportunityIntegrity);
 
 const customerIdentity = {
   personId: personId.optional(),
@@ -470,7 +619,7 @@ export const EntitlementSchema = EntitlementRecordSchema.superRefine(
 );
 
 const CampaignRecordSchema = withId("campaign").extend({
-  productId,
+  productId: productId.optional(),
   name: nonEmpty.max(300),
   type: nonEmpty.max(100),
   channel: nonEmpty.max(100),
@@ -485,7 +634,10 @@ const CampaignRecordSchema = withId("campaign").extend({
   attribution: metadataSchema.optional(),
 });
 export const CampaignSchema = CampaignRecordSchema.superRefine(
-  (value, context) => requireMoneyCurrencyPair(value, "spendMinor", context),
+  (value, context) => {
+    requireCrmContext(value, context);
+    requireMoneyCurrencyPair(value, "spendMinor", context);
+  },
 );
 
 export const ImportSchema = withId("import").extend({
@@ -509,7 +661,32 @@ export const ImportSchema = withId("import").extend({
   errorSummary: z.string().max(10_000).optional(),
 });
 
-export const EventSchema = withId("event").extend({
+export const EventRecordSchema = withId("event").extend({
+  opportunityId: opportunityIdSchema.optional(),
+  taskId: platformIdSchema("task").optional(),
+  personIds: z.array(personIdSchema).max(100).optional(),
+  interaction: z
+    .object({
+      subject: z.string().trim().min(1).max(300),
+      body: z.string().max(20000).optional(),
+      summary: z.string().max(2000).optional(),
+      actor: crmActorSchema,
+      details: interactionDetailsSchema,
+      attachmentReferences: z
+        .array(
+          z
+            .object({
+              kind: z.enum(["attachment", "recording"]),
+              reference: z.string().min(1).max(500),
+              url: webUrlSchema.optional(),
+            })
+            .strict(),
+        )
+        .max(20)
+        .optional(),
+    })
+    .strict()
+    .optional(),
   eventType: nonEmpty.max(150),
   occurredAt: dateSchema,
   productId: productId.optional(),
@@ -520,6 +697,46 @@ export const EventSchema = withId("event").extend({
   externalReference: z.string().max(300).optional(),
   payload: metadataSchema.default({}),
 });
+
+const eventIntegrity = (
+  v: Pick<
+    z.infer<typeof EventRecordSchema>,
+    | "personIds"
+    | "personId"
+    | "productId"
+    | "organisationId"
+    | "opportunityId"
+    | "campaignId"
+    | "eventType"
+    | "interaction"
+  >,
+  ctx: z.RefinementCtx,
+) => {
+  if (v.personIds && new Set(v.personIds).size !== v.personIds.length)
+    ctx.addIssue({ code: "custom", message: "Duplicate event person" });
+  if (!v.interaction) return;
+  if (v.eventType !== v.interaction.details.type)
+    ctx.addIssue({
+      code: "custom",
+      message: "Event type must match interaction type",
+    });
+  if (
+    !v.productId &&
+    !v.personId &&
+    !v.personIds?.length &&
+    !v.organisationId &&
+    !v.opportunityId &&
+    !v.campaignId
+  )
+    ctx.addIssue({
+      code: "custom",
+      message: "Interaction requires a CRM subject",
+    });
+  const details = v.interaction.details;
+  if (details.type === "meeting" && details.endsAt < details.startsAt)
+    ctx.addIssue({ code: "custom", message: "Meeting ends before it starts" });
+};
+export const EventSchema = EventRecordSchema.superRefine(eventIntegrity);
 
 const TransactionRecordSchema = withId("transaction")
   .extend({
@@ -605,6 +822,7 @@ export function assertTransactionStatusTransition(
 }
 
 export interface PermissionResolutionCriteria {
+  workspaceId?: string;
   personId?: string;
   contactPointId?: string;
   productId?: string;
@@ -618,6 +836,7 @@ function permissionMatches(
   criteria: PermissionResolutionCriteria,
 ): boolean {
   return (
+    permission.workspaceId === criteria.workspaceId &&
     permission.personId === criteria.personId &&
     permission.contactPointId === criteria.contactPointId &&
     permission.productId === criteria.productId &&
@@ -708,9 +927,20 @@ export const MarketingPermissionInsertSchema = insertSchema(
 ).superRefine(requireMarketingPermissionScope);
 export const OpportunityInsertSchema = insertSchema(
   OpportunityRecordSchema,
-).superRefine((value, context) =>
-  requireMoneyCurrencyPair(value, "estimatedValueMinor", context),
-);
+).superRefine((value, context) => {
+  requireCrmContext(value, context);
+  requireMoneyCurrencyPair(value, "estimatedValueMinor", context);
+  if (
+    value.buyingRoles?.some(
+      (r: { personId: string }) => !value.personIds.includes(r.personId),
+    )
+  )
+    context.addIssue({
+      code: "custom",
+      path: ["buyingRoles"],
+      message: "Buying-role people must be linked",
+    });
+});
 export const OpportunityUpdateSchema = updateSchema(OpportunityRecordSchema);
 export const SubscriptionInsertSchema = insertSchema(
   SubscriptionRecordSchema,
@@ -722,13 +952,15 @@ export const EntitlementInsertSchema = insertSchema(
 export const EntitlementUpdateSchema = updateSchema(EntitlementRecordSchema);
 export const CampaignInsertSchema = insertSchema(
   CampaignRecordSchema,
-).superRefine((value, context) =>
-  requireMoneyCurrencyPair(value, "spendMinor", context),
-);
+).superRefine((value, context) => {
+  requireCrmContext(value, context);
+  requireMoneyCurrencyPair(value, "spendMinor", context);
+});
 export const CampaignUpdateSchema = updateSchema(CampaignRecordSchema);
 export const ImportInsertSchema = insertSchema(ImportSchema);
 export const ImportUpdateSchema = updateSchema(ImportSchema);
-export const EventInsertSchema = insertSchema(EventSchema);
+export const EventInsertSchema =
+  insertSchema(EventRecordSchema).superRefine(eventIntegrity);
 export const TransactionInsertSchema = insertSchema(
   TransactionRecordSchema,
 ).superRefine(requireCustomerIdentity);
