@@ -77,7 +77,17 @@ async function fixture(t: TestContext, seed = true) {
       body: await response.json(),
     };
   }
-  return { db, get };
+  async function patch(path: string, body: unknown) {
+    return fetch(url + "/api/v1/" + path, {
+      method: "PATCH",
+      headers: {
+        authorization: `Bearer ${token}`,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify(body),
+    });
+  }
+  return { db, get, patch };
 }
 
 test("all six CRM routes require Cognito before accessing Mongo and have no public counterpart", async (t) => {
@@ -326,4 +336,64 @@ test("Vapp lists and detail routes exclude workspace-owned client CRM records", 
     assert.equal(list.body.items[0].id, internal.id);
     assert.equal((await get(`${name}/${client.id}`)).status, 404);
   }
+});
+
+test("portfolio summary and Product routes exclude client scope; cleanup cannot preview client records", async (t) => {
+  const { db, get, patch } = await fixture(t);
+  const workspaceId = generatePlatformId("workspace");
+  for (const collection of [
+    "people",
+    "organisations",
+    "opportunities",
+  ] as const) {
+    const prefix =
+      collection === "people"
+        ? "person"
+        : collection === "organisations"
+          ? "org"
+          : "opportunity";
+    const client = {
+      ...db.rows(collection)[0],
+      id: generatePlatformId(prefix),
+      workspaceId,
+    };
+    db.rows(collection).push(client, {
+      ...db.rows(collection)[0],
+      id: generatePlatformId(prefix),
+      archived: true,
+    });
+    assert.equal(
+      (await get(`${collection}/${client.id}/delete-preview`)).status,
+      404,
+    );
+  }
+  const clientProduct = {
+    ...db.rows("products")[0],
+    id: generatePlatformId("product"),
+    slug: "client-product",
+    workspaceId,
+  };
+  db.rows("products").push(clientProduct);
+  assert.equal((await get(`products/${clientProduct.id}`)).status, 404);
+  const response = await patch(`products/${clientProduct.id}`, {
+    name: "Must not change",
+  });
+  assert.equal(response.status, 404);
+  await response.arrayBuffer();
+  assert.equal(
+    db.rows("products").find((p) => p.id === clientProduct.id)?.name,
+    clientProduct.name,
+  );
+  assert.equal((await get("products")).body.length, 1);
+  const result = await get("dashboard/summary");
+  assert.equal(result.status, 200);
+  assert.deepEqual(result.body, {
+    totalProducts: 1,
+    activeProducts: 1,
+    draftOrInactiveProducts: 0,
+    totalPeople: 1,
+    totalOrganisations: 1,
+    totalOpportunities: 1,
+  });
+  assert.equal((await get("dashboard/summary", false)).status, 401);
 });

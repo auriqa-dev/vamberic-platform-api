@@ -1,7 +1,10 @@
-import { useLocation, useParams } from "wouter";
+import { OpportunityHighlights } from "../../components/portfolio-panels";
+import { productLabel } from "../../lib/product-labels";
+import { Link, useLocation, useParams } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   useGetProduct,
+  useListOpportunities,
   useCreateProduct,
   useUpdateProduct,
   getGetProductQueryKey,
@@ -119,6 +122,16 @@ export default function ProductDetail() {
         </div>
       </div>
 
+      {!isNew && product && !isError && (
+        <>
+          <p className="text-sm text-muted-foreground">
+            {productLabel(product.lifecycleStatus)} ·{" "}
+            {productLabel(product.operatingMode)} ·{" "}
+            {productLabel(product.businessModel)}
+          </p>
+          <ProductPortfolioContext productId={product.id} name={product.name} />
+        </>
+      )}
       <div className="bg-card p-6 md:p-8 rounded-xl border border-border shadow-sm">
         {isLoading && !isNew ? (
           <div className="space-y-8">
@@ -132,14 +145,64 @@ export default function ProductDetail() {
             be reached.
           </div>
         ) : (
-          <ProductForm
-            key={id || "new"}
-            initialData={product}
-            onSubmit={handleSubmit}
-            isPending={isPending}
-          />
+          <>
+            <h2 className="text-lg font-semibold mb-6">
+              {isNew ? "Product details" : "Edit Product details"}
+            </h2>
+            <ProductForm
+              key={id || "new"}
+              initialData={product}
+              onSubmit={handleSubmit}
+              isPending={isPending}
+            />
+          </>
         )}
       </div>
     </div>
+  );
+}
+
+function ProductPortfolioContext({
+  productId,
+  name,
+}: {
+  productId: string;
+  name: string;
+}) {
+  const q = useListOpportunities({ productId, limit: 5, offset: 0 });
+  return (
+    <section className="bg-card border border-border rounded-xl p-5 space-y-4">
+      <div className="flex justify-between gap-3">
+        <h2 className="text-lg font-semibold">Opportunities for {name}</h2>
+        <Link
+          className="text-primary text-sm hover:underline"
+          href={`/opportunities?productId=${encodeURIComponent(productId)}`}
+        >
+          View all
+        </Link>
+      </div>
+      <p className="text-sm text-muted-foreground">
+        The five most recent opportunities and their linked people and
+        organisations.
+      </p>
+      {q.isError ? (
+        <p role="alert">
+          Could not load opportunities.{" "}
+          <button
+            className="text-primary underline"
+            onClick={() => void q.refetch()}
+          >
+            Try again
+          </button>
+        </p>
+      ) : q.data ? (
+        <OpportunityHighlights
+          opportunities={q.data.items}
+          productName={name}
+        />
+      ) : (
+        <p role="status">Loading opportunities…</p>
+      )}
+    </section>
   );
 }

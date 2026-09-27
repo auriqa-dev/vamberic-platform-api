@@ -75,8 +75,9 @@ export function DeleteDangerZone({
     <section className="mt-10 border border-destructive/30 rounded-xl p-5 space-y-3">
       <h2 className="text-lg font-semibold text-destructive">Danger zone</h2>
       <p className="text-sm text-muted-foreground">
-        Permanent administrative cleanup. This is not an archive action and
-        cannot be undone. Commercial and consent history may block deletion.
+        Permanent cleanup of portfolio test records. This is not an archive
+        action and cannot be undone. Commercial and consent history may block
+        deletion.
       </p>
       <Button variant="outline" onClick={() => void workflow.open()}>
         Delete permanently

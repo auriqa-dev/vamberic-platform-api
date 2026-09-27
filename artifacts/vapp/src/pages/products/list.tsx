@@ -47,7 +47,7 @@ export default function ProductsList() {
             Products
           </h1>
           <p className="text-muted-foreground mt-1">
-            Manage products, services, agencies, and experiments.
+            Vamberic portfolio products, services, agencies and experiments.
           </p>
         </div>
         <Button onClick={() => setLocation("/products/new")}>
@@ -74,7 +74,7 @@ export default function ProductsList() {
             setStatusFilter((e.target.value as LifecycleStatus) || undefined)
           }
         >
-          <option value="">All Statuses</option>
+          <option value="">All lifecycle states</option>
           <option value="idea">Idea</option>
           <option value="building">Building</option>
           <option value="pre_launch">Pre-launch</option>

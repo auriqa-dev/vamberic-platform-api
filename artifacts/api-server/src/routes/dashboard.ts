@@ -10,8 +10,15 @@ export function createDashboardRouter(mongo: MongoService): IRouter {
   router.get("/api/v1/dashboard/summary", async (_req, res): Promise<void> => {
     const db = await mongo.database();
     const collections = getDomainCollections(db);
+    const active = {
+      workspaceId: { $exists: false },
+      archived: { $ne: true },
+    } as const;
     const products = (
-      await collections.products.find({}).sort({ updatedAt: -1 }).toArray()
+      await collections.products
+        .find({ workspaceId: { $exists: false } })
+        .sort({ updatedAt: -1 })
+        .toArray()
     ).map(readProduct);
     const liveCount = products.filter(
       (product) => product.lifecycleStatus === "live",
@@ -27,9 +34,9 @@ export function createDashboardRouter(mongo: MongoService): IRouter {
       Promise.resolve(products.length),
       Promise.resolve(liveCount),
       Promise.resolve(products.length - liveCount),
-      collections.organisations.countDocuments(),
-      collections.people.countDocuments(),
-      collections.opportunities.countDocuments(),
+      collections.organisations.countDocuments(active),
+      collections.people.countDocuments(active),
+      collections.opportunities.countDocuments(active),
     ]);
 
     res.json(

@@ -139,3 +139,5 @@ the resources below and has not been tested by these offline suites.
 References: [Cognito JWT verification](https://docs.aws.amazon.com/cognito/latest/developerguide/amazon-cognito-user-pools-using-tokens-verifying-a-jwt.html),
 [oidc-client-ts Cognito guidance](https://authts.github.io/oidc-client-ts/),
 [Cognito logout](https://docs.aws.amazon.com/cognito/latest/developerguide/logout-endpoint.html).
+
+For Vapp's portfolio scope, current workspace exclusions and future HVM reporting boundaries, see [Vapp portfolio interface](vapp-portfolio.md). Authentication alone does not grant client-workspace operational access.

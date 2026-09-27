@@ -1,7 +1,12 @@
+import {
+  ProductRelationships,
+  opportunityValue,
+} from "../../components/portfolio-panels";
+import { productLabel } from "../../lib/product-labels";
 import { DeleteDangerZone } from "./delete-danger-zone";
 import type { DeletePageKind } from "./delete-workflow";
 import { useEffect, useState, type ReactNode } from "react";
-import { Link, useParams } from "wouter";
+import { Link, useParams, useSearch as useUrlSearch } from "wouter";
 import {
   useListPeople,
   useGetPerson,
@@ -14,7 +19,6 @@ import {
   type CrmOrganisation,
   type CrmOpportunity,
   type CrmReference,
-  type CrmProductLink,
   type CrmEvent,
   type ListOpportunitiesParams,
 } from "@workspace/api-client-react";
@@ -60,7 +64,7 @@ function Status({
   if (loading)
     return (
       <p role="status" className="p-6 text-muted-foreground">
-        Loading CRM records…
+        Loading portfolio records…
       </p>
     );
   if (error)
@@ -123,7 +127,7 @@ function ListFrame({
       <div>
         <h1 className="text-3xl font-bold tracking-tight">{title}</h1>
         <p className="text-muted-foreground mt-1">
-          Read-only CRM records and their relationships.
+          Portfolio records and their Product relationships.
         </p>
       </div>
       <div className="bg-card border border-border rounded-xl p-4 flex flex-wrap gap-3">
@@ -245,7 +249,7 @@ function OrganisationsTable({
           {[
             "Organisation",
             "Domain",
-            "Status",
+            "Record status",
             "People",
             "Opportunities",
             "Source",
@@ -272,16 +276,6 @@ function OrganisationsTable({
       </TableBody>
     </Table>
   );
-}
-function value(o: CrmOpportunity) {
-  if (o.estimatedValueMinor === undefined || !o.currency) return "Not recorded";
-  // Domain values are stored in minor units; Intl handles zero/three-decimal currencies.
-  const formatter = new Intl.NumberFormat("en-GB", {
-    style: "currency",
-    currency: o.currency,
-  });
-  const digits = formatter.resolvedOptions().maximumFractionDigits ?? 2;
-  return formatter.format(o.estimatedValueMinor / 10 ** digits);
 }
 function OpportunitiesTable({
   opportunities,
@@ -336,7 +330,7 @@ function OpportunitiesTable({
             <TableCell>
               {o.status} · {o.stage}
             </TableCell>
-            <TableCell>{value(o)}</TableCell>
+            <TableCell>{opportunityValue(o)}</TableCell>
             <TableCell>{o.sourceSystem || "—"}</TableCell>
             <TableCell>{date(o.createdAt)}</TableCell>
             <TableCell>{date(o.updatedAt)}</TableCell>
@@ -397,7 +391,13 @@ export function OpportunitiesList() {
   const [status, setStatus] =
     useState<NonNullable<ListOpportunitiesParams>["status"]>();
   const [stage, setStage] = useState("");
-  const [productId, setProductId] = useState("");
+  const urlSearch = useUrlSearch();
+  const urlProduct = new URLSearchParams(urlSearch).get("productId") || "";
+  const [productId, setProductId] = useState(urlProduct);
+  useEffect(() => {
+    setProductId(urlProduct);
+    s.setOffset(0);
+  }, [urlProduct]);
   const products = useListProducts();
   const q = useListOpportunities({
     search: s.query || undefined,
@@ -503,24 +503,6 @@ function DetailFrame({
     </div>
   );
 }
-function ProductLinks({ products }: { products: CrmProductLink[] }) {
-  return (
-    <Section title="Product relationships">
-      {products.length ? (
-        <ul className="space-y-2">
-          {products.map((p) => (
-            <li key={p.id}>
-              <RecordLink kind="products" record={p.product} /> · {p.status}
-              {p.acquisitionSource && ` · ${p.acquisitionSource}`}
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <Empty />
-      )}
-    </Section>
-  );
-}
 function Events({ events, title }: { events: CrmEvent[]; title: string }) {
   return (
     <Section title={title}>
@@ -532,7 +514,8 @@ function Events({ events, title }: { events: CrmEvent[]; title: string }) {
               className="border-b border-border last:border-0 pb-4 space-y-2"
             >
               <h3 className="font-medium">
-                {e.eventType} · {new Date(e.occurredAt).toLocaleString("en-GB")}
+                {productLabel(e.eventType)} ·{" "}
+                {new Date(e.occurredAt).toLocaleString("en-GB")}
               </h3>
               {e.opportunityId && (
                 <RecordLink
@@ -578,7 +561,7 @@ function Events({ events, title }: { events: CrmEvent[]; title: string }) {
         <Empty>No recent events recorded.</Empty>
       )}
       <p className="text-xs text-muted-foreground">
-        Most recent 10 events. Submitted text is shown as plain text.
+        Most recent 10 recorded events.
       </p>
     </Section>
   );
@@ -591,7 +574,7 @@ export function PersonDetail() {
     return <Status loading={q.isLoading} error={q.isError} retry={q.refetch} />;
   return (
     <DetailFrame kind="people" title={p.displayName} id={p.id}>
-      <Section title="Identity">
+      <Section title="Person">
         <dl className="grid sm:grid-cols-2 gap-3">
           <div>
             <dt>First name</dt>
@@ -602,7 +585,7 @@ export function PersonDetail() {
             <dd>{p.lastName || "Not recorded"}</dd>
           </div>
           <div>
-            <dt>Status</dt>
+            <dt>Record status</dt>
             <dd>{p.lifecycleStatus}</dd>
           </div>
           <div>
@@ -645,11 +628,11 @@ export function PersonDetail() {
           <Empty />
         )}
       </Section>
-      <ProductLinks products={p.products} />
+      <ProductRelationships products={p.products} />
       <Section title="Opportunities">
         <OpportunitiesTable opportunities={p.opportunities} />
       </Section>
-      <Events events={p.recentEvents} title="Recent events" />
+      <Events events={p.recentEvents} title="Recent activity" />
     </DetailFrame>
   );
 }
@@ -663,7 +646,8 @@ export function OrganisationDetail() {
     <DetailFrame kind="organisations" title={o.name} id={o.id}>
       <Section title="Organisation">
         <p>
-          {o.domain || "No domain recorded"} · {o.lifecycleStatus}
+          {o.domain || "No domain recorded"} · Record status:{" "}
+          {o.lifecycleStatus}
         </p>
         <p className="text-muted-foreground">
           Created {date(o.createdAt)} · Source:{" "}
@@ -676,7 +660,7 @@ export function OrganisationDetail() {
       <Section title={`Opportunities (${o.opportunityCount})`}>
         <OpportunitiesTable opportunities={o.opportunities} />
       </Section>
-      <ProductLinks products={o.products} />
+      <ProductRelationships products={o.products} />
     </DetailFrame>
   );
 }
@@ -710,7 +694,7 @@ export function OpportunityDetail() {
           </div>
           <div>
             <dt>Estimated value</dt>
-            <dd>{value(o)}</dd>
+            <dd>{opportunityValue(o)}</dd>
           </div>
           <div>
             <dt>Created</dt>
@@ -726,7 +710,7 @@ export function OpportunityDetail() {
           </div>
         </dl>
       </Section>
-      <Section title="People">
+      <Section title="Linked people">
         {o.people.length ? (
           o.people.map((p) => (
             <p key={p.id}>
@@ -737,7 +721,10 @@ export function OpportunityDetail() {
           <Empty />
         )}
       </Section>
-      <Events events={o.enquiryEvents} title="Enquiry events and attribution" />
+      <Events
+        events={o.enquiryEvents}
+        title="Enquiry activity and attribution"
+      />
     </DetailFrame>
   );
 }

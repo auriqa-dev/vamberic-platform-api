@@ -1,35 +1,11 @@
 import { useAuth } from "@/auth/provider";
 import * as React from "react";
-import { Link, useLocation } from "wouter";
-import {
-  LayoutDashboard,
-  Package,
-  Users,
-  Building2,
-  Target,
-  Megaphone,
-  CreditCard,
-  Calendar,
-  Settings,
-  Menu,
-  X,
-  Bell,
-  Search,
-} from "lucide-react";
+import { useLocation } from "wouter";
+import { Menu } from "lucide-react";
+import { PortfolioNavigation } from "./portfolio-panels";
 import logoImg from "@/assets/vamberic-lion.png";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-
-const navigation = [
-  { name: "Dashboard", href: "/", icon: LayoutDashboard },
-  { name: "Products", href: "/products", icon: Package },
-  { name: "People", href: "/people", icon: Users },
-  { name: "Organisations", href: "/organisations", icon: Building2 },
-  { name: "Opportunities", href: "/opportunities", icon: Target },
-  { name: "Campaigns", href: "/campaigns", icon: Megaphone },
-  { name: "Subscriptions", href: "/subscriptions", icon: CreditCard },
-  { name: "Events", href: "/events", icon: Calendar },
-];
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const auth = useAuth();
@@ -54,50 +30,10 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         </span>
       </div>
 
-      <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-1">
-        {navigation.map((item) => {
-          const isActive =
-            location === item.href ||
-            (item.href !== "/" && location.startsWith(item.href));
-          return (
-            <Link
-              key={item.name}
-              href={item.href}
-              className={cn(
-                "flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors",
-                isActive
-                  ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                  : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground",
-              )}
-            >
-              <item.icon
-                className={cn(
-                  "w-4 h-4",
-                  isActive
-                    ? "text-sidebar-primary"
-                    : "text-sidebar-foreground/50",
-                )}
-              />
-              {item.name}
-            </Link>
-          );
-        })}
-      </nav>
-
-      <div className="p-4 border-t border-sidebar-border flex-shrink-0">
-        <Link
-          href="/settings"
-          className={cn(
-            "flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors",
-            location.startsWith("/settings")
-              ? "bg-sidebar-accent text-sidebar-accent-foreground"
-              : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground",
-          )}
-        >
-          <Settings className="w-4 h-4 text-sidebar-foreground/50" />
-          Settings
-        </Link>
-      </div>
+      <PortfolioNavigation location={location} />
+      <p className="p-4 border-t border-sidebar-border text-xs text-sidebar-foreground/60">
+        Portfolio oversight
+      </p>
     </>
   );
 
@@ -134,31 +70,22 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             <Button
               variant="ghost"
               size="icon"
+              aria-label="Open navigation"
               className="md:hidden text-foreground"
               onClick={() => setIsMobileMenuOpen(true)}
             >
               <Menu className="w-5 h-5" />
             </Button>
 
-            <div className="hidden sm:flex items-center text-sm text-muted-foreground bg-muted/50 rounded-md px-3 py-1.5 border border-border/50">
-              <Search className="w-4 h-4 mr-2 opacity-50" />
-              <span className="opacity-70">Press ⌘K to search...</span>
-            </div>
+            <span className="text-sm text-muted-foreground">
+              Vamberic portfolio
+            </span>
           </div>
 
           <div className="flex items-center gap-3">
             <Button variant="outline" onClick={() => void auth.signOut()}>
               Sign out
             </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="text-muted-foreground relative"
-            >
-              <Bell className="w-5 h-5" />
-              <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-primary rounded-full ring-2 ring-card" />
-            </Button>
-
             <div className="w-8 h-8 rounded-full bg-sidebar-primary text-sidebar-primary-foreground flex items-center justify-center font-bold text-sm ml-2">
               VA
             </div>

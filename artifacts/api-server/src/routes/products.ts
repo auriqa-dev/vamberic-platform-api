@@ -50,7 +50,7 @@ export function createProductsRouter(mongo: MongoService): IRouter {
     const db = await mongo.database();
     const products = (
       await getDomainCollections(db)
-        .products.find({})
+        .products.find({ workspaceId: { $exists: false } })
         .sort({ updatedAt: -1 })
         .toArray()
     ).map(readProduct);
@@ -117,6 +117,7 @@ export function createProductsRouter(mongo: MongoService): IRouter {
 
     const db = await mongo.database();
     const product = await getDomainCollections(db).products.findOne({
+      workspaceId: { $exists: false },
       id: params.data.id,
     });
     if (!product) {
@@ -140,7 +141,10 @@ export function createProductsRouter(mongo: MongoService): IRouter {
 
     const db = await mongo.database();
     const products = getDomainCollections(db).products;
-    const current = await products.findOne({ id: params.data.id });
+    const current = await products.findOne({
+      workspaceId: { $exists: false },
+      id: params.data.id,
+    });
     if (!current) {
       res.status(404).json({ error: "Product not found" });
       return;
@@ -159,7 +163,11 @@ export function createProductsRouter(mongo: MongoService): IRouter {
 
     try {
       const write = await products.updateOne(
-        { id: current.id, updatedAt: current.updatedAt },
+        {
+          workspaceId: { $exists: false },
+          id: current.id,
+          updatedAt: current.updatedAt,
+        },
         { $set: updated },
       );
       if (!write.matchedCount) {
