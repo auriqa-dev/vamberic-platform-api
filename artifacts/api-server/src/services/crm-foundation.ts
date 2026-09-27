@@ -1,3 +1,4 @@
+import { INTERNAL_SCOPE } from "../authorization/policy";
 import { z } from "zod";
 import type { ClientSession, Db, Document } from "mongodb";
 import { isDeepStrictEqual } from "node:util";
@@ -617,7 +618,7 @@ export async function listCrmEventTimeline(
     : parsed;
   return db
     .collection("events")
-    .find({ workspaceId: { $exists: false }, ...filter })
+    .find({ ...INTERNAL_SCOPE, ...filter })
     .sort({ occurredAt: -1 })
     .limit(100)
     .toArray();
@@ -643,7 +644,7 @@ export async function listCrmTaskQueue(
   return db
     .collection("crm_tasks")
     .find({
-      workspaceId: { $exists: false },
+      ...INTERNAL_SCOPE,
       productId: query.productId,
       ...(query.assignedToId ? { "assignedTo.id": query.assignedToId } : {}),
       status: query.status,
@@ -662,7 +663,7 @@ export async function findOrganisationCandidates(
     .parse(normalizedDomain);
   return db
     .collection("organisations")
-    .find({ workspaceId: { $exists: false }, normalizedDomain: domain })
+    .find({ ...INTERNAL_SCOPE, normalizedDomain: domain })
     .limit(100)
     .toArray();
 }
@@ -674,7 +675,7 @@ export async function listCrmPipelines(
   return db
     .collection("crm_pipelines")
     .find({
-      workspaceId: { $exists: false },
+      ...INTERNAL_SCOPE,
       productId: platformIdSchema("product").parse(productId),
       archived: z.boolean().parse(archived),
     })
@@ -698,7 +699,7 @@ export async function listProductLeads(
   return db
     .collection("product_relationships")
     .find({
-      workspaceId: { $exists: false },
+      ...INTERNAL_SCOPE,
       productId: query.productId,
       leadStatus: query.leadStatus,
       ...(query.ownerId ? { "owner.id": query.ownerId } : {}),
@@ -727,7 +728,7 @@ export async function listPipelineOpportunities(
     .parse(input);
   return db
     .collection("opportunities")
-    .find({ workspaceId: { $exists: false }, ...query })
+    .find({ ...INTERNAL_SCOPE, ...query })
     .limit(100)
     .toArray();
 }
@@ -739,7 +740,7 @@ export async function listOwnerOpportunities(
   return db
     .collection("opportunities")
     .find({
-      workspaceId: { $exists: false },
+      ...INTERNAL_SCOPE,
       productId: platformIdSchema("product").parse(productId),
       "owner.id": z.string().min(1).max(300).parse(ownerId),
     })
@@ -756,7 +757,7 @@ export async function findExternalMappings(
   const id = platformIdSchema(EXTERNAL_ENTITY_PREFIXES[type]).parse(entityId);
   return db
     .collection("external_references")
-    .find({ workspaceId: { $exists: false }, entityType: type, entityId: id })
+    .find({ ...INTERNAL_SCOPE, entityType: type, entityId: id })
     .limit(100)
     .toArray();
 }

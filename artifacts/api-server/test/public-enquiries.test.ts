@@ -297,6 +297,8 @@ for (const [name, change] of Object.entries({
   "website credentials": { website: "https://user:pass@example.com" },
   "invalid landing page": { landingPage: "file:///etc/passwd" },
   "string boolean": { marketingOptIn: "true" },
+  "workspace injection": { workspaceId: generatePlatformId("workspace") },
+  "system actor injection": { actor: { type: "system", id: "root" } },
   "unknown fields": { payload: { arbitrary: true } },
   "opt-in without evidence": { marketingOptIn: true },
   "opt-in without version": {

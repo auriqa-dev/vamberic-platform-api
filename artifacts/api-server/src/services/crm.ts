@@ -1,9 +1,10 @@
+import { INTERNAL_SCOPE } from "../authorization/policy";
 import type { Filter } from "mongodb";
 import type { DomainCollections } from "../db/collections";
 import type { Person, Organisation, Opportunity, Event } from "../domain";
 
 const active = {
-  workspaceId: { $exists: false },
+  ...INTERNAL_SCOPE,
   archived: { $ne: true },
 } as const;
 const current = { ...active, current: true, endDate: { $exists: false } };

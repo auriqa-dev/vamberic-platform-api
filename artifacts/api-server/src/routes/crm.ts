@@ -1,3 +1,4 @@
+import { INTERNAL_SCOPE } from "../authorization/policy";
 import { Router, type IRouter } from "express";
 import type { Filter } from "mongodb";
 import {
@@ -20,7 +21,7 @@ import { crmReader, literalSearch } from "../services/crm";
 import type { MongoService } from "../services/mongo";
 
 const active = {
-  workspaceId: { $exists: false },
+  ...INTERNAL_SCOPE,
   archived: { $ne: true },
 } as const;
 export function createCrmRouter(mongo: MongoService): IRouter {

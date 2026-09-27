@@ -1,5 +1,7 @@
 # Vapp Cognito authentication
 
+See [application, actor and workspace authorization](application-authorization.md) for the enforced API boundary and future membership/service contracts.
+
 Vapp → Cognito hosted login → Platform API → MongoDB Atlas. No password handling,
 AWS resource creation, client secret, roles, or permissions are implemented here.
 Every authenticated user of the configured Vapp client has the same business API

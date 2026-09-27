@@ -1,3 +1,4 @@
+import { INTERNAL_SCOPE } from "../authorization/policy";
 import type { ClientSession, Db } from "mongodb";
 import {
   PersonSchema,
@@ -49,7 +50,7 @@ async function persistEnquiry(
 ): Promise<EnquirySubmittedNotification> {
   const c = getDomainCollections(db);
   const options = { session };
-  const internalScope = { workspaceId: { $exists: false } } as const;
+  const internalScope = { ...INTERNAL_SCOPE } as const;
   const product = await c.products.findOne(
     { ...internalScope, id: productId, archived: { $ne: true } },
     options,

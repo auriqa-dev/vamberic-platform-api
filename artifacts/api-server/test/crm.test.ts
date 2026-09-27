@@ -87,7 +87,23 @@ async function fixture(t: TestContext, seed = true) {
       body: JSON.stringify(body),
     });
   }
-  return { db, get, patch };
+  async function remove(path: string) {
+    return fetch(url + "/api/v1/" + path, {
+      method: "DELETE",
+      headers: {
+        authorization: `Bearer ${token}`,
+        "content-type": "application/json",
+        "x-application": "system",
+        "x-actor-type": "agent",
+        "x-workspace-id": "spoofed",
+      },
+      body: JSON.stringify({
+        confirm: "DELETE",
+        previewToken: "0".repeat(64),
+      }),
+    });
+  }
+  return { db, get, patch, remove };
 }
 
 test("all six CRM routes require Cognito before accessing Mongo and have no public counterpart", async (t) => {
@@ -396,4 +412,51 @@ test("portfolio summary and Product routes exclude client scope; cleanup cannot 
     totalOpportunities: 1,
   });
   assert.equal((await get("dashboard/summary", false)).status, 401);
+});
+
+test("direct delete cannot bypass client scope with system headers; missing and client IDs are indistinguishable", async (t) => {
+  const { db, get, remove } = await fixture(t);
+  for (const [collection, prefix] of [
+    ["people", "person"],
+    ["organisations", "org"],
+    ["opportunities", "opportunity"],
+  ] as const) {
+    const client = {
+      ...db.rows(collection)[0],
+      id: generatePlatformId(prefix),
+      workspaceId: generatePlatformId("workspace"),
+    };
+    db.rows(collection).push(client);
+    const before = structuredClone(db.rows(collection));
+    const hidden = await remove(`${collection}/${client.id}`);
+    const missing = await remove(`${collection}/${generatePlatformId(prefix)}`);
+    assert.equal(hidden.status, 404);
+    assert.equal(missing.status, 404);
+    assert.deepEqual(await hidden.json(), await missing.json());
+    assert.equal(
+      (await get(`${collection}/${client.id}/delete-preview`)).status,
+      404,
+    );
+    assert.deepEqual(db.rows(collection), before);
+    // Corrupt falsy scopes must not become internal through truthiness checks.
+    for (const workspaceId of [null, ""]) {
+      const malformed = {
+        ...client,
+        id: generatePlatformId(prefix),
+        workspaceId,
+      };
+      db.rows(collection).push(malformed);
+      const result = await remove(`${collection}/${malformed.id}`);
+      assert.equal(result.status, 404);
+      await result.arrayBuffer();
+      assert.equal(
+        (await get(`${collection}/${malformed.id}/delete-preview`)).status,
+        404,
+      );
+      assert.equal(
+        db.rows(collection).some((row) => row.id === malformed.id),
+        true,
+      );
+    }
+  }
 });

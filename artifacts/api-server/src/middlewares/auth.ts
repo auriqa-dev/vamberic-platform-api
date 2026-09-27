@@ -2,6 +2,11 @@ import type { RequestHandler } from "express";
 import { createRemoteJWKSet, jwtVerify, type JWTVerifyGetKey } from "jose";
 import type { AppConfig } from "../config";
 
+import {
+  createAuthorizationAuthority,
+  type AuthorizationAuthority,
+} from "../authorization/policy";
+
 export type JwtKeyResolver = JWTVerifyGetKey;
 
 export interface AuthenticatedUser {
@@ -26,6 +31,11 @@ export function authenticate(
     new URL(`${config.issuer}/.well-known/jwks.json`),
     { timeoutDuration: 5_000, cooldownDuration: 30_000 },
   ),
+  authority: AuthorizationAuthority = createAuthorizationAuthority({
+    humanClients: [
+      { issuer: config.issuer, clientId: config.clientId, application: "vapp" },
+    ],
+  }),
 ): RequestHandler {
   return async (req, res, next): Promise<void> => {
     // Express routes are case-insensitive and permit a trailing slash.
@@ -73,6 +83,7 @@ export function authenticate(
         issuer: config.issuer,
         clientId: config.clientId,
       });
+      req.authorization = authority.authenticatedHuman(req.auth);
     } catch {
       // Do not forward verification errors to logging middleware: they can
       // contain token claims. Every authentication failure has the same body.

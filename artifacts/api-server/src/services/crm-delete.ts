@@ -102,7 +102,7 @@ async function plan(
     return rows;
   };
   const target = (await read(targets[kind], { id }))[0];
-  if (!target || target.workspaceId)
+  if (!target || target.workspaceId !== undefined)
     throw new CrmDeleteError(404, "RECORD_NOT_FOUND", "Record not found.");
   const blockedBy: DeleteBlocker[] = [];
   const block = (
@@ -264,7 +264,7 @@ async function plan(
       e.productId === o.productId &&
       e.organisationId === o.organisationId &&
       o.personIds.includes(e.personId) &&
-      !e.workspaceId &&
+      e.workspaceId === undefined &&
       !e.interaction &&
       !e.taskId &&
       !e.personIds &&
@@ -375,7 +375,7 @@ async function plan(
   for (const item of deletionRows)
     block(
       item.collection,
-      item.rows.filter((r) => r.workspaceId),
+      item.rows.filter((r) => r.workspaceId !== undefined),
       "WORKSPACE_OWNERSHIP",
       "Vapp cannot operate workspace-owned records.",
     );

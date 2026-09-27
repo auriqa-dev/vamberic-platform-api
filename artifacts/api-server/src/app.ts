@@ -1,3 +1,5 @@
+import { createAuthorizationAuthority } from "./authorization/policy";
+import { authorizeOperationalRequest } from "./middlewares/authorization";
 import {
   createNotificationService,
   type NotificationDependencies,
@@ -73,7 +75,20 @@ export function createApp(
   );
   app.use(rateLimit(config.rateLimit));
   // CORS preflight runs first; all actual business requests require a token.
-  app.use("/api/v1", authenticate(config.cognito, options.jwtKeyResolver));
+  const authority = createAuthorizationAuthority({
+    humanClients: [
+      {
+        issuer: config.cognito.issuer,
+        clientId: config.cognito.clientId,
+        application: "vapp",
+      },
+    ],
+  });
+  app.use(
+    "/api/v1",
+    authenticate(config.cognito, options.jwtKeyResolver, authority),
+  );
+  app.use("/api/v1", authorizeOperationalRequest(authority));
   app.use(express.json({ limit: "1mb" }));
   app.use(express.urlencoded({ extended: true, limit: "1mb" }));
 

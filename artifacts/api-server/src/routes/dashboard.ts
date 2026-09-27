@@ -1,3 +1,4 @@
+import { INTERNAL_SCOPE } from "../authorization/policy";
 import { readProduct } from "../domain/product-migration";
 import { Router, type IRouter } from "express";
 import { GetDashboardSummaryResponse } from "@workspace/api-zod";
@@ -11,12 +12,12 @@ export function createDashboardRouter(mongo: MongoService): IRouter {
     const db = await mongo.database();
     const collections = getDomainCollections(db);
     const active = {
-      workspaceId: { $exists: false },
+      ...INTERNAL_SCOPE,
       archived: { $ne: true },
     } as const;
     const products = (
       await collections.products
-        .find({ workspaceId: { $exists: false } })
+        .find({ ...INTERNAL_SCOPE })
         .sort({ updatedAt: -1 })
         .toArray()
     ).map(readProduct);

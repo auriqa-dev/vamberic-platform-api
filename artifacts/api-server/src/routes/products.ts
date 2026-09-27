@@ -1,3 +1,4 @@
+import { INTERNAL_SCOPE } from "../authorization/policy";
 import { Router, type IRouter } from "express";
 import { readProduct } from "../domain/product-migration";
 import {
@@ -50,7 +51,7 @@ export function createProductsRouter(mongo: MongoService): IRouter {
     const db = await mongo.database();
     const products = (
       await getDomainCollections(db)
-        .products.find({ workspaceId: { $exists: false } })
+        .products.find({ ...INTERNAL_SCOPE })
         .sort({ updatedAt: -1 })
         .toArray()
     ).map(readProduct);
@@ -103,6 +104,7 @@ export function createProductsRouter(mongo: MongoService): IRouter {
       throw error;
     }
 
+    res.locals.authorizationResourceId = product.id;
     res
       .status(201)
       .json(CreateProductResponse.parse(productResponse(readProduct(product))));
@@ -117,7 +119,7 @@ export function createProductsRouter(mongo: MongoService): IRouter {
 
     const db = await mongo.database();
     const product = await getDomainCollections(db).products.findOne({
-      workspaceId: { $exists: false },
+      ...INTERNAL_SCOPE,
       id: params.data.id,
     });
     if (!product) {
@@ -142,7 +144,7 @@ export function createProductsRouter(mongo: MongoService): IRouter {
     const db = await mongo.database();
     const products = getDomainCollections(db).products;
     const current = await products.findOne({
-      workspaceId: { $exists: false },
+      ...INTERNAL_SCOPE,
       id: params.data.id,
     });
     if (!current) {
@@ -164,7 +166,7 @@ export function createProductsRouter(mongo: MongoService): IRouter {
     try {
       const write = await products.updateOne(
         {
-          workspaceId: { $exists: false },
+          ...INTERNAL_SCOPE,
           id: current.id,
           updatedAt: current.updatedAt,
         },

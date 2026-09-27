@@ -1,5 +1,7 @@
 # Shared CRM foundation — reviewed proposal
 
+See [application, actor and workspace authorization](application-authorization.md) for the enforced API boundary and future membership/service contracts.
+
 Target: dev `vamberic_studio`, additive version 1 → 2. **Nothing has been applied.** This review supersedes the initial 18-collection / 72-index proposal. The final proposal has **19 domain collections and 61 application-declared indexes** (54 existing + 7 new). Counts exclude Mongo's automatic `_id` indexes and the `schema_versions` control collection.
 
 ## Architecture review — 2026-09-27

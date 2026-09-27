@@ -57,6 +57,11 @@ test("business routes require verified Cognito access tokens; public probes do n
     authenticate(config.cognito, auth.keyResolver),
     (req, res) => res.json(req.auth),
   );
+  harness.get(
+    "/test-authorization",
+    authenticate(config.cognito, auth.keyResolver),
+    (req, res) => res.json(req.authorization),
+  );
   harness.use(app);
   const server = createServer(harness);
   server.listen(0, "127.0.0.1");
@@ -116,6 +121,23 @@ test("business routes require verified Cognito access tokens; public probes do n
     );
     const foreign = await createTestAuth();
     await rejected(await foreign.sign());
+    const spoofed = await fetch(base + "/test-authorization", {
+      headers: {
+        authorization: `Bearer ${await auth.sign({ application: "system", actor: { type: "agent", id: "queen" }, workspaceId: "client-workspace", roles: ["admin"] })}`,
+        "x-application": "system",
+        "x-actor-type": "system",
+        "x-workspace-id": "client-workspace",
+      },
+    });
+    assert.equal(spoofed.status, 200);
+    assert.deepEqual(await spoofed.json(), {
+      application: "vapp",
+      actor: { type: "human", id: "test-user-subject", issuer: testIssuer },
+    });
+    const unknown = await fetch(base + "/api/v1/crm_workspaces", {
+      headers: { authorization: `Bearer ${await auth.sign()}` },
+    });
+    assert.equal(unknown.status, 404);
     assert.equal(databaseCalls, 0);
     for (const path of [
       "/health",
