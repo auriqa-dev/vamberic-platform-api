@@ -365,6 +365,23 @@ async function plan(
       "CRM_BUSINESS_HISTORY",
       "Lead and task history cannot be cascaded.",
     );
+  if (kind === "person" || kind === "organisation")
+    block(
+      "hvm_partners",
+      await read(
+        "hvm_partners",
+        kind === "person" ? { primaryPersonId: id } : { organisationId: id },
+      ),
+      "PARTNER_HISTORY",
+      "Partner identity and relationship history must be retained.",
+    );
+  if (kind === "person")
+    block(
+      "hvm_partner_memberships",
+      await read("hvm_partner_memberships", { personId: id }),
+      "PARTNER_HISTORY",
+      "Partner membership history must be retained.",
+    );
   if (kind === "organisation")
     block(
       "crm_workspaces",

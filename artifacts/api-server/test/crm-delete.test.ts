@@ -516,3 +516,48 @@ test("commit failure rolls back deletion and produces no successful audit", asyn
   assert.deepEqual(db.records, before);
   assert.deepEqual(entries, ["failure"]);
 });
+
+test("Partner registry references block hard deletion of People and Organisations, including ended history", async (t) => {
+  const { db, ids, preview, remove } = await fixture(t);
+  for (const [kind, field] of [
+    ["people", "primaryPersonId"],
+    ["organisations", "organisationId"],
+  ] as const) {
+    db.rows("hvm_partners").push({
+      id: generatePlatformId("partner"),
+      [field]: ids[kind],
+      status: "ended",
+      archived: true,
+    });
+    const p = await preview(kind);
+    assert.equal(p.status, 200);
+    assert.ok(
+      p.body.blockedBy.some(
+        (b: { code: string }) => b.code === "PARTNER_HISTORY",
+      ),
+    );
+    const before = structuredClone(db.records);
+    assert.equal((await remove(kind)).status, 409);
+    assert.deepEqual(db.records, before);
+  }
+});
+
+test("Partner member Person references block hard deletion even after membership ends", async (t) => {
+  const { db, ids, preview, remove } = await fixture(t);
+  db.rows("hvm_partner_memberships").push({
+    id: generatePlatformId("partnermembership"),
+    personId: ids.people,
+    status: "ended",
+    archived: true,
+  });
+  const p = await preview("people");
+  assert.equal(p.status, 200);
+  assert.ok(
+    p.body.blockedBy.some(
+      (b: { code: string }) => b.code === "PARTNER_HISTORY",
+    ),
+  );
+  const before = structuredClone(db.records);
+  assert.equal((await remove("people")).status, 409);
+  assert.deepEqual(db.records, before);
+});

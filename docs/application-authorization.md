@@ -6,7 +6,7 @@ Hive is the shared Vamberic data platform. Vapp is the internal portfolio/operat
 
 The API verifies Cognito RS256 access tokens, issuer, expiry, subject and `client_id`. The configured Cognito issuer/client pair maps to **Vapp only**, in the server composition root. Application headers, workspace headers, custom role claims and actor claims confer no access. Other clients still fail authentication. The original `req.auth` remains compatible; `req.authorization` adds frozen application and actor context.
 
-Human actors use verified Cognito subject plus issuer. Agent and system actors have independent server-registered identities; they do not impersonate people. Queen is an agent identity, not an implicit privileged role. Existing human-only CRM owner schemas remain unchanged; actors may instead appear in task assignment, events and audit history.
+Human actors use verified Cognito subject plus issuer. Agent and system actors have independent server-registered identities; they do not impersonate people. Swarm Queen is a Partner business role; actions performed by that person retain the verified human actor identity. The Partner record is not an actor or an implicit privileged role. Existing human-only CRM owner schemas remain unchanged; actors may instead appear in task assignment, events and audit history.
 
 `src/authorization/policy.ts` owns the policy. Each authority issues contexts only after its trusted authentication adapter runs; copied JSON and contexts from another authority are rejected. These are process-local integrity checks, not a replacement for authenticating tokens/workloads. Configuration factories must never receive browser input.
 
@@ -59,3 +59,17 @@ Hard-delete and preview first exclude workspace targets, including malformed fal
 Mutable operations and delete-preview emit structured best-effort logs containing actor, application, internal workspace scope, action, resource category, validated resource ID when available, timestamp, HTTP status and outcome. Creates attach the generated ID after insertion. Invalid/unavailable IDs are omitted. Request bodies, arbitrary headers, tokens and raw authorization internals are not added. Existing hard-delete audit remains. Routine reads do not create audit events. Logs are not a durable audit ledger; request termination or logging transport failure can lose them.
 
 Vapp may later consume deliberately designed reporting summaries from HVM, not raw client operational data or implicit sharing grants. Next: design HVM membership provisioning/revocation and its authenticated server adapter, including workspace active-state checks and scoped repository integration, before enabling its client or endpoints. No HVM/Lead Gen/agent UI, sharing, public workspace routing, schema migration or deployment is included here.
+
+## Swarm Queen / Partner relationships
+
+The [Partner foundation](hvm-partners.md) adds business identities and workspace operating assignments, not memberships or permissions. `partnerId` is never a Cognito subject and cannot authenticate an actor. A human-to-Partner membership resolver remains future work; client-user memberships remain independent.
+
+A future trusted HVM resolver must combine verified human/application context, explicit human-to-Partner permission, active Partner status, exact active workspace assignment and allowed actions. Primary/supporting assignment roles do not themselves grant viewer/operator permissions. Suspended/ended Partners may retain assignment history but must receive no Partner-derived grants. Reevaluate grants on revocation; do not cache membership-bearing authorities indefinitely.
+
+Assignments never grant entitlements and ending assignments must not delete or revoke client subscriptions, entitlements or instances. Entitlement access remains a separate functional check after authorization. Vapp workspace isolation, server-only grant construction and the closed HTTP route allowlist are unchanged. No Partner-based repository bypass, HVM client activation or membership resolver is added in this task.
+
+### Partner memberships and workspace integrations (unapplied v3)
+
+`hvm_partner_memberships` stores issuer/subject-qualified human membership in an operating account, not a workspace grant. `owner` and `member` are Partner relationship roles, not central authorization permissions. Future resolution must check active/unarchived human membership, Partner eligibility, active workspace assignment, workspace state and explicit permitted actions on every request. Independent client-user membership remains separate. No resolver or HVM route is enabled here.
+
+`workspace_integrations` requires a workspace. Vapp cannot operate its records; future HVMapp reads/writes require central scoped authorization and queries that include workspaceId. Provider names, external account IDs, secret references and Partner membership/assignment are never bearer access grants. Systems/agents need explicit resource/action/workspace grants. Credential-store IAM and provider calls remain deferred; a Mongo reference does not authorize Secrets Manager reads. See [workspace onboarding](workspace-onboarding.md).

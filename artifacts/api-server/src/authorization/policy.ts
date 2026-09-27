@@ -5,6 +5,14 @@ export type Actor =
   | Readonly<{ type: "human"; id: string; issuer: string }>
   | Readonly<{ type: "agent" | "system"; id: string }>;
 export const RESOURCES = [
+  "hvm_partners",
+  "hvm_partner_memberships",
+  "workspace_integrations",
+  "workspace_partner_assignments",
+  "capabilities",
+  "capability_instances",
+  "commercial_packages",
+  "commercial_charges",
   "products",
   "people",
   "contact_points",

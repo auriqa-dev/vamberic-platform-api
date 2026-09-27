@@ -39,6 +39,7 @@ import {
   getDomainCollections,
   DATABASE_MIGRATION_ID,
   CRM_FOUNDATION_MIGRATION_ID,
+  COMMERCIAL_FOUNDATION_MIGRATION_ID,
 } from "../src/db/collections";
 import {
   IncompatibleDatabaseSchemaError,
@@ -284,7 +285,7 @@ test("application IDs and relationship targets are validated", () => {
   );
 });
 
-test("collection definitions cover exactly the nineteen domain collections", () => {
+test("collection definitions cover exactly the canonical domain collections", () => {
   assert.deepEqual(
     COLLECTION_DEFINITIONS.map((definition) => definition.name),
     [...COLLECTION_NAMES],
@@ -778,7 +779,11 @@ test("apply backfills a missing baseline migration on compatible metadata", asyn
   };
   assert.deepEqual(
     document.migrations.map((migration) => migration.id),
-    [DATABASE_MIGRATION_ID, CRM_FOUNDATION_MIGRATION_ID],
+    [
+      DATABASE_MIGRATION_ID,
+      CRM_FOUNDATION_MIGRATION_ID,
+      COMMERCIAL_FOUNDATION_MIGRATION_ID,
+    ],
   );
 });
 
@@ -968,7 +973,7 @@ test("CRM additive upgrade retains baseline history and resumes after interrupte
     )[0],
     { id: DATABASE_MIGRATION_ID, version: 1, appliedAt: baselineAt },
   );
-  assert.equal(ledger?.version, 2);
+  assert.equal(ledger?.version, 3);
   const mutations = db.mutationCount;
   await setupDatabase(db as unknown as Db);
   assert.deepEqual(versions.documents.get("vapp-v1"), ledger);
@@ -1006,4 +1011,76 @@ test("equivalent indexes with different names are reused, not duplicated", async
       "organisations.normalized_domain_candidates",
     ),
   );
+});
+
+test("commercial v2 to v3 plans eight collections, nine validators and twenty-three indexes, preserves records and retries idempotently", async () => {
+  const { CRM_MONGO_VALIDATORS } = await import("../src/db/crm-validators");
+  const db = new FakeDb();
+  await setupDatabase(db as unknown as Db);
+  const versions = db.collection(SCHEMA_VERSIONS_COLLECTION);
+  const oldLedger = {
+    _id: "vapp-v1",
+    version: 2,
+    schemaVersion: 2,
+    migrations: [
+      { id: DATABASE_MIGRATION_ID, version: 1, appliedAt: dates.createdAt },
+      {
+        id: CRM_FOUNDATION_MIGRATION_ID,
+        version: 2,
+        appliedAt: dates.createdAt,
+      },
+    ],
+  };
+  versions.documents.set("vapp-v1", oldLedger);
+  const added = [
+    "hvm_partners",
+    "hvm_partner_memberships",
+    "workspace_integrations",
+    "workspace_partner_assignments",
+    "capabilities",
+    "capability_instances",
+    "commercial_packages",
+    "commercial_charges",
+  ];
+  for (const name of added) db.collections.delete(name);
+  db.collection("entitlements").options = {};
+  const entitlements = db.collection("entitlements");
+  entitlements.indexes = entitlements.indexes.filter(
+    (i) =>
+      ![
+        "workspace_capability_access_window",
+        "workspace_instance_access_window",
+      ].includes(String(i.name)),
+  );
+  const products = db.collection("products");
+  products.documents.set("legacy", { id: ids.product, name: "Untouched" });
+  const before = structuredClone(products.documents);
+  const mutations = db.mutationCount;
+  const plan = await planDatabaseSetup(db as unknown as Db);
+  assert.equal(db.mutationCount, mutations);
+  assert.equal(plan.existingSchemaVersion, 2);
+  assert.equal(plan.schemaVersion, 3);
+  assert.deepEqual(plan.collectionsToCreate.sort(), [...added].sort());
+  assert.deepEqual(
+    plan.validatorsToApply.sort(),
+    [...added, "entitlements"].sort(),
+  );
+  assert.equal(plan.indexesToCreate.length, 23);
+  assert.ok(
+    plan.indexesToCreate.includes(
+      "entitlements.workspace_instance_access_window",
+    ),
+  );
+  assert.equal(plan.validatorsToApply.includes("products"), false);
+  assert.deepEqual(plan.validatorConflicts, []);
+  await setupDatabase(db as unknown as Db);
+  assert.deepEqual(products.documents, before);
+  for (const [name, validator] of Object.entries(CRM_MONGO_VALIDATORS))
+    assert.deepEqual(db.collection(name).options.validator, validator);
+  assert.equal(versions.documents.get("vapp-v1")?.version, 3);
+  const applied = structuredClone(versions.documents);
+  const after = db.mutationCount;
+  await setupDatabase(db as unknown as Db);
+  assert.equal(db.mutationCount, after);
+  assert.deepEqual(versions.documents, applied);
 });

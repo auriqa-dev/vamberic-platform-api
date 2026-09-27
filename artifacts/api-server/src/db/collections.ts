@@ -1,4 +1,16 @@
 import type {
+  HvmPartner,
+  HvmPartnerMembership,
+  WorkspacePartnerAssignment,
+} from "../domain/partners";
+import type { WorkspaceIntegration } from "../domain/workspace-integrations";
+import type {
+  Capability,
+  CapabilityInstance,
+  CommercialPackage,
+  CommercialCharge,
+} from "../domain/commercial-records";
+import type {
   CrmPipeline,
   CrmWorkspace,
   CrmLead,
@@ -26,6 +38,14 @@ import type {
 } from "../domain/schemas";
 
 export const COLLECTION_NAMES = [
+  "hvm_partner_memberships",
+  "workspace_integrations",
+  "hvm_partners",
+  "workspace_partner_assignments",
+  "capabilities",
+  "capability_instances",
+  "commercial_packages",
+  "commercial_charges",
   "products",
   "people",
   "contact_points",
@@ -55,6 +75,14 @@ export type DomainCollectionName = (typeof COLLECTION_NAMES)[number];
  * collection with an unrelated document type.
  */
 export interface DomainPersistenceByCollection {
+  hvm_partners: HvmPartner;
+  hvm_partner_memberships: HvmPartnerMembership;
+  workspace_integrations: WorkspaceIntegration;
+  workspace_partner_assignments: WorkspacePartnerAssignment;
+  capabilities: Capability;
+  capability_instances: CapabilityInstance;
+  commercial_packages: CommercialPackage;
+  commercial_charges: CommercialCharge;
   crm_pipelines: CrmPipeline;
   crm_workspaces: CrmWorkspace;
   crm_leads: CrmLead;
@@ -106,6 +134,135 @@ const appId = (name = "id"): IndexDescription => ({
 });
 
 export const COLLECTION_DEFINITIONS: readonly CollectionDefinition[] = [
+  {
+    name: "hvm_partner_memberships",
+    indexes: [
+      appId(),
+      { key: { partnerId: 1, status: 1 }, name: "partner_status_members" },
+      {
+        key: { "human.issuer": 1, "human.id": 1, status: 1 },
+        name: "human_status_partners",
+      },
+      {
+        key: { partnerId: 1, "human.issuer": 1, "human.id": 1 },
+        name: "partner_human_active_unique",
+        unique: true,
+        partialFilterExpression: { status: "active" },
+      },
+    ],
+    reason:
+      "Partner roster, issuer-scoped human memberships and race-safe active pair uniqueness; ended history remains.",
+  },
+  {
+    name: "workspace_integrations",
+    indexes: [
+      appId(),
+      {
+        key: { workspaceId: 1, status: 1 },
+        name: "workspace_status_integrations",
+      },
+      {
+        key: { workspaceId: 1, provider: 1 },
+        name: "workspace_provider_integrations",
+      },
+    ],
+    reason:
+      "Workspace operational connection list and provider lookup; multiple accounts/connections allowed with canonical IDs.",
+  },
+  {
+    name: "hvm_partners",
+    indexes: [appId()],
+    reason:
+      "Partner registry identity; no speculative status/list indexes before a consumer.",
+  },
+  {
+    name: "workspace_partner_assignments",
+    indexes: [
+      appId(),
+      {
+        key: { partnerId: 1, status: 1, workspaceId: 1 },
+        name: "partner_status_workspaces",
+      },
+      {
+        key: { workspaceId: 1, status: 1, role: 1 },
+        name: "workspace_status_roles",
+      },
+      {
+        key: { workspaceId: 1 },
+        name: "workspace_active_primary_unique",
+        unique: true,
+        partialFilterExpression: { status: "active", role: "primary" },
+      },
+      {
+        key: { workspaceId: 1, partnerId: 1 },
+        name: "workspace_partner_active_unique",
+        unique: true,
+        partialFilterExpression: { status: "active" },
+      },
+    ],
+    reason:
+      "Partner workspace roster, workspace primary/supporting roster and race-safe active relationship uniqueness; ended history remains.",
+  },
+  {
+    name: "capabilities",
+    indexes: [appId()],
+    reason: "Reusable capability catalogue by canonical identity.",
+  },
+  {
+    name: "capability_instances",
+    indexes: [
+      appId(),
+      {
+        key: {
+          workspaceId: 1,
+          scopeType: 1,
+          scopeProductId: 1,
+          capabilityId: 1,
+        },
+        name: "workspace_scope_capability",
+      },
+    ],
+    reason:
+      "List configured capabilities for one workspace/Product; bindings use canonical IDs.",
+  },
+  {
+    name: "commercial_packages",
+    indexes: [
+      appId(),
+      {
+        key: { workspaceId: 1, scopeType: 1, scopeProductId: 1 },
+        name: "workspace_scope_packages",
+      },
+    ],
+    reason: "List packages for a workspace or Product context.",
+  },
+  {
+    name: "commercial_charges",
+    indexes: [
+      appId(),
+      {
+        key: {
+          workspaceId: 1,
+          capabilityInstanceId: 1,
+          status: 1,
+          chargeType: 1,
+        },
+        name: "workspace_instance_charges",
+      },
+      {
+        key: {
+          workspaceId: 1,
+          commercialPackageId: 1,
+          status: 1,
+          chargeType: 1,
+        },
+        name: "workspace_package_charges",
+      },
+    ],
+    reason:
+      "Find one-off/active recurring components for an instance or package without reading payment state.",
+  },
+
   {
     name: "products",
     indexes: [appId(), { key: { slug: 1 }, name: "slug_unique", unique: true }],
@@ -219,6 +376,19 @@ export const COLLECTION_DEFINITIONS: readonly CollectionDefinition[] = [
     name: "entitlements",
     indexes: [
       appId(),
+      {
+        key: {
+          workspaceId: 1,
+          capabilityInstanceId: 1,
+          status: 1,
+          activeUntil: 1,
+        },
+        name: "workspace_instance_access_window",
+      },
+      {
+        key: { workspaceId: 1, capabilityId: 1, status: 1, activeUntil: 1 },
+        name: "workspace_capability_access_window",
+      },
       {
         key: { productId: 1, status: 1, activeUntil: 1 },
         name: "product_access_window",
@@ -339,8 +509,10 @@ export const COLLECTION_DEFINITIONS: readonly CollectionDefinition[] = [
 ];
 
 export const SCHEMA_VERSIONS_COLLECTION = "schema_versions";
-export const DATABASE_SCHEMA_VERSION = 2;
+export const DATABASE_SCHEMA_VERSION = 3;
 export const DATABASE_SCHEMA_VERSION_ID = "vapp-v1";
 export const DATABASE_MIGRATION_ID = "001-vapp-v1-baseline";
 
 export const CRM_FOUNDATION_MIGRATION_ID = "002-crm-foundation";
+
+export const COMMERCIAL_FOUNDATION_MIGRATION_ID = "003-commercial-foundation";

@@ -984,10 +984,10 @@ test("external identity uniqueness includes workspace and provider account witho
 
 test("canonical index set defers unused queue indexes and removes the activity collection", async () => {
   const { COLLECTION_DEFINITIONS } = await import("../src/db/collections");
-  assert.equal(COLLECTION_DEFINITIONS.length, 19);
+  assert.equal(COLLECTION_DEFINITIONS.length, 27);
   assert.equal(
     COLLECTION_DEFINITIONS.reduce((n, c) => n + c.indexes.length, 0),
-    61,
+    84,
   );
   assert.equal(
     COLLECTION_DEFINITIONS.some((c) => String(c.name) === "crm_activities"),
@@ -1051,11 +1051,11 @@ test("permission decisions do not cross workspace boundaries or imply portfolio 
   );
 });
 
-test("agents and Queen are actors and task assignees, never CRM account owners", async () => {
+test("registered agents and systems are actors and task assignees, never CRM account owners", async () => {
   const db = dbFixture();
   const actors = [
     human,
-    { type: "agent", id: "hvm-queen" },
+    { type: "agent", id: "hvm-coordinator-agent" },
     { type: "agent", id: "hvm-worker" },
     { type: "system", id: "hvm-system" },
   ];

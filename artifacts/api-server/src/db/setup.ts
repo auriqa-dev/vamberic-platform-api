@@ -1,5 +1,8 @@
+import { ONBOARDING_MONGO_VALIDATORS } from "./onboarding-validators";
 import { isDeepStrictEqual } from "node:util";
 import { CRM_MONGO_VALIDATORS } from "./crm-validators";
+import { PARTNER_MONGO_VALIDATORS } from "./partner-validators";
+import { COMMERCIAL_MONGO_VALIDATORS } from "./commercial-validators";
 import type {
   Collection,
   Db,
@@ -13,10 +16,18 @@ import {
   DATABASE_SCHEMA_VERSION_ID,
   DATABASE_MIGRATION_ID,
   CRM_FOUNDATION_MIGRATION_ID,
+  COMMERCIAL_FOUNDATION_MIGRATION_ID,
   SCHEMA_VERSIONS_COLLECTION,
   type CollectionDefinition,
   getDomainCollections,
 } from "./collections";
+
+const MONGO_VALIDATORS = {
+  ...CRM_MONGO_VALIDATORS,
+  ...COMMERCIAL_MONGO_VALIDATORS,
+  ...PARTNER_MONGO_VALIDATORS,
+  ...ONBOARDING_MONGO_VALIDATORS,
+};
 
 export interface DatabaseSetupResult {
   createdCollections: string[];
@@ -192,7 +203,7 @@ export async function planDatabaseSetup(db: Db): Promise<DatabaseSetupPlan> {
   const metadata = await db.listCollections({}, { nameOnly: false }).toArray();
   const validatorsToApply: string[] = [];
   const validatorConflicts: string[] = [];
-  for (const [name, validator] of Object.entries(CRM_MONGO_VALIDATORS)) {
+  for (const [name, validator] of Object.entries(MONGO_VALIDATORS)) {
     if (!names.has(name)) {
       validatorsToApply.push(name);
       continue;
@@ -361,9 +372,9 @@ export async function setupDatabase(db: Db): Promise<DatabaseSetupResult> {
   for (const name of plan.collectionsToCreate) {
     await db.createCollection(
       name,
-      CRM_MONGO_VALIDATORS[name]
+      MONGO_VALIDATORS[name]
         ? {
-            validator: CRM_MONGO_VALIDATORS[name],
+            validator: MONGO_VALIDATORS[name],
             validationLevel: "strict",
             validationAction: "error",
           }
@@ -376,7 +387,7 @@ export async function setupDatabase(db: Db): Promise<DatabaseSetupResult> {
     if (!plan.collectionsToCreate.includes(name))
       await db.command({
         collMod: name,
-        validator: CRM_MONGO_VALIDATORS[name],
+        validator: MONGO_VALIDATORS[name],
         validationLevel: "strict",
         validationAction: "error",
       });
@@ -428,6 +439,7 @@ export async function setupDatabase(db: Db): Promise<DatabaseSetupResult> {
   const requiredMigrations = [
     { id: DATABASE_MIGRATION_ID, version: 1 },
     { id: CRM_FOUNDATION_MIGRATION_ID, version: 2 },
+    { id: COMMERCIAL_FOUNDATION_MIGRATION_ID, version: 3 },
   ];
   const pending = requiredMigrations.filter(
     (required) => !existingMigrations.some((m) => m.id === required.id),

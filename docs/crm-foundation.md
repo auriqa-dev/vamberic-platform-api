@@ -1,5 +1,7 @@
 # Shared CRM foundation — reviewed proposal
 
+The subsequent [commercial foundation schema v3 proposal](commercial-foundation.md) separates generic capabilities, scoped instances, workspace packages and charges, adding eight collections and twenty-three indexes including Partner/membership/assignment relationships and workspace integrations without rewriting CRM schema v2 records.
+
 See [application, actor and workspace authorization](application-authorization.md) for the enforced API boundary and future membership/service contracts.
 
 Target: dev `vamberic_studio`, additive version 1 → 2. **Nothing has been applied.** This review supersedes the initial 18-collection / 72-index proposal. The final proposal has **19 domain collections and 61 application-declared indexes** (54 existing + 7 new). Counts exclude Mongo's automatic `_id` indexes and the `schema_versions` control collection.
@@ -55,7 +57,7 @@ Isolation is the default. Related-company status, shared Hive storage, equal dom
 
 Marketing agents perform actions for HVM. People and organisations have no agent-owner field. Lead, legacy product qualification and opportunity `owner` now accepts only `{type: human, id}` or omission; an agent/integration/system cannot be the CRM account owner. Workspace scope remains the operational data boundary independently of this human responsibility field. No leadGenAgentId/contentAgentId fields are added.
 
-Existing actor metadata is sufficient: a human uses `{type: human, id}`, Queen uses `{type: agent, id: <registered Queen identity>}`, a worker uses `{type: agent, id: <registered worker identity>}`, and automation uses `{type: system, id}`. Queen is a distinct actor identity within the agent category; no special Queen enum or inference from ID spelling is introduced. Future trusted HVM identity registration determines that role and permissions. Tasks can be assigned to those actors; events/createdBy/updatedBy record their actions. Self-reported actor metadata does not authorize access.
+Existing actor metadata is sufficient: a human, including a person operating as a Swarm Queen, uses `{type: human, id}`; a registered agent uses `{type: agent, id}`; and automation uses `{type: system, id}`. Swarm Queen is the external Partner business role, not an agent category. The Partner business ID is never substituted for the actual human actor. Future trusted membership and assignment resolution determines permissions. Tasks can be assigned to those actors; events/createdBy/updatedBy record their actions. Self-reported actor metadata does not authorize access.
 
 Only the proposed Zod owner validation changed in this review. No workspace fields, research/reporting/sharing collections, HTTP contracts, Mongo validators or indexes were added or changed. The final collection and index inventory remains 19 / 61.
 

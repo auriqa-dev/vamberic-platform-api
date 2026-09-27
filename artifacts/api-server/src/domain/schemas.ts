@@ -1,3 +1,4 @@
+import { billingTreatmentSchema } from "./commercial-fields";
 import { interactionDetailsSchema } from "./crm-interactions";
 import {
   webUrlSchema,
@@ -589,10 +590,71 @@ export const SubscriptionSchema = SubscriptionRecordSchema.superRefine(
   requireCustomerIdentity,
 );
 
+const entitlementTargetIntegrity = (
+  value: {
+    productId?: string;
+    capabilityId?: string;
+    capabilityInstanceId?: string;
+    workspaceId?: string;
+    personId?: string;
+    organisationId?: string;
+  },
+  context: z.RefinementCtx,
+) => {
+  if (
+    [value.productId, value.capabilityId, value.capabilityInstanceId].filter(
+      Boolean,
+    ).length !== 1
+  )
+    context.addIssue({
+      code: "custom",
+      message: "Exactly one entitlement target is required",
+    });
+  if ((value.capabilityId || value.capabilityInstanceId) && !value.workspaceId)
+    context.addIssue({
+      code: "custom",
+      path: ["workspaceId"],
+      message: "Capability entitlements require workspace scope",
+    });
+  if (!value.workspaceId) requireCustomerIdentity(value, context);
+};
+
+const entitlementIntegrity = (
+  value: {
+    personId?: string;
+    organisationId?: string;
+    workspaceId?: string;
+    activeFrom?: Date;
+    activeUntil?: Date;
+    productId?: string;
+    capabilityId?: string;
+    capabilityInstanceId?: string;
+  },
+  context: z.RefinementCtx,
+) => {
+  entitlementTargetIntegrity(value, context);
+  if (
+    value.activeFrom &&
+    value.activeUntil &&
+    value.activeUntil <= value.activeFrom
+  )
+    context.addIssue({
+      code: "custom",
+      path: ["activeUntil"],
+      message: "Expiry must follow activation",
+    });
+};
+
 const EntitlementRecordSchema = withId("entitlement")
   .extend({
-    productId,
+    productId: productId.optional(),
+    capabilityId: id("capability").optional(),
+    capabilityInstanceId: id("capinstance").optional(),
     ...customerIdentity,
+    billingTreatment: billingTreatmentSchema.optional(),
+    billingReason: z.string().trim().min(1).max(1000).optional(),
+    approvedBy: crmOwnerSchema.optional(),
+    commercialPackageId: id("package").optional(),
     entitlementType: z.enum([
       "one_off",
       "permanent",
@@ -615,7 +677,7 @@ const EntitlementRecordSchema = withId("entitlement")
   })
   .strict();
 export const EntitlementSchema = EntitlementRecordSchema.superRefine(
-  requireCustomerIdentity,
+  entitlementTargetIntegrity,
 );
 
 const CampaignRecordSchema = withId("campaign").extend({
@@ -948,7 +1010,7 @@ export const SubscriptionInsertSchema = insertSchema(
 export const SubscriptionUpdateSchema = updateSchema(SubscriptionRecordSchema);
 export const EntitlementInsertSchema = insertSchema(
   EntitlementRecordSchema,
-).superRefine(requireCustomerIdentity);
+).superRefine(entitlementIntegrity);
 export const EntitlementUpdateSchema = updateSchema(EntitlementRecordSchema);
 export const CampaignInsertSchema = insertSchema(
   CampaignRecordSchema,

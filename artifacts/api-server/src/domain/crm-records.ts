@@ -87,6 +87,10 @@ export const CrmTaskSchema = basePersistenceSchema
       });
   });
 export const EXTERNAL_ENTITY_PREFIXES = {
+  capabilities: "capability",
+  capability_instances: "capinstance",
+  commercial_packages: "package",
+  commercial_charges: "charge",
   products: "product",
   people: "person",
   contact_points: "contact",
