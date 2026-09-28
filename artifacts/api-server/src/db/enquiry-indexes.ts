@@ -33,8 +33,28 @@ export const PUBLIC_ENQUIRY_INDEXES: {
 ];
 
 /** Fail closed if deployment has not provisioned the concurrency guarantees. */
-export async function assertEnquiryIndexes(db: Db): Promise<void> {
-  for (const { collection, index } of PUBLIC_ENQUIRY_INDEXES) {
+export const WORKSPACE_ENQUIRY_INDEXES = PUBLIC_ENQUIRY_INDEXES.map(
+  ({ collection, index }) => ({
+    collection,
+    index: {
+      ...index,
+      name: `workspace_${index.name}`,
+      key: { workspaceId: 1, ...index.key },
+      partialFilterExpression: {
+        ...index.partialFilterExpression,
+        "source.system": "workspace_public_enquiry",
+        workspaceId: { $type: "string" },
+      },
+    },
+  }),
+);
+export async function assertEnquiryIndexes(
+  db: Db,
+  workspace = false,
+): Promise<void> {
+  for (const { collection, index } of workspace
+    ? WORKSPACE_ENQUIRY_INDEXES
+    : PUBLIC_ENQUIRY_INDEXES) {
     const found = (
       await db.collection(collection).listIndexes().toArray()
     ).find((item) => item.name === index.name);

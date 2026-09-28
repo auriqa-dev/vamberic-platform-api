@@ -1,3 +1,4 @@
+import type { ClientWorkspaceMembership } from "../domain/workspace-memberships";
 import type { Brand, BrandKit } from "../domain/brands";
 import type {
   HvmPartner,
@@ -18,7 +19,10 @@ import type {
   CrmTask,
   ExternalReference,
 } from "../domain/crm-records";
-import { PUBLIC_ENQUIRY_INDEXES } from "./enquiry-indexes";
+import {
+  PUBLIC_ENQUIRY_INDEXES,
+  WORKSPACE_ENQUIRY_INDEXES,
+} from "./enquiry-indexes";
 import type { IndexDescription } from "mongodb";
 import type { Collection, Db } from "mongodb";
 import type {
@@ -39,6 +43,7 @@ import type {
 } from "../domain/schemas";
 
 export const COLLECTION_NAMES = [
+  "workspace_memberships",
   "brands",
   "brand_kits",
   "hvm_partner_memberships",
@@ -78,6 +83,7 @@ export type DomainCollectionName = (typeof COLLECTION_NAMES)[number];
  * collection with an unrelated document type.
  */
 export interface DomainPersistenceByCollection {
+  workspace_memberships: ClientWorkspaceMembership;
   brands: Brand;
   brand_kits: BrandKit;
   hvm_partners: HvmPartner;
@@ -139,6 +145,25 @@ const appId = (name = "id"): IndexDescription => ({
 });
 
 export const COLLECTION_DEFINITIONS: readonly CollectionDefinition[] = [
+  {
+    name: "workspace_memberships",
+    indexes: [
+      appId(),
+      {
+        key: { "human.issuer": 1, "human.id": 1, status: 1 },
+        name: "human_status_workspaces",
+      },
+      { key: { workspaceId: 1, status: 1 }, name: "workspace_status_members" },
+      {
+        key: { workspaceId: 1, "human.issuer": 1, "human.id": 1 },
+        name: "workspace_human_active_unique",
+        unique: true,
+        partialFilterExpression: { status: "active" },
+      },
+    ],
+    reason:
+      "Resolve verified client access, list team and enforce one active membership per human/workspace.",
+  },
   {
     name: "brands",
     indexes: [
@@ -316,9 +341,9 @@ export const COLLECTION_DEFINITIONS: readonly CollectionDefinition[] = [
     indexes: [
       appId(),
       { key: { normalizedValue: 1 }, name: "normalized_value" },
-      ...PUBLIC_ENQUIRY_INDEXES.filter(
-        (item) => item.collection === "contact_points",
-      ).map((item) => item.index),
+      ...[...PUBLIC_ENQUIRY_INDEXES, ...WORKSPACE_ENQUIRY_INDEXES]
+        .filter((item) => item.collection === "contact_points")
+        .map((item) => item.index),
       {
         key: { personId: 1, type: 1 },
         name: "person_type_primary_unique",
@@ -335,9 +360,9 @@ export const COLLECTION_DEFINITIONS: readonly CollectionDefinition[] = [
     indexes: [
       appId(),
       { key: { domain: 1 }, name: "domain" },
-      ...PUBLIC_ENQUIRY_INDEXES.filter(
-        (item) => item.collection === "organisations",
-      ).map((item) => item.index),
+      ...[...PUBLIC_ENQUIRY_INDEXES, ...WORKSPACE_ENQUIRY_INDEXES]
+        .filter((item) => item.collection === "organisations")
+        .map((item) => item.index),
       { key: { lifecycleStatus: 1 }, name: "lifecycle_status" },
     ],
     reason:
@@ -545,7 +570,7 @@ export const COLLECTION_DEFINITIONS: readonly CollectionDefinition[] = [
 ];
 
 export const SCHEMA_VERSIONS_COLLECTION = "schema_versions";
-export const DATABASE_SCHEMA_VERSION = 4;
+export const DATABASE_SCHEMA_VERSION = 5;
 export const DATABASE_SCHEMA_VERSION_ID = "vapp-v1";
 export const DATABASE_MIGRATION_ID = "001-vapp-v1-baseline";
 
@@ -554,3 +579,5 @@ export const CRM_FOUNDATION_MIGRATION_ID = "002-crm-foundation";
 export const COMMERCIAL_FOUNDATION_MIGRATION_ID = "003-commercial-foundation";
 
 export const BRAND_FOUNDATION_MIGRATION_ID = "004-brand-foundation";
+
+export const HVM_PHASE1_MIGRATION_ID = "005-hvm-phase1";

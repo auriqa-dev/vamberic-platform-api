@@ -41,6 +41,7 @@ import {
   CRM_FOUNDATION_MIGRATION_ID,
   COMMERCIAL_FOUNDATION_MIGRATION_ID,
   BRAND_FOUNDATION_MIGRATION_ID,
+  HVM_PHASE1_MIGRATION_ID,
 } from "../src/db/collections";
 import {
   IncompatibleDatabaseSchemaError,
@@ -785,6 +786,7 @@ test("apply backfills a missing baseline migration on compatible metadata", asyn
       CRM_FOUNDATION_MIGRATION_ID,
       COMMERCIAL_FOUNDATION_MIGRATION_ID,
       BRAND_FOUNDATION_MIGRATION_ID,
+      HVM_PHASE1_MIGRATION_ID,
     ],
   );
 });
@@ -975,7 +977,7 @@ test("CRM additive upgrade retains baseline history and resumes after interrupte
     )[0],
     { id: DATABASE_MIGRATION_ID, version: 1, appliedAt: baselineAt },
   );
-  assert.equal(ledger?.version, 4);
+  assert.equal(ledger?.version, 5);
   const mutations = db.mutationCount;
   await setupDatabase(db as unknown as Db);
   assert.deepEqual(versions.documents.get("vapp-v1"), ledger);
@@ -1063,7 +1065,7 @@ test("upgrade plans all additive v2 to v4 collections, validators and indexes, p
   const plan = await planDatabaseSetup(db as unknown as Db);
   assert.equal(db.mutationCount, mutations);
   assert.equal(plan.existingSchemaVersion, 2);
-  assert.equal(plan.schemaVersion, 4);
+  assert.equal(plan.schemaVersion, 5);
   assert.deepEqual(plan.collectionsToCreate.sort(), [...added].sort());
   assert.deepEqual(
     plan.validatorsToApply.sort(),
@@ -1081,7 +1083,7 @@ test("upgrade plans all additive v2 to v4 collections, validators and indexes, p
   assert.deepEqual(products.documents, before);
   for (const [name, validator] of Object.entries(CRM_MONGO_VALIDATORS))
     assert.deepEqual(db.collection(name).options.validator, validator);
-  assert.equal(versions.documents.get("vapp-v1")?.version, 4);
+  assert.equal(versions.documents.get("vapp-v1")?.version, 5);
   const applied = structuredClone(versions.documents);
   const after = db.mutationCount;
   await setupDatabase(db as unknown as Db);
@@ -1113,13 +1115,54 @@ test("Brand v3 to v4 dry-run proposes only two collections/two validators/five i
   const plan = await planDatabaseSetup(db as unknown as Db);
   assert.equal(db.mutationCount, mutations);
   assert.equal(plan.existingSchemaVersion, 3);
-  assert.equal(plan.schemaVersion, 4);
+  assert.equal(plan.schemaVersion, 5);
   assert.deepEqual(plan.collectionsToCreate.sort(), ["brand_kits", "brands"]);
   assert.deepEqual(plan.validatorsToApply.sort(), ["brand_kits", "brands"]);
   assert.equal(plan.indexesToCreate.length, 5);
   assert.deepEqual(plan.validatorConflicts, []);
   await setupDatabase(db as unknown as Db);
   assert.deepEqual(db.collection("products").documents, before);
+  const after = db.mutationCount;
+  await setupDatabase(db as unknown as Db);
+  assert.equal(db.mutationCount, after);
+});
+
+test("HVM v4 to v5 is additive: one membership collection/validator and six indexes; no legacy index drops", async () => {
+  const db = new FakeDb();
+  await setupDatabase(db as unknown as Db);
+  const ledger = db
+    .collection(SCHEMA_VERSIONS_COLLECTION)
+    .documents.get("vapp-v1")!;
+  db.collection(SCHEMA_VERSIONS_COLLECTION).documents.set("vapp-v1", {
+    ...ledger,
+    version: 4,
+    schemaVersion: 4,
+    migrations: (ledger.migrations as { version: number }[]).filter(
+      (m) => m.version <= 4,
+    ),
+  });
+  db.collections.delete("workspace_memberships");
+  for (const name of ["contact_points", "organisations"])
+    db.collection(name).indexes = db
+      .collection(name)
+      .indexes.filter(
+        (i) => !String(i.name).startsWith("workspace_public_enquiry"),
+      );
+  const before = db.mutationCount;
+  const plan = await planDatabaseSetup(db as unknown as Db);
+  assert.equal(db.mutationCount, before);
+  assert.equal(plan.existingSchemaVersion, 4);
+  assert.equal(plan.schemaVersion, 5);
+  assert.deepEqual(plan.collectionsToCreate, ["workspace_memberships"]);
+  assert.deepEqual(plan.validatorsToApply, ["workspace_memberships"]);
+  assert.equal(plan.indexesToCreate.length, 6);
+  assert.deepEqual(plan.incompatibleIndexes, []);
+  assert.ok(
+    db
+      .collection("contact_points")
+      .indexes.some((i) => i.name === "public_enquiry_email_unique"),
+  );
+  await setupDatabase(db as unknown as Db);
   const after = db.mutationCount;
   await setupDatabase(db as unknown as Db);
   assert.equal(db.mutationCount, after);

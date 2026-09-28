@@ -5,6 +5,7 @@ export type Actor =
   | Readonly<{ type: "human"; id: string; issuer: string }>
   | Readonly<{ type: "agent" | "system"; id: string }>;
 export const RESOURCES = [
+  "workspace_memberships",
   "brands",
   "brand_kits",
   "hvm_partners",
@@ -36,7 +37,14 @@ export const RESOURCES = [
   "import_batches",
 ] as const;
 export type ResourceType = (typeof RESOURCES)[number];
-export type Action = "read" | "create" | "update" | "delete" | "delete-preview";
+export type Action =
+  | "read"
+  | "create"
+  | "update"
+  | "delete"
+  | "delete-preview"
+  | "approve"
+  | "manage";
 export interface Resource {
   type: ResourceType;
   id?: string;
@@ -52,7 +60,7 @@ export interface WorkspaceMembership {
   application: Application;
   workspaceId: string;
   status: "active" | "inactive";
-  role: "viewer" | "operator";
+  role: "viewer" | "operator" | "admin" | "onboarder";
 }
 export interface ServiceGrant {
   application: Application;
@@ -108,7 +116,15 @@ export function createAuthorizationAuthority(config: {
       !context ||
       !issued.has(context) ||
       !RESOURCES.includes(resource.type) ||
-      !["read", "create", "update", "delete", "delete-preview"].includes(action)
+      ![
+        "read",
+        "create",
+        "update",
+        "delete",
+        "delete-preview",
+        "approve",
+        "manage",
+      ].includes(action)
     )
       return false;
     // Null/empty/malformed scopes are never treated as legacy internal records.
@@ -142,8 +158,27 @@ export function createAuthorizationAuthority(config: {
         m.workspaceId === resource.workspaceId &&
         (m.role === "viewer"
           ? action === "read"
-          : m.role === "operator" &&
-            ["read", "create", "update"].includes(action)),
+          : m.role === "admin"
+            ? action === "read" ||
+              ([
+                "brands",
+                "brand_kits",
+                "workspace_integrations",
+                "crm_workspaces",
+              ].includes(resource.type) &&
+                ["create", "update", "approve"].includes(action)) ||
+              (resource.type === "workspace_memberships" && action === "manage")
+            : m.role === "operator"
+              ? ["read", "create", "update"].includes(action)
+              : m.role === "onboarder" &&
+                ["read", "create", "update"].includes(action) &&
+                (action === "read" ||
+                  [
+                    "brands",
+                    "brand_kits",
+                    "workspace_integrations",
+                    "crm_workspaces",
+                  ].includes(resource.type))),
     );
   }
   return {

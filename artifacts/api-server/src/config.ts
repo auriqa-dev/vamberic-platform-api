@@ -1,3 +1,4 @@
+import { platformIdSchema } from "./domain/schemas";
 import { z } from "zod";
 import {
   notificationEmailSchema,
@@ -20,7 +21,48 @@ function isBrowserOrigin(value: string): boolean {
   }
 }
 
+const routingSchema = z
+  .string()
+  .default("{}")
+  .transform((value, ctx) => {
+    try {
+      return JSON.parse(value);
+    } catch {
+      ctx.addIssue({ code: "custom", message: "Invalid enquiry routing JSON" });
+      return z.NEVER;
+    }
+  })
+  .pipe(
+    z.record(
+      platformIdSchema("product"),
+      z
+        .object({
+          workspaceId: platformIdSchema("workspace"),
+          brandId: platformIdSchema("brand"),
+        })
+        .strict(),
+    ),
+  );
 const configSchema = z.object({
+  HVM_AUTH_ENABLED: z.enum(["true", "false"]).optional(),
+  HVM_COGNITO_CLIENT_ID: z
+    .string()
+    .regex(/^[a-z0-9]+$/)
+    .optional(),
+  HVM_CORS_ORIGINS: z
+    .string()
+    .default("")
+    .transform((v) =>
+      v
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean),
+    )
+    .refine(
+      (v) => v.every(isBrowserOrigin),
+      "HVM origins must be explicit HTTP(S) origins",
+    ),
+  PUBLIC_ENQUIRY_WORKSPACE_ROUTES_JSON: routingSchema,
   NOTIFICATION_EMAIL_ENABLED: z.enum(["true", "false"]).default("false"),
   NOTIFICATION_EMAIL_FROM: z.string().optional(),
   PRODUCT_ENQUIRY_NOTIFICATION_RECIPIENTS_JSON: notificationRecipientsSchema,
@@ -88,7 +130,8 @@ const configSchema = z.object({
 
 export type AppConfig = {
   notifications: NotificationConfig;
-  cognito: { issuer: string; clientId: string };
+  cognito: { issuer: string; clientId: string; hvmClientId?: string };
+  hvmCorsOrigins: string[];
   deploymentEnvironment: "dev" | "prod" | "test" | "local";
   runtimeMode: "development" | "test" | "production";
   mongodbUri: string;
@@ -98,6 +141,7 @@ export type AppConfig = {
   logLevel: "fatal" | "error" | "warn" | "info" | "debug" | "trace" | "silent";
   corsOrigins: string[];
   publicEnquiry: {
+    workspaceRoutes: Record<string, { workspaceId: string; brandId: string }>;
     corsOrigins: string[];
     rateLimit: { windowMs: number; maxRequests: number };
   };
@@ -128,6 +172,16 @@ export function parseConfig(
     );
   }
 
+  if (parsed.data.HVM_COGNITO_CLIENT_ID === parsed.data.COGNITO_CLIENT_ID)
+    throw new Error("HVM and Vapp Cognito clients must differ");
+  const hvmEnabled =
+    parsed.data.HVM_AUTH_ENABLED === undefined
+      ? Boolean(parsed.data.HVM_COGNITO_CLIENT_ID)
+      : parsed.data.HVM_AUTH_ENABLED === "true";
+  if (hvmEnabled && !parsed.data.HVM_COGNITO_CLIENT_ID)
+    throw new Error(
+      "HVM_COGNITO_CLIENT_ID is required when HVM_AUTH_ENABLED=true",
+    );
   const sender = notificationEmailSchema.safeParse(
     parsed.data.NOTIFICATION_EMAIL_FROM,
   );
@@ -146,6 +200,7 @@ export function parseConfig(
     cognito: {
       issuer: `https://cognito-idp.${parsed.data.AWS_REGION}.amazonaws.com/${parsed.data.COGNITO_USER_POOL_ID}`,
       clientId: parsed.data.COGNITO_CLIENT_ID,
+      hvmClientId: hvmEnabled ? parsed.data.HVM_COGNITO_CLIENT_ID : undefined,
     },
     deploymentEnvironment: parsed.data.DEPLOYMENT_ENV,
     runtimeMode: parsed.data.NODE_ENV,
@@ -155,7 +210,9 @@ export function parseConfig(
     version: parsed.data.API_VERSION,
     logLevel: parsed.data.LOG_LEVEL,
     corsOrigins: parsed.data.CORS_ORIGINS,
+    hvmCorsOrigins: parsed.data.HVM_CORS_ORIGINS,
     publicEnquiry: {
+      workspaceRoutes: parsed.data.PUBLIC_ENQUIRY_WORKSPACE_ROUTES_JSON,
       corsOrigins: parsed.data.PUBLIC_ENQUIRY_CORS_ORIGINS,
       rateLimit: {
         windowMs: 60000,

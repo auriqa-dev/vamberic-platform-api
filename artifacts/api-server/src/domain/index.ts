@@ -12,3 +12,5 @@ export * from "./partners";
 export * from "./workspace-integrations";
 
 export * from "./brands";
+
+export * from "./workspace-memberships";

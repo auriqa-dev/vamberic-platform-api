@@ -2,6 +2,7 @@ import { INTERNAL_SCOPE } from "../authorization/policy";
 import type { ClientSession, Db } from "mongodb";
 import {
   PersonSchema,
+  CrmLeadSchema,
   ContactPointSchema,
   OrganisationSchema,
   OrganisationRelationshipSchema,
@@ -47,12 +48,21 @@ async function persistEnquiry(
   session: ClientSession,
   productId: string,
   input: PublicEnquiry,
+  routing?: { workspaceId: string; brandId: string },
 ): Promise<EnquirySubmittedNotification> {
   const c = getDomainCollections(db);
   const options = { session };
-  const internalScope = { ...INTERNAL_SCOPE } as const;
+  const crmScope = routing
+    ? { workspaceId: routing.workspaceId }
+    : { ...INTERNAL_SCOPE };
   const product = await c.products.findOne(
-    { ...internalScope, id: productId, archived: { $ne: true } },
+    {
+      ...(routing
+        ? { $or: [{ workspaceId: routing.workspaceId }, { ...INTERNAL_SCOPE }] }
+        : crmScope),
+      id: productId,
+      archived: { $ne: true },
+    },
     options,
   );
   if (
@@ -64,16 +74,42 @@ async function persistEnquiry(
   ) {
     throw new EnquiryError(404, "PRODUCT_UNAVAILABLE", "Product unavailable");
   }
+  if (routing) {
+    const workspace = await c.crm_workspaces.findOne(
+      { id: routing.workspaceId, kind: "client", archived: { $ne: true } },
+      options,
+    );
+    const brand = await c.brands.findOne(
+      {
+        id: routing.brandId,
+        workspaceId: routing.workspaceId,
+        status: "active",
+        archived: { $ne: true },
+      },
+      options,
+    );
+    if (
+      !workspace ||
+      !brand ||
+      (product.brandId && product.brandId !== brand.id)
+    )
+      throw new EnquiryError(
+        503,
+        "ENQUIRY_UNAVAILABLE",
+        "Enquiry capture temporarily unavailable",
+      );
+  }
   const now = new Date();
   const base = {
     createdAt: now,
     updatedAt: now,
-    source: { system: "public_enquiry" },
+    ...(routing ? { workspaceId: routing.workspaceId } : {}),
+    source: { system: routing ? "workspace_public_enquiry" : "public_enquiry" },
   };
   const normalizedEmail = normalizeContactValue("email", input.workEmail);
   const contacts = await c.contact_points
     .find(
-      { ...internalScope, type: "email", normalizedValue: normalizedEmail },
+      { ...crmScope, type: "email", normalizedValue: normalizedEmail },
       options,
     )
     .limit(2)
@@ -83,7 +119,7 @@ async function persistEnquiry(
   let person;
   if (contact) {
     person = await c.people.findOne(
-      { ...internalScope, id: contact.personId },
+      { ...crmScope, id: contact.personId },
       options,
     );
     if (
@@ -99,7 +135,7 @@ async function persistEnquiry(
     // Serialize repeat submissions for this identity across API replicas. Do
     // not change names, ownership, suppression, validity or deliverability.
     await c.contact_points.updateOne(
-      { id: contact.id },
+      { ...crmScope, id: contact.id },
       {
         $set: {
           updatedAt: new Date(
@@ -137,7 +173,7 @@ async function persistEnquiry(
   if (domain) {
     // Both facts must agree exactly. Never merge by fuzzy name or email domain.
     const matches = await c.organisations
-      .find({ ...internalScope, name: company, domain }, options)
+      .find({ ...crmScope, name: company, domain }, options)
       .limit(2)
       .toArray();
     if (matches.length > 1) throw ambiguous();
@@ -148,7 +184,7 @@ async function persistEnquiry(
     const relationships = await c.organisation_relationships
       .find(
         {
-          ...internalScope,
+          ...crmScope,
           personId: person.id,
           current: true,
           archived: { $ne: true },
@@ -160,7 +196,7 @@ async function persistEnquiry(
     const matches = await c.organisations
       .find(
         {
-          ...internalScope,
+          ...crmScope,
           id: { $in: relationships.map((item) => item.organisationId) },
           name: company,
           archived: { $ne: true },
@@ -180,7 +216,7 @@ async function persistEnquiry(
     )
       throw ambiguous();
     await c.organisations.updateOne(
-      { id: organisation.id },
+      { ...crmScope, id: organisation.id },
       { $set: { updatedAt: now } },
       options,
     );
@@ -196,7 +232,7 @@ async function persistEnquiry(
   }
 
   const employment = {
-    ...internalScope,
+    ...crmScope,
     personId: person.id,
     organisationId: organisation.id,
     current: true,
@@ -219,7 +255,7 @@ async function persistEnquiry(
   if (
     !(await c.product_relationships.findOne(
       {
-        ...internalScope,
+        ...crmScope,
         productId,
         personId: person.id,
         organisationId: organisation.id,
@@ -244,16 +280,55 @@ async function persistEnquiry(
     );
   }
 
-  const opportunity = OpportunitySchema.parse({
-    ...base,
-    id: generatePlatformId("opportunity"),
-    productId,
-    organisationId: organisation.id,
-    personIds: [person.id],
-    name: `Enquiry: ${company}`.slice(0, 300),
-    stage: "enquiry",
-    status: "open",
-  });
+  if (
+    routing &&
+    !(await c.crm_leads.findOne(
+      {
+        ...crmScope,
+        personId: person.id,
+        productId,
+        archived: { $ne: true },
+      },
+      options,
+    ))
+  ) {
+    await c.crm_leads.insertOne(
+      CrmLeadSchema.parse({
+        ...base,
+        id: generatePlatformId("lead"),
+        personId: person.id,
+        organisationId: organisation.id,
+        productId,
+      }),
+      options,
+    );
+  }
+  const existingOpportunity = routing
+    ? await c.opportunities.findOne(
+        {
+          ...crmScope,
+          productId,
+          organisationId: organisation.id,
+          personIds: { $in: [person.id] },
+          stage: "enquiry",
+          status: "open",
+          archived: { $ne: true },
+        },
+        options,
+      )
+    : null;
+  const opportunity =
+    existingOpportunity ??
+    OpportunitySchema.parse({
+      ...base,
+      id: generatePlatformId("opportunity"),
+      productId,
+      organisationId: organisation.id,
+      personIds: [person.id],
+      name: `Enquiry: ${company}`.slice(0, 300),
+      stage: "enquiry",
+      status: "open",
+    });
   const event = EventSchema.parse({
     ...base,
     id: generatePlatformId("event"),
@@ -294,7 +369,8 @@ async function persistEnquiry(
       marketingOptIn: input.marketingOptIn === true,
     },
   });
-  await c.opportunities.insertOne(opportunity, options);
+  if (!existingOpportunity)
+    await c.opportunities.insertOne(opportunity, options);
   await c.events.insertOne(event, options);
   if (input.marketingOptIn === true) {
     await c.marketing_permissions.insertOne(
@@ -345,16 +421,17 @@ export async function submitEnquiry(
   productId: string,
   input: PublicEnquiry,
   notifications: NotificationService,
+  routing?: { workspaceId: string; brandId: string },
 ): Promise<string> {
   if (!mongo.withTransaction) throw new Error("Transactions unavailable");
-  await assertEnquiryIndexes(await mongo.database());
+  await assertEnquiryIndexes(await mongo.database(), Boolean(routing));
   // The driver retries transient write conflicts. A first-insert unique-index
   // race must restart the whole transaction so it can reuse the winning record.
   let completed: EnquirySubmittedNotification;
   for (let attempt = 0; ; attempt++) {
     try {
       completed = await mongo.withTransaction((db, session) =>
-        persistEnquiry(db, session, productId, input),
+        persistEnquiry(db, session, productId, input, routing),
       );
       break;
     } catch (error) {

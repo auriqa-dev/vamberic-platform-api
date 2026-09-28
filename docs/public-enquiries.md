@@ -229,3 +229,5 @@ This review changed only deployment safeguards and their regression tests: the u
 Current CRM and explicit-name validation results and limitations are recorded in [CRM visibility](crm-visibility.md). Tests use an in-memory transactional substitute and locally signed Cognito-shaped access tokens; they do not connect to live MongoDB. Production replica-set/index behaviour and deployed CORS remain rollout checks.
 
 Post-commit email notification validation is recorded separately in [Enquiry notifications](enquiry-notifications.md). The public success response remains unchanged regardless of notification outcome.
+
+The additive [HVM Phase 1 backend](hvm-phase1-backend.md#public-website-enquiry-routing-and-migration) supports trusted server-configured Product-to-workspace/Brand routing on the existing endpoint. Workspace enquiries use separate scoped dedupe indexes; existing internal ingestion remains unchanged for unmapped Products. Do not send workspaceId in public payloads.

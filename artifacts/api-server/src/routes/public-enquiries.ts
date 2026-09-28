@@ -92,6 +92,7 @@ export function createPublicEnquiriesRouter(
         params.data.productId,
         input.data,
         notifications,
+        config.publicEnquiry.workspaceRoutes[params.data.productId],
       );
       res
         .status(201)

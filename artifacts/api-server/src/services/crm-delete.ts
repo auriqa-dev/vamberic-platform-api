@@ -382,6 +382,13 @@ async function plan(
       "PARTNER_HISTORY",
       "Partner membership history must be retained.",
     );
+  if (kind === "person")
+    block(
+      "workspace_memberships",
+      await read("workspace_memberships", { personId: id }),
+      "WORKSPACE_MEMBERSHIP",
+      "Workspace membership history must be retained.",
+    );
   if (kind === "organisation")
     block(
       "brands",

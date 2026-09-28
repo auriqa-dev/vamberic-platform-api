@@ -12,7 +12,8 @@
     "test": "DEPLOYMENT_ENV=test node --import tsx --test test/*.test.ts",
     "lint": "eslint src test",
     "format:check": "prettier --check \"src/**/*.ts\" \"test/**/*.ts\"",
-    "db:migrate-products": "tsx src/commands/migrate-products.ts"
+    "db:migrate-products": "tsx src/commands/migrate-products.ts",
+    "hvm:provision": "tsx src/commands/provision-hvm-client.ts"
   },
   "dependencies": {
     "@aws-sdk/client-ses": "^3.1136.0",

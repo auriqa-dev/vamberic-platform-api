@@ -34,6 +34,15 @@ export function authenticate(
   authority: AuthorizationAuthority = createAuthorizationAuthority({
     humanClients: [
       { issuer: config.issuer, clientId: config.clientId, application: "vapp" },
+      ...(config.hvmClientId
+        ? [
+            {
+              issuer: config.issuer,
+              clientId: config.hvmClientId,
+              application: "hvmapp" as const,
+            },
+          ]
+        : []),
     ],
   }),
 ): RequestHandler {
@@ -68,7 +77,9 @@ export function authenticate(
       // ID tokens are not API credentials, even when their aud matches.
       if (
         payload.token_use !== "access" ||
-        payload.client_id !== config.clientId ||
+        ![config.clientId, config.hvmClientId]
+          .filter(Boolean)
+          .includes(payload.client_id as string) ||
         typeof payload.sub !== "string" ||
         !payload.sub.trim() ||
         typeof protectedHeader.kid !== "string" ||
@@ -81,7 +92,7 @@ export function authenticate(
       req.auth = Object.freeze({
         subject: payload.sub,
         issuer: config.issuer,
-        clientId: config.clientId,
+        clientId: payload.client_id as string,
       });
       req.authorization = authority.authenticatedHuman(req.auth);
     } catch {
