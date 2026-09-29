@@ -96,6 +96,7 @@ Manifest (replace placeholders with real canonical IDs and verified human identi
   "partnerName": "HVM Partner",
   "brandName": "HVM",
   "brandSlug": "hvm",
+  "brandPrimaryDomain": "h-v-m.agency",
   "human": {
     "type": "human",
     "issuer": "https://cognito-idp.eu-west-2.amazonaws.com/eu-west-2_CogD1Prpz",
@@ -103,6 +104,8 @@ Manifest (replace placeholders with real canonical IDs and verified human identi
   }
 }
 ```
+
+`brandPrimaryDomain` is optional and uses the canonical Brand domain validation (bare domain, not a URL). When supplied, it is checked on repeat provisioning: a different or missing stored domain causes a conflict rather than overwriting the Brand. Omitting it preserves compatibility with older manifests and does not change an existing domain.
 
 Remove clientMembershipId if independent client access is not wanted. Use the actual legal Organisation; no ID/name is guessed. If the reviewed ID is new, organisationName is required; an existing archived or workspace-owned ID is rejected. Generate canonical IDs using the existing domain `generatePlatformId` helper and retain them in the manifest. The human is supplied by the operator after verification, never assumed from AWS SSO identity.
 

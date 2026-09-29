@@ -3,6 +3,7 @@ import type { Document } from "mongodb";
 import type { MongoService } from "./mongo";
 import {
   BrandSchema,
+  BrandRecordSchema,
   OrganisationSchema,
   CrmWorkspaceSchema,
   HvmPartnerSchema,
@@ -28,6 +29,7 @@ export const HvmProvisionInput = z
     partnerName: z.string().trim().min(1).max(200),
     brandName: z.string().trim().min(1).max(200),
     brandSlug: z.string().regex(/^[a-z0-9][a-z0-9-]{0,99}$/),
+    brandPrimaryDomain: BrandRecordSchema.shape.primaryDomain,
     human: partnerHumanSchema,
   })
   .strict();
@@ -178,9 +180,17 @@ export async function provisionHvmClient(
         organisationId: input.organisationId,
         name: input.brandName,
         slug: input.brandSlug,
+        primaryDomain: input.brandPrimaryDomain,
         status: "active",
       }),
-      ["workspaceId", "organisationId", "name", "slug", "status"],
+      [
+        "workspaceId",
+        "organisationId",
+        "name",
+        "slug",
+        "status",
+        ...(input.brandPrimaryDomain === undefined ? [] : ["primaryDomain"]),
+      ],
     );
     if (input.clientMembershipId)
       await ensure(

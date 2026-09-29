@@ -808,3 +808,69 @@ test("configured HVM browser origins receive CORS permission; unknown origins do
   );
   assert.equal(publicResponse.headers.get("access-control-allow-origin"), null);
 });
+
+test("provisioning validates optional Brand domain and never overwrites it on retry", async () => {
+  const db = new EnquiryMemoryDb();
+  db.rows("schema_versions").push({ _id: "vapp-v1", version: 5 });
+  const input = {
+    organisationId: generatePlatformId("org"),
+    organisationName: "Example Ltd",
+    workspaceId: generatePlatformId("workspace"),
+    partnerId: generatePlatformId("partner"),
+    partnerMembershipId: generatePlatformId("partnermembership"),
+    assignmentId: generatePlatformId("partnerassignment"),
+    brandId: generatePlatformId("brand"),
+    clientMembershipId: generatePlatformId("workspacemembership"),
+    workspaceName: "Example",
+    partnerName: "Example",
+    brandName: "Example",
+    brandSlug: "example",
+    brandPrimaryDomain: "example.test",
+    human,
+  };
+  const empty = structuredClone(db.records);
+  for (const domain of [
+    "https://example.test",
+    "example.test/path",
+    "",
+    "bad domain",
+  ]) {
+    await assert.rejects(
+      provisionHvmClient(
+        db.mongo,
+        { ...input, brandPrimaryDomain: domain },
+        testIssuer,
+      ),
+    );
+    assert.deepEqual(db.records, empty);
+  }
+  await provisionHvmClient(db.mongo, input, testIssuer);
+  assert.equal(db.rows("brands")[0].primaryDomain, "example.test");
+  const before = structuredClone(db.records);
+  assert.deepEqual(
+    (await provisionHvmClient(db.mongo, input, testIssuer)).createdIds,
+    [],
+  );
+  await assert.rejects(
+    provisionHvmClient(
+      db.mongo,
+      { ...input, brandPrimaryDomain: "other.test" },
+      testIssuer,
+    ),
+    /identity\/state conflict/,
+  );
+  assert.deepEqual(db.records, before);
+  const { brandPrimaryDomain, ...legacyInput } = input;
+  void brandPrimaryDomain;
+  assert.deepEqual(
+    (await provisionHvmClient(db.mongo, legacyInput, testIssuer)).createdIds,
+    [],
+  );
+  assert.deepEqual(db.records, before);
+  delete db.rows("brands")[0].primaryDomain;
+  await assert.rejects(
+    provisionHvmClient(db.mongo, input, testIssuer),
+    /identity\/state conflict/,
+  );
+  assert.equal(db.rows("brands")[0].primaryDomain, undefined);
+});
