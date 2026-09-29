@@ -89,28 +89,26 @@ export function createHiveDefinitionsRouter(
           : error instanceof HiveConflict || error?.code === 11000
             ? 409
             : 503;
-    res
-      .status(status)
-      .json({
-        error: {
-          code:
-            status === 404
-              ? "NOT_FOUND"
-              : status === 400
-                ? "INVALID_INPUT"
-                : status === 409
-                  ? "CONFLICT"
-                  : "HVM_UNAVAILABLE",
-          message:
-            status === 404
-              ? "Resource not found"
-              : status === 400
-                ? "Invalid request"
-                : status === 409
-                  ? "Record changed or conflicts; reload"
-                  : "HVM temporarily unavailable",
-        },
-      });
+    res.status(status).json({
+      error: {
+        code:
+          status === 404
+            ? "NOT_FOUND"
+            : status === 400
+              ? "INVALID_INPUT"
+              : status === 409
+                ? "CONFLICT"
+                : "HVM_UNAVAILABLE",
+        message:
+          status === 404
+            ? "Resource not found"
+            : status === 400
+              ? "Invalid request"
+              : status === 409
+                ? "Record changed or conflicts; reload"
+                : "HVM temporarily unavailable",
+      },
+    });
   };
   router.use(errors);
   return router;
