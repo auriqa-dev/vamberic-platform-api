@@ -1,5 +1,7 @@
 # HVMapp Phase 1 backend foundation — schema v5 proposal
 
+Schema v6 adds workspace-owned Offering, ICP and Buyer Profile definitions. See [Hive definitions](hive-definitions.md) for the additive setup, revision/approval API and v5/v6 runtime compatibility. The phase-1 description below records the original v5 rollout.
+
 Hive is shared storage, Vapp is portfolio/operator oversight, HVMapp operates authorized client workspaces. No deployment, provisioning, migration apply, payments, agent implementation or frontend/website changes are part of this task.
 
 ## Trusted application identity and infrastructure prerequisite

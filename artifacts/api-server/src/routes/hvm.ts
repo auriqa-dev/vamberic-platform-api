@@ -1,3 +1,4 @@
+import { createHiveDefinitionsRouter } from "./hive-definitions";
 import { Router, json, type ErrorRequestHandler } from "express";
 import { z, ZodError } from "zod";
 import type { ClientSession, Db, Document } from "mongodb";
@@ -88,6 +89,7 @@ export function createHvmRouter(config: AppConfig, mongo: MongoService) {
     next();
   });
   router.use(json({ limit: "256kb", strict: true, inflate: false }));
+  router.use(createHiveDefinitionsRouter(config, mongo));
   router.get("/context", async (req, res) => {
     const resolved = await resolveHvmContext(
       await mongo.database(),

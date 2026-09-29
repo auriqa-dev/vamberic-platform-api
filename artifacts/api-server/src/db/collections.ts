@@ -1,3 +1,9 @@
+import type {
+  Offering,
+  IdealCustomerProfile,
+  BuyerProfile,
+  HiveRevision,
+} from "../domain/hive-definitions";
 import type { ClientWorkspaceMembership } from "../domain/workspace-memberships";
 import type { Brand, BrandKit } from "../domain/brands";
 import type {
@@ -43,6 +49,10 @@ import type {
 } from "../domain/schemas";
 
 export const COLLECTION_NAMES = [
+  "offerings",
+  "ideal_customer_profiles",
+  "buyer_profiles",
+  "hive_definition_revisions",
   "workspace_memberships",
   "brands",
   "brand_kits",
@@ -83,6 +93,10 @@ export type DomainCollectionName = (typeof COLLECTION_NAMES)[number];
  * collection with an unrelated document type.
  */
 export interface DomainPersistenceByCollection {
+  offerings: Offering;
+  ideal_customer_profiles: IdealCustomerProfile;
+  buyer_profiles: BuyerProfile;
+  hive_definition_revisions: HiveRevision;
   workspace_memberships: ClientWorkspaceMembership;
   brands: Brand;
   brand_kits: BrandKit;
@@ -145,6 +159,59 @@ const appId = (name = "id"): IndexDescription => ({
 });
 
 export const COLLECTION_DEFINITIONS: readonly CollectionDefinition[] = [
+  {
+    name: "offerings",
+    indexes: [
+      appId(),
+      { key: { workspaceId: 1, id: 1 }, name: "workspaceId_id" },
+      {
+        key: { workspaceId: 1, brandId: 1, id: 1 },
+        name: "workspaceId_brandId_id",
+      },
+      { key: { organisationId: 1 }, name: "organisationId" },
+    ],
+    reason: "Workspace-owned Hive definitions and scoped relationship access.",
+  },
+  {
+    name: "ideal_customer_profiles",
+    indexes: [
+      appId(),
+      {
+        key: { workspaceId: 1, offeringId: 1, id: 1 },
+        name: "workspaceId_offeringId_id",
+      },
+    ],
+    reason: "Workspace-owned Hive definitions and scoped relationship access.",
+  },
+  {
+    name: "buyer_profiles",
+    indexes: [
+      appId(),
+      {
+        key: { workspaceId: 1, offeringId: 1, id: 1 },
+        name: "workspaceId_offeringId_id",
+      },
+      {
+        key: { workspaceId: 1, idealCustomerProfileId: 1, id: 1 },
+        name: "workspaceId_idealCustomerProfileId_id",
+      },
+    ],
+    reason: "Workspace-owned Hive definitions and scoped relationship access.",
+  },
+  {
+    name: "hive_definition_revisions",
+    indexes: [
+      appId(),
+      {
+        key: { workspaceId: 1, entityType: 1, entityId: 1, revision: 1 },
+        name: "entity_revision_unique",
+        unique: true,
+      },
+      { key: { "snapshot.organisationId": 1 }, name: "organisation_history" },
+    ],
+    reason:
+      "Immutable approved revision identity and retained business references.",
+  },
   {
     name: "workspace_memberships",
     indexes: [
@@ -570,7 +637,7 @@ export const COLLECTION_DEFINITIONS: readonly CollectionDefinition[] = [
 ];
 
 export const SCHEMA_VERSIONS_COLLECTION = "schema_versions";
-export const DATABASE_SCHEMA_VERSION = 5;
+export const DATABASE_SCHEMA_VERSION = 6;
 export const DATABASE_SCHEMA_VERSION_ID = "vapp-v1";
 export const DATABASE_MIGRATION_ID = "001-vapp-v1-baseline";
 
@@ -581,3 +648,5 @@ export const COMMERCIAL_FOUNDATION_MIGRATION_ID = "003-commercial-foundation";
 export const BRAND_FOUNDATION_MIGRATION_ID = "004-brand-foundation";
 
 export const HVM_PHASE1_MIGRATION_ID = "005-hvm-phase1";
+
+export const HIVE_FOUNDATION_MIGRATION_ID = "006-hive-definitions";

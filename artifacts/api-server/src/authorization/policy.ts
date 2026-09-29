@@ -5,6 +5,10 @@ export type Actor =
   | Readonly<{ type: "human"; id: string; issuer: string }>
   | Readonly<{ type: "agent" | "system"; id: string }>;
 export const RESOURCES = [
+  "offerings",
+  "ideal_customer_profiles",
+  "buyer_profiles",
+  "hive_definition_revisions",
   "workspace_memberships",
   "brands",
   "brand_kits",
@@ -161,6 +165,9 @@ export function createAuthorizationAuthority(config: {
           : m.role === "admin"
             ? action === "read" ||
               ([
+                "offerings",
+                "ideal_customer_profiles",
+                "buyer_profiles",
                 "brands",
                 "brand_kits",
                 "workspace_integrations",
@@ -174,6 +181,9 @@ export function createAuthorizationAuthority(config: {
                 ["read", "create", "update"].includes(action) &&
                 (action === "read" ||
                   [
+                    "offerings",
+                    "ideal_customer_profiles",
+                    "buyer_profiles",
                     "brands",
                     "brand_kits",
                     "workspace_integrations",

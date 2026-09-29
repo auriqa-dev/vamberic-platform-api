@@ -1,3 +1,4 @@
+import { HIVE_MONGO_VALIDATORS } from "./hive-validators";
 import { HVM_MONGO_VALIDATORS } from "./hvm-validators";
 import { BRAND_MONGO_VALIDATORS } from "./brand-validators";
 import { ONBOARDING_MONGO_VALIDATORS } from "./onboarding-validators";
@@ -21,12 +22,14 @@ import {
   COMMERCIAL_FOUNDATION_MIGRATION_ID,
   BRAND_FOUNDATION_MIGRATION_ID,
   HVM_PHASE1_MIGRATION_ID,
+  HIVE_FOUNDATION_MIGRATION_ID,
   SCHEMA_VERSIONS_COLLECTION,
   type CollectionDefinition,
   getDomainCollections,
 } from "./collections";
 
 const MONGO_VALIDATORS = {
+  ...HIVE_MONGO_VALIDATORS,
   ...CRM_MONGO_VALIDATORS,
   ...COMMERCIAL_MONGO_VALIDATORS,
   ...PARTNER_MONGO_VALIDATORS,
@@ -448,6 +451,7 @@ export async function setupDatabase(db: Db): Promise<DatabaseSetupResult> {
     { id: COMMERCIAL_FOUNDATION_MIGRATION_ID, version: 3 },
     { id: BRAND_FOUNDATION_MIGRATION_ID, version: 4 },
     { id: HVM_PHASE1_MIGRATION_ID, version: 5 },
+    { id: HIVE_FOUNDATION_MIGRATION_ID, version: 6 },
   ];
   const pending = requiredMigrations.filter(
     (required) => !existingMigrations.some((m) => m.id === required.id),

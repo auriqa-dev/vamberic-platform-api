@@ -51,8 +51,8 @@ export async function resolveHvmContext(
   const ledger = await db
     .collection("schema_versions")
     .findOne({ _id: "vapp-v1" } as Document, { session });
-  if (ledger?.version !== 5)
-    throw new Error("HVM requires reviewed/applied schema v5");
+  if (![5, 6].includes(ledger?.version))
+    throw new Error("HVM requires reviewed/applied schema v5 or v6");
   const human = {
     type: "human",
     id: identity.subject,

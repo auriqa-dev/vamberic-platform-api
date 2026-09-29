@@ -6,6 +6,10 @@ import { randomBytes } from "node:crypto";
  * Mongo's internal `_id`.
  */
 export const PLATFORM_ID_PREFIXES = [
+  "offering",
+  "icp",
+  "buyerprofile",
+  "hiverevision",
   "product",
   "person",
   "contact",

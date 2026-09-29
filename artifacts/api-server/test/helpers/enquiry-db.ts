@@ -144,6 +144,9 @@ export class EnquiryMemoryDb {
           for (const key of keys.slice(0, -1)) target = target[key] ??= {};
           target[keys.at(-1)!] = value;
         }
+        for (const [key, value] of Object.entries(update.$inc ?? {}))
+          record[key] = (record[key] ?? 0) + Number(value);
+        for (const key of Object.keys(update.$unset ?? {})) delete record[key];
         return { matchedCount: 1 };
       },
       deleteMany: async (filter: Document) => {

@@ -1,3 +1,4 @@
+import { BUYING_ROLES } from "./buying-roles";
 import { billingTreatmentSchema } from "./commercial-fields";
 import { interactionDetailsSchema } from "./crm-interactions";
 import {
@@ -490,15 +491,7 @@ const OpportunityRecordSchema = withId("opportunity").extend({
       z
         .object({
           personId,
-          role: z.enum([
-            "decision_maker",
-            "champion",
-            "economic_buyer",
-            "technical_buyer",
-            "influencer",
-            "end_user",
-            "blocker",
-          ]),
+          role: z.enum(BUYING_ROLES),
         })
         .strict(),
     )

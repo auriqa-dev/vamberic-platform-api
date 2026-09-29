@@ -984,10 +984,10 @@ test("external identity uniqueness includes workspace and provider account witho
 
 test("canonical index set defers unused queue indexes and removes the activity collection", async () => {
   const { COLLECTION_DEFINITIONS } = await import("../src/db/collections");
-  assert.equal(COLLECTION_DEFINITIONS.length, 30);
+  assert.equal(COLLECTION_DEFINITIONS.length, 34);
   assert.equal(
     COLLECTION_DEFINITIONS.reduce((n, c) => n + c.indexes.length, 0),
-    95,
+    107,
   );
   assert.equal(
     COLLECTION_DEFINITIONS.some((c) => String(c.name) === "crm_activities"),

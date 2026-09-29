@@ -389,6 +389,22 @@ async function plan(
       "WORKSPACE_MEMBERSHIP",
       "Workspace membership history must be retained.",
     );
+  if (kind === "organisation") {
+    block(
+      "offerings",
+      await read("offerings", { organisationId: id }),
+      "HIVE_HISTORY",
+      "Offering definitions must be retained.",
+    );
+    block(
+      "hive_definition_revisions",
+      await read("hive_definition_revisions", {
+        "snapshot.organisationId": id,
+      }),
+      "HIVE_HISTORY",
+      "Approved definition history must be retained.",
+    );
+  }
   if (kind === "organisation")
     block(
       "brands",

@@ -50,8 +50,8 @@ export async function provisionHvmClient(
     const ledger = await db
       .collection("schema_versions")
       .findOne({ _id: "vapp-v1" } as Document, options);
-    if ((ledger?.version ?? 0) !== 5)
-      throw new Error("Provisioning requires reviewed/applied schema v5");
+    if (![5, 6].includes(ledger?.version ?? 0))
+      throw new Error("Provisioning requires reviewed/applied schema v5 or v6");
     const organisation = await db.collection("organisations").findOne(
       {
         id: input.organisationId,
