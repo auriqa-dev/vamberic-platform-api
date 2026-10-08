@@ -1,0 +1,370 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$"
+    },
+    "version": { "type": "integer", "minimum": 1, "maximum": 1000000 },
+    "runId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$"
+    },
+    "workspaceId": {
+      "type": "string",
+      "pattern": "^workspace_[0-7][0-9abcdefghjkmnpqrstvwxyz]{25}$"
+    },
+    "expiresAt": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d\\.\\d{3}(?:Z))$"
+    },
+    "resources": {
+      "maxItems": 80,
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "reference": {
+            "type": "object",
+            "properties": {
+              "resourceType": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64,
+                "pattern": "^[a-z][a-z0-9_]*$"
+              },
+              "id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 100,
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$"
+              },
+              "workspaceId": {
+                "type": "string",
+                "pattern": "^workspace_[0-7][0-9abcdefghjkmnpqrstvwxyz]{25}$"
+              },
+              "version": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 1000000
+              },
+              "revision": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 1000000
+              },
+              "contentHash": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+            },
+            "required": ["resourceType", "id", "workspaceId", "contentHash"],
+            "additionalProperties": false
+          },
+          "fields": {
+            "minItems": 1,
+            "maxItems": 40,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100,
+              "pattern": "^[a-zA-Z][a-zA-Z0-9_]*(?:\\.[a-zA-Z][a-zA-Z0-9_]*)*$"
+            }
+          }
+        },
+        "required": ["reference", "fields"],
+        "additionalProperties": false
+      }
+    },
+    "proposalTargets": {
+      "maxItems": 20,
+      "type": "array",
+      "items": {
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "kind": { "type": "string", "const": "update" },
+              "targetKind": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64,
+                "pattern": "^[a-z][a-z0-9_]*$"
+              },
+              "reference": {
+                "type": "object",
+                "properties": {
+                  "resourceType": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 64,
+                    "pattern": "^[a-z][a-z0-9_]*$"
+                  },
+                  "id": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 100,
+                    "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$"
+                  },
+                  "workspaceId": {
+                    "type": "string",
+                    "pattern": "^workspace_[0-7][0-9abcdefghjkmnpqrstvwxyz]{25}$"
+                  },
+                  "version": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 1000000
+                  },
+                  "revision": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 1000000
+                  },
+                  "contentHash": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                  }
+                },
+                "required": [
+                  "resourceType",
+                  "id",
+                  "workspaceId",
+                  "contentHash"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": ["kind", "targetKind", "reference"],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "kind": { "type": "string", "const": "create" },
+              "targetKind": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64,
+                "pattern": "^[a-z][a-z0-9_]*$"
+              },
+              "parents": {
+                "minItems": 1,
+                "maxItems": 10,
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "relationship": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 64,
+                      "pattern": "^[a-z][a-z0-9_]*$"
+                    },
+                    "reference": {
+                      "type": "object",
+                      "properties": {
+                        "resourceType": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 64,
+                          "pattern": "^[a-z][a-z0-9_]*$"
+                        },
+                        "id": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 100,
+                          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$"
+                        },
+                        "workspaceId": {
+                          "type": "string",
+                          "pattern": "^workspace_[0-7][0-9abcdefghjkmnpqrstvwxyz]{25}$"
+                        },
+                        "version": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 1000000
+                        },
+                        "revision": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 1000000
+                        },
+                        "contentHash": {
+                          "type": "string",
+                          "pattern": "^[a-f0-9]{64}$"
+                        }
+                      },
+                      "required": [
+                        "resourceType",
+                        "id",
+                        "workspaceId",
+                        "contentHash"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": ["relationship", "reference"],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "required": ["kind", "targetKind", "parents"],
+            "additionalProperties": false
+          }
+        ]
+      }
+    },
+    "tools": {
+      "maxItems": 40,
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "pattern": "^[a-z][a-z0-9_]*$"
+          },
+          "version": { "type": "integer", "minimum": 1, "maximum": 1000000 },
+          "operation": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "pattern": "^[a-z][a-z0-9_]*$"
+          },
+          "class": {
+            "type": "string",
+            "enum": ["read_only", "cost_incurring_read", "external_mutation"]
+          },
+          "provider": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "pattern": "^[a-z][a-z0-9_]*$"
+          },
+          "bindingId": {
+            "type": "string",
+            "pattern": "^integration_[0-7][0-9abcdefghjkmnpqrstvwxyz]{25}$"
+          },
+          "authorizedOperationId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$"
+          }
+        },
+        "required": ["key", "version", "operation", "class", "provider"],
+        "additionalProperties": false
+      }
+    },
+    "bindings": {
+      "maxItems": 40,
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^integration_[0-7][0-9abcdefghjkmnpqrstvwxyz]{25}$"
+      }
+    },
+    "models": {
+      "maxItems": 20,
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "provider": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "pattern": "^[a-z][a-z0-9_]*$"
+          },
+          "model": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "pattern": "^[a-z][a-z0-9_]*$"
+          },
+          "purpose": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "pattern": "^[a-z][a-z0-9_]*$"
+          }
+        },
+        "required": ["provider", "model", "purpose"],
+        "additionalProperties": false
+      }
+    },
+    "budgets": {
+      "type": "object",
+      "properties": {
+        "deadline": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d\\.\\d{3}(?:Z))$"
+        },
+        "modelCalls": { "type": "integer", "minimum": 0, "maximum": 1000000 },
+        "toolCalls": { "type": "integer", "minimum": 0, "maximum": 1000000 },
+        "providerCalls": {
+          "maxItems": 20,
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "provider": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64,
+                "pattern": "^[a-z][a-z0-9_]*$"
+              },
+              "calls": { "type": "integer", "minimum": 0, "maximum": 1000000 }
+            },
+            "required": ["provider", "calls"],
+            "additionalProperties": false
+          }
+        },
+        "cost": {
+          "type": "object",
+          "properties": {
+            "currency": { "type": "string", "pattern": "^[A-Z]{3}$" },
+            "amount": {
+              "type": "string",
+              "maxLength": 32,
+              "pattern": "^(0|[1-9][0-9]{0,17})(\\.[0-9]{1,12})?$"
+            }
+          },
+          "required": ["currency", "amount"],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "deadline",
+        "modelCalls",
+        "toolCalls",
+        "providerCalls",
+        "cost"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "id",
+    "version",
+    "runId",
+    "workspaceId",
+    "expiresAt",
+    "resources",
+    "proposalTargets",
+    "tools",
+    "bindings",
+    "models",
+    "budgets"
+  ],
+  "additionalProperties": false,
+  "x-protocol-version": "1.2",
+  "x-runtime-validation": "Zod plus canonicalJson is authoritative. JSON Schema omits digest, byte/depth, scope, chronology, completeness and cross-reference refinements."
+}

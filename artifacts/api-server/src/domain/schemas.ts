@@ -1015,8 +1015,26 @@ export const CampaignInsertSchema = insertSchema(
 export const CampaignUpdateSchema = updateSchema(CampaignRecordSchema);
 export const ImportInsertSchema = insertSchema(ImportSchema);
 export const ImportUpdateSchema = updateSchema(ImportSchema);
-export const EventInsertSchema =
-  insertSchema(EventRecordSchema).superRefine(eventIntegrity);
+export const EventInsertSchema = insertSchema(EventRecordSchema)
+  .superRefine(eventIntegrity)
+  .superRefine((value, context) => {
+    if (
+      [
+        "client_onboarding_changed",
+        "canonical_support_certified",
+        "psu_generation_requested",
+        "psu_generation_finished",
+        "psu_review_saved",
+        "psu_content_chunk",
+        "hvm_queen_client_provisioned",
+        "workspace_billing_exemption_changed",
+      ].includes(value.eventType)
+    )
+      context.addIssue({
+        code: "custom",
+        message: "Reserved Platform approval event",
+      });
+  });
 export const TransactionInsertSchema = insertSchema(
   TransactionRecordSchema,
 ).superRefine(requireCustomerIdentity);

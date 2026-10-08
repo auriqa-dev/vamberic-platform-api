@@ -1,3 +1,5 @@
+import { WorkspaceBillingExemptionSchema } from "./workspace-billing";
+import { executionSerializationFields } from "./execution-serialization";
 import { z } from "zod";
 import {
   basePersistenceSchema,
@@ -165,6 +167,8 @@ export const isTaskOverdue = (task: CrmTask, now = new Date()) =>
 /** Workspace ownership is distinct from products and does not confer application access. */
 export const CrmWorkspaceSchema = basePersistenceSchema
   .extend({
+    billingExemption: WorkspaceBillingExemptionSchema.optional(),
+    ...executionSerializationFields,
     id: platformIdSchema("workspace"),
     name: z.string().trim().min(1).max(200),
     kind: z.enum(["portfolio", "client"]),

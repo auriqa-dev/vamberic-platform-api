@@ -1,3 +1,10 @@
+import {
+  canonicalDigest,
+  CERTIFICATE_EVENT,
+  SupportCertificateSchema,
+  type SupportApplication,
+} from "../domain/canonical-support";
+import { requireFreshAgentApplications } from "./agent-proposal-freshness";
 import { z } from "zod";
 import type { Db, ClientSession, Document } from "mongodb";
 import type { AppConfig } from "../config";
@@ -48,8 +55,12 @@ async function requireSchema(db: Db, session?: ClientSession) {
   const ledger = await db
     .collection("schema_versions")
     .findOne({ _id: "vapp-v1" } as Document, { session });
-  if (ledger?.version !== 6)
-    throw new Error("Hive requires reviewed/applied schema v6");
+  if (
+    ![
+      6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25,
+    ].includes(ledger?.version)
+  )
+    throw new Error("Hive requires reviewed/applied schema v6, v7, v8 or v9");
 }
 async function authorized(
   db: Db,
@@ -152,6 +163,7 @@ export async function mutateHiveDefinition(
   kind: HiveKind,
   operation: HiveOperation,
   raw: unknown,
+  observations: z.infer<typeof HiveEvidenceInputSchema>[] = [],
 ) {
   const content = HIVE_CONTENT_SCHEMAS[kind];
   const common = {
@@ -270,6 +282,7 @@ export async function mutateHiveDefinition(
                   : {}),
               }),
         };
+    let certifiedApplications: SupportApplication[] = [];
     if (operation === "revise") {
       if (row.status !== "approved")
         throw new HiveConflict(
@@ -284,6 +297,13 @@ export async function mutateHiveDefinition(
         throw new HiveConflict("Only drafts may be edited");
       row.definition = body.definition;
     } else if (operation === "approve") {
+      certifiedApplications = await requireFreshAgentApplications(
+        db,
+        workspaceId,
+        kind,
+        previous!,
+        session,
+      );
       if (row.status !== "draft")
         throw new HiveConflict("Only drafts may be approved");
       row.status = "approved";
@@ -331,6 +351,16 @@ export async function mutateHiveDefinition(
         kind,
         row,
       );
+    if (observations.length) {
+      if (operation !== "create") throw new HiveConflict("Initial observations require a new draft");
+      row.evidence = observations.map(value => {
+        const evidence = HiveEvidenceInputSchema.parse(value);
+        const observedAt = new Date(evidence.observedAt);
+        if (observedAt > now) throw new HiveConflict("Future observation");
+        content.parse({...row.definition, [evidence.field]: evidence.value});
+        return {...evidence, observedAt, recordedAt: now, actor};
+      });
+    }
     row.contentHash = definitionHash(
       row as Parameters<typeof definitionHash>[0],
     );
@@ -347,6 +377,42 @@ export async function mutateHiveDefinition(
       await db
         .collection("hive_definition_revisions")
         .insertOne(clean(snapshot) as Document, options);
+      if (certifiedApplications.length) {
+        const body = {
+          kind: "canonical_support_certificate",
+          schemaVersion: 1,
+          policyVersion: 1,
+          verifier: "canonical_support_v1",
+          workspaceId,
+          resource: kind,
+          entityId: row.id,
+          revision: row.revision,
+          snapshotId: snapshot.id,
+          contentHash: row.contentHash,
+          snapshotDigest: canonicalDigest(row),
+          evidenceDigest: canonicalDigest(row.evidence),
+          approvedAt: now.toISOString(),
+          approver: actor,
+          applications: certifiedApplications,
+        };
+        const payload = SupportCertificateSchema.parse({
+          ...body,
+          digest: canonicalDigest(body),
+        });
+        // Reserved writer: snapshot, certificate and canonical CAS are one transaction.
+        await db.collection("events").insertOne(
+          EventSchema.parse({
+            id: generatePlatformId("event"),
+            workspaceId,
+            createdAt: now,
+            updatedAt: now,
+            occurredAt: now,
+            eventType: CERTIFICATE_EVENT,
+            payload,
+          }),
+          options,
+        );
+      }
     }
     if (!previous) await collection.insertOne(row, options);
     else {

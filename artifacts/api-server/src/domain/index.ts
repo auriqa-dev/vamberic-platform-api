@@ -17,3 +17,9 @@ export * from "./workspace-memberships";
 
 export * from "./hive-definitions";
 export * from "./buying-roles";
+
+export * from "./offers";
+export * from "./offer-methodologies";
+
+export * from "./operating";
+export * from "./operating-logic";

@@ -154,10 +154,17 @@ export const OfferingContentSchema = z
       .max(2048)
       .url()
       .refine((v) => {
-        const u = new URL(v);
-        return (
-          ["http:", "https:"].includes(u.protocol) && !u.username && !u.password
-        );
+        // Zod refinements can run even when .url() has already failed.
+        try {
+          const u = new URL(v);
+          return (
+            ["http:", "https:"].includes(u.protocol) &&
+            !u.username &&
+            !u.password
+          );
+        } catch {
+          return false;
+        }
       })
       .optional(),
     whatItIs: text(10000).optional(),

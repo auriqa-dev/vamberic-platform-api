@@ -1,3 +1,4 @@
+import { BrandExpressionSchema } from "./brand-expression";
 import { z } from "zod";
 import {
   basePersistenceSchema,
@@ -127,6 +128,7 @@ export const BrandKitRecordSchema = humanBase
     status: z.enum(["draft", "approved", "retired"]),
     approvedAt: z.date().optional(),
     approvedBy: partnerHumanSchema.optional(),
+    expression: BrandExpressionSchema.optional(),
     assets: z.array(BrandAssetSchema).max(100).default([]),
     colours: z.array(colour).max(100).default([]),
     typography: z.array(typography).max(20).default([]),

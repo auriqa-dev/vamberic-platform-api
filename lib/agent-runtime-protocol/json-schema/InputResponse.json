@@ -1,0 +1,69 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "requestId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$"
+    },
+    "schemaKey": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^[a-z][a-z0-9_]*$"
+    },
+    "schemaVersion": { "type": "integer", "minimum": 1, "maximum": 1000000 },
+    "values": {
+      "maxItems": 12,
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "pattern": "^[a-z][a-z0-9_]*$"
+          },
+          "value": {
+            "anyOf": [
+              { "type": "string", "maxLength": 4000 },
+              { "type": "boolean" },
+              {
+                "type": "number",
+                "minimum": -1000000000,
+                "maximum": 1000000000
+              }
+            ]
+          }
+        },
+        "required": ["key", "value"],
+        "additionalProperties": false
+      }
+    },
+    "answeredAt": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d\\.\\d{3}(?:Z))$"
+    },
+    "actorReference": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$"
+    }
+  },
+  "required": [
+    "requestId",
+    "schemaKey",
+    "schemaVersion",
+    "values",
+    "answeredAt",
+    "actorReference"
+  ],
+  "additionalProperties": false,
+  "x-protocol-version": "1.2",
+  "x-runtime-validation": "Zod plus canonicalJson is authoritative. JSON Schema omits digest, byte/depth, scope, chronology, completeness and cross-reference refinements."
+}

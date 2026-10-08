@@ -1,0 +1,22 @@
+{
+  "implementation": {
+    "key": "internal_fake",
+    "version": 2
+  },
+  "compatibleDefinitions": [
+    {
+      "key": "internal_fake_definition",
+      "version": 1
+    }
+  ],
+  "protocolVersions": ["1.2"],
+  "operations": ["exercise", "research"],
+  "resultSchemaVersions": [2],
+  "checkpointSchemaVersions": [2],
+  "instruction": {
+    "version": 1,
+    "hash": "5a8541c9c71fea0c684cadf646e13c5439497ee18e14153fe84db13e17515622"
+  },
+  "buildDigest": "6c0ecae75cd1fb85bfcd724f7daa4f1b956beb6bf561e2d242dbec1c92c57fa9",
+  "manifestDigest": "2d2ea5e6d43e28bc513af9039f0915bbcffdcf77cd471325876f0b5239ba5b35"
+}

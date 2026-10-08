@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "code": {
+      "type": "string",
+      "enum": [
+        "invalid_work",
+        "unauthorized_or_revoked",
+        "configuration_error",
+        "provider_transient",
+        "provider_rate_limited",
+        "model_output_invalid",
+        "tool_failure",
+        "implementation_failure",
+        "timeout",
+        "cancelled",
+        "budget_exhausted"
+      ]
+    },
+    "message": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "retryable": { "type": "boolean" },
+    "retryAfterMs": { "type": "integer", "minimum": 0, "maximum": 3600000 },
+    "details": {
+      "type": "object",
+      "properties": {
+        "phase": {
+          "type": "string",
+          "enum": [
+            "validation",
+            "context",
+            "model",
+            "tool",
+            "execution",
+            "output"
+          ]
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "required": ["code", "message", "retryable"],
+  "additionalProperties": false,
+  "x-protocol-version": "1.2",
+  "x-runtime-validation": "Zod plus canonicalJson is authoritative. JSON Schema omits digest, byte/depth, scope, chronology, completeness and cross-reference refinements."
+}

@@ -44,6 +44,20 @@ const routingSchema = z
     ),
   );
 const configSchema = z.object({
+  BRAND_IMAGES_BUCKET: z
+    .string()
+    .regex(/^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$/)
+    .optional(),
+  HVM_EMPRESS_SUBJECTS: z
+    .string()
+    .default("")
+    .transform((v) =>
+      v
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean),
+    )
+    .pipe(z.array(z.string().uuid()).max(20)),
   HVM_AUTH_ENABLED: z.enum(["true", "false"]).optional(),
   HVM_COGNITO_CLIENT_ID: z
     .string()
@@ -129,6 +143,8 @@ const configSchema = z.object({
 });
 
 export type AppConfig = {
+  brandImages?: { bucket: string; region: string };
+  empressSubjects?: string[];
   notifications: NotificationConfig;
   cognito: { issuer: string; clientId: string; hvmClientId?: string };
   hvmCorsOrigins: string[];
@@ -191,6 +207,13 @@ export function parseConfig(
     );
   }
   return {
+    brandImages: parsed.data.BRAND_IMAGES_BUCKET
+      ? {
+          bucket: parsed.data.BRAND_IMAGES_BUCKET,
+          region: parsed.data.AWS_REGION,
+        }
+      : undefined,
+    empressSubjects: parsed.data.HVM_EMPRESS_SUBJECTS,
     notifications: {
       enabled: parsed.data.NOTIFICATION_EMAIL_ENABLED === "true",
       from: sender.success ? sender.data : undefined,

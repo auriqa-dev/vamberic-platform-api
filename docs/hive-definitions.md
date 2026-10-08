@@ -38,17 +38,17 @@ Observations never promote or overwrite canonical facts, even when a human confi
 
 All paths are below `/api/v1/hvm/workspaces/:workspaceId`. Resource paths are `offerings`, `ideal-customer-profiles`, `buyer-profiles`.
 
-| Method/path | Contract |
-| --- | --- |
-| GET `/:resource` | Bounded `items`, `hasMore`, `limit`, `offset`; default 20, maximum 100, offset maximum 10,000. Default excludes archived; `archived=true` lists retired records. |
-| GET `/:resource/:id` | Current definition, including archived history when authorized. |
-| GET `/:resource/:id/revisions/:revision` | Exact approved snapshot, also readable after archive. |
-| POST `/:resource/create` | `{definition,...parentIds}`; Offering optionally accepts `brandId`; ICP requires `offeringId`; Buyer requires `offeringId` and `idealCustomerProfileId`. |
-| POST `/:resource/update` | `{id,expectedUpdatedAt,definition}`; full replacement of draft content, not a metadata patch. |
-| POST `/:resource/revise` | `{id,expectedUpdatedAt}`; starts next draft from approved current content. |
-| POST `/:resource/approve` | `{id,expectedUpdatedAt}`; explicit human approval. |
-| POST `/:resource/archive` | `{id,expectedUpdatedAt}`; retires the object, never cascades. |
-| POST `/:resource/observe` | `{id,expectedUpdatedAt,evidence}`; appends one observation to a draft. |
+| Method/path                              | Contract                                                                                                                                                         |
+| ---------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GET `/:resource`                         | Bounded `items`, `hasMore`, `limit`, `offset`; default 20, maximum 100, offset maximum 10,000. Default excludes archived; `archived=true` lists retired records. |
+| GET `/:resource/:id`                     | Current definition, including archived history when authorized.                                                                                                  |
+| GET `/:resource/:id/revisions/:revision` | Exact approved snapshot, also readable after archive.                                                                                                            |
+| POST `/:resource/create`                 | `{definition,...parentIds}`; Offering optionally accepts `brandId`; ICP requires `offeringId`; Buyer requires `offeringId` and `idealCustomerProfileId`.         |
+| POST `/:resource/update`                 | `{id,expectedUpdatedAt,definition}`; full replacement of draft content, not a metadata patch.                                                                    |
+| POST `/:resource/revise`                 | `{id,expectedUpdatedAt}`; starts next draft from approved current content.                                                                                       |
+| POST `/:resource/approve`                | `{id,expectedUpdatedAt}`; explicit human approval.                                                                                                               |
+| POST `/:resource/archive`                | `{id,expectedUpdatedAt}`; retires the object, never cascades.                                                                                                    |
+| POST `/:resource/observe`                | `{id,expectedUpdatedAt,evidence}`; appends one observation to a draft.                                                                                           |
 
 Offering lists accept `brandId`; ICP lists accept `offeringId`; Buyer lists accept `offeringId` and/or `idealCustomerProfileId`. Unknown query/body keys are rejected. Clients cannot submit workspace/Organisation/actor/revision/hash/approval metadata. Parent IDs are exact-scope checked, not access grants. Mutation results return the current bounded domain record with ISO date serialization. Errors use sanitized HVM 400/404/409/503 envelopes.
 
@@ -77,3 +77,21 @@ No migration or deployment was performed. Later rollout under separate authoriza
 5. After v6, an application rollback must retain v6-compatible HVM guards; do not roll back to the old exact-v5 runtime without a separately reviewed recovery plan.
 
 Tests use the repository's in-memory transactional adapters and setup planner. They are not evidence of a live Mongo migration or deployment. No agents, Offer object, lead generation, Swarm, Odyssiant integration, frontend or downstream invalidation were implemented.
+
+## Corrective validator migration v7 (not applied)
+
+`007-hive-validator-consistency` corrects persistence validation of the existing v6 contract. It adds no collection, index, domain field or data rewrite. The original `006-hive-definitions` validators are preserved in `src/db/hive-validators-v6.ts`, protected by a regression fingerprint. The corrected canonical validators remain in `src/db/hive-validators.ts`.
+
+For an installed v6 database, `db:setup --dry-run` proposes four validator replacements only when each installed validator is either the exact reviewed v6 definition or already corrected. Unknown changes remain conflicts. All existing documents are checked against the corrected validators before apply is permitted. A future explicitly authorized apply uses `collMod`, writes the v7 ledger entry last, and preserves the original v6 history. Interrupted correction is retryable while the ledger is still v6; corrected validators are recognized without repeated replacement. DDL is not transactional. Run this as a single operator, with no competing schema/DDL operations, and inspect again after any failure.
+
+Normal HVM context/provisioning accepts reviewed versions 5, 6 and 7; Hive operations accept 6 and 7. Deploying or rolling back an API after a future v7 apply must preserve v7-compatible runtime guards. No apply, deployment or rollback is authorized by this documentation.
+
+The correction covers URL syntax (including `@` outside credentials), revision pointers, snapshot lifecycle/chronology, evidence chronology/finite numeric values and human-ID/nonempty-text checks. Malformed URL parsing returns validation failure rather than throwing. Zod remains the canonical WHATWG URL parser; Mongo supplies a document-level syntax guard, not a separate implementation of IDNA, numeric-host or port semantics. Those parser details, Unicode normalization/UTF-16 length accounting, defaults/trimming, the 200KB JSON limit, semantic hash recomputation, evidence candidate interpretation, cross-collection relationships and authenticated authorization remain application responsibilities. Mongo does not authorize direct domain writes; callers must use the service. No accepted domain rule has been deliberately weakened or strengthened.
+
+`test/hive-validator-parity.test.ts` exercises current documents and approved snapshots through canonical Zod. Its opt-in Mongo tests use **collectionless `$documents` aggregation followed by `$match` with the actual validators**. Synthetic documents are never inserted or persisted. With `MONGODB_URI` supplied only to the child process through the secure loader documented in `hvm-partners.md`, set `HIVE_PARITY_MONGO=true` for that child and run:
+
+```sh
+pnpm --filter @workspace/api-server exec node --import tsx --test test/hive-validator-parity.test.ts
+```
+
+The six Mongo groups are skipped by the ordinary offline test suite. Run them explicitly when reviewing validator changes; a skipped group is not evidence of Mongo parity. Read-only aggregation verifies the proposed validator logic, not the installed collection validators or transaction/write behaviour. A secure `db:setup --dry-run` separately inspects installed validators, indexes and existing-data compatibility. Stop before apply for separate authorization.

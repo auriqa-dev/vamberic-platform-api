@@ -1,0 +1,18 @@
+{
+  "id": "evidence:synthetic-1",
+  "origin": "external_evidence",
+  "claim": "A synthetic source says this.",
+  "provenance": {
+    "provider": "fake_provider",
+    "adapterKey": "fake_paid_read",
+    "adapterVersion": 1,
+    "invocationId": "call:7088efe4e42044c9f48ead1c807a91ce1e97e9d9",
+    "providerRequestId": "fake:call:7088efe4e42044c9f48ead1c807a91ce1e97e9d9",
+    "modelVersion": "fake-1"
+  },
+  "source": { "kind": "external", "url": "https://example.invalid/source" },
+  "observedAt": "2026-10-01T09:00:00.004Z",
+  "retrievedAt": "2026-10-01T09:00:00.004Z",
+  "digest": "5f344c605fd1655c60ba9c0f0df61e41a002d32dc6bcfc4db1637c323d63933f",
+  "verification": "observed"
+}

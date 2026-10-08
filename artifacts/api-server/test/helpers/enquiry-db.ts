@@ -4,26 +4,33 @@ import { COLLECTION_DEFINITIONS } from "../../src/db/collections";
 import type { MongoService } from "../../src/services/mongo";
 
 function valueAt(record: Document, path: string): unknown {
-  return path
-    .split(".")
-    .reduce<unknown>(
-      (value, key) =>
-        value && typeof value === "object"
-          ? (value as Document)[key]
-          : undefined,
-      record,
-    );
+  function read(value: unknown, parts: string[]): unknown {
+    if (!parts.length) return value;
+    if (Array.isArray(value))
+      return value.flatMap((item) => {
+        const result = read(item, parts);
+        return Array.isArray(result) ? result : [result];
+      });
+    if (!value || typeof value !== "object") return undefined;
+    return read((value as Document)[parts[0]!], parts.slice(1));
+  }
+  return read(record, path.split("."));
 }
+
 function matches(record: Document, filter: Document): boolean {
   return Object.entries(filter).every(([key, expected]) => {
     if (key === "$or")
       return expected.some((item: Document) => matches(record, item));
     const actual = valueAt(record, key);
+    if (expected instanceof RegExp)
+      return typeof actual === "string" && expected.test(actual);
     if (
       expected &&
       typeof expected === "object" &&
       !(expected instanceof Date)
     ) {
+      if ("$gt" in expected) return (actual as string | number) > expected.$gt;
+      if ("$lt" in expected) return (actual as string | number) < expected.$lt;
       if ("$ne" in expected) return actual !== expected.$ne;
       if ("$exists" in expected)
         return (actual !== undefined) === expected.$exists;
@@ -69,6 +76,7 @@ export class EnquiryMemoryDb {
         let offset = 0;
         let sort: Record<string, number> = {};
         const cursor = {
+          next: async () => (await cursor.toArray())[0] ?? null,
           limit(value: number) {
             limit = value;
             return cursor;
@@ -105,6 +113,25 @@ export class EnquiryMemoryDb {
       },
       findOne: async (filter: Document) => {
         return this.rows(name).find((row) => matches(row, filter)) ?? null;
+      },
+      bulkWrite: async (operations: Document[]) => {
+        let matchedCount = 0;
+        for (const operation of operations) {
+          if (!operation.updateOne)
+            throw new Error("Unsupported test bulk operation");
+          matchedCount += (
+            await this.collection(name).updateOne(
+              operation.updateOne.filter,
+              operation.updateOne.update,
+            )
+          ).matchedCount;
+        }
+        return { matchedCount };
+      },
+      insertMany: async (records: Document[]) => {
+        for (const record of records)
+          await this.collection(name).insertOne(record);
+        return { acknowledged: true, insertedCount: records.length };
       },
       insertOne: async (record: Document) => {
         if (this.failCollection === name)
@@ -148,6 +175,12 @@ export class EnquiryMemoryDb {
           record[key] = (record[key] ?? 0) + Number(value);
         for (const key of Object.keys(update.$unset ?? {})) delete record[key];
         return { matchedCount: 1 };
+      },
+      deleteOne: async (filter: Document) => {
+        const index = this.rows(name).findIndex((row) => matches(row, filter));
+        if (index < 0) return { deletedCount: 0 };
+        this.rows(name).splice(index, 1);
+        return { deletedCount: 1 };
       },
       deleteMany: async (filter: Document) => {
         if (this.failDeleteCollection === name)

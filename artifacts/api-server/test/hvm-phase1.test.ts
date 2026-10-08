@@ -1,3 +1,5 @@
+import sharp from "sharp";
+import type { BrandImageStore } from "../src/services/brand-images";
 import assert from "node:assert/strict";
 import { once } from "node:events";
 import { createServer } from "node:http";
@@ -32,7 +34,13 @@ const enquiry = {
   website: "https://example.test",
   message: "Please contact me",
 };
-async function fixture(t: TestContext) {
+const empressSubject = "00000000-0000-4000-8000-000000000001";
+async function fixture(
+  t: TestContext,
+  empress = false,
+  brandImages?: BrandImageStore,
+  brandGenerator?: import("../src/services/brand-expression/generate").BrandGenerator,
+) {
   const db = new EnquiryMemoryDb();
   db.rows("schema_versions").push({ _id: "vapp-v1", version: 5 });
   const organisationId = generatePlatformId("org");
@@ -73,6 +81,7 @@ async function fixture(t: TestContext) {
   const config = parseConfig({
     ...authEnvironment,
     HVM_COGNITO_CLIENT_ID: "hvmclient",
+    HVM_EMPRESS_SUBJECTS: empress ? empressSubject : "",
     HVM_CORS_ORIGINS: "https://app.h-v-m.agency,http://localhost:5173",
     DEPLOYMENT_ENV: "test",
     MONGODB_URI: "mongodb://unused.invalid",
@@ -84,7 +93,11 @@ async function fixture(t: TestContext) {
   });
   const auth = await createTestAuth();
   const server = createServer(
-    createApp(config, db.mongo, { jwtKeyResolver: auth.keyResolver }),
+    createApp(config, db.mongo, {
+      jwtKeyResolver: auth.keyResolver,
+      brandImages,
+      brandGenerator,
+    }),
   );
   server.listen(0, "127.0.0.1");
   await once(server, "listening");
@@ -873,4 +886,709 @@ test("provisioning validates optional Brand domain and never overwrites it on re
     /identity\/state conflict/,
   );
   assert.equal(db.rows("brands")[0].primaryDomain, undefined);
+});
+
+for (const scenario of [
+  { name: "no authority", empress: false, queen: false, client: false },
+  { name: "Empress only", empress: true, queen: false, client: false },
+  { name: "Queen owner only", empress: false, queen: true, client: false },
+  { name: "client admin only", empress: false, queen: false, client: true },
+  { name: "Empress and Queen", empress: true, queen: true, client: false },
+  {
+    name: "Empress, Queen and client",
+    empress: true,
+    queen: true,
+    client: true,
+  },
+  {
+    name: "Partner member/onboarder",
+    empress: false,
+    queen: true,
+    client: false,
+    member: true,
+  },
+]) {
+  test(`context independently discovers ${scenario.name}`, async (t) => {
+    const f = await fixture(t, scenario.empress);
+    f.db.rows("schema_versions")[0].version = 9;
+    const partnerMembership = f.db.rows("hvm_partner_memberships")[0];
+    const clientMembership = f.db.rows("workspace_memberships")[0];
+    partnerMembership.human = { ...human, id: empressSubject };
+    clientMembership.human = { ...human, id: empressSubject };
+    if (!scenario.queen) f.db.rows("hvm_partner_memberships").length = 0;
+    if (!scenario.client) f.db.rows("workspace_memberships").length = 0;
+    if (scenario.member) partnerMembership.role = "member";
+    const token = await f.auth.sign({
+      client_id: "hvmclient",
+      sub: empressSubject,
+    });
+    const result = await f.request("/api/v1/hvm/context", undefined, token);
+    assert.equal(result.status, 200);
+    assert.deepEqual(result.body, {
+      application: "hvmapp",
+      human: { ...human, id: empressSubject },
+      platform: { empress: scenario.empress },
+      partners: scenario.queen
+        ? [
+            {
+              id: f.input.partnerId,
+              displayName: "Agency",
+              role: scenario.member ? "member" : "owner",
+              workspaceIds: [f.input.workspaceId],
+            },
+          ]
+        : [],
+      clients: scenario.client
+        ? [{ workspaceId: f.input.workspaceId, role: "admin" }]
+        : [],
+      workspaces:
+        scenario.queen || scenario.client
+          ? [
+              {
+                id: f.input.workspaceId,
+                name: "Client",
+                role: scenario.member ? "onboarder" : "admin",
+              },
+            ]
+          : [],
+    });
+    // Context is not a grant: endpoints independently enforce both authorities.
+    assert.equal(
+      (
+        await f.request(
+          "/api/v1/hvm/empress/agent-definitions",
+          undefined,
+          token,
+        )
+      ).status,
+      scenario.empress ? 200 : 404,
+    );
+    assert.equal(
+      (await f.request(f.root + "/operating/client-agents", undefined, token))
+        .status,
+      scenario.queen || scenario.client ? 200 : 404,
+    );
+  });
+}
+
+test("context ignores claimed Empress authority and refreshes after trusted configuration revocation", async (t) => {
+  const f = await fixture(t, true);
+  const token = await f.auth.sign({
+    client_id: "hvmclient",
+    sub: empressSubject,
+    empress: true,
+    platform: { empress: true },
+  });
+  assert.deepEqual(
+    (await f.request("/api/v1/hvm/context", undefined, token)).body.platform,
+    { empress: true },
+  );
+  // Simulate the current process receiving replacement trusted configuration.
+  // Production environment changes require the normal process reload.
+  f.config.empressSubjects = [];
+  const refreshed = await f.request(
+    "/api/v1/hvm/context?empress=true",
+    undefined,
+    token,
+    { "x-empress": "true" },
+  );
+  assert.equal(refreshed.status, 200);
+  assert.deepEqual(refreshed.body.platform, { empress: false });
+  assert.deepEqual(refreshed.body.workspaces, []);
+  assert.equal(
+    (await f.request("/api/v1/hvm/empress/agent-definitions", undefined, token))
+      .status,
+    404,
+  );
+});
+
+test("brand images publish immediately, retain prior content, replay safely and enforce scope", async (t) => {
+  const stored = new Map<string, Buffer>();
+  const store: BrandImageStore = {
+    bucket: "brand-images-test",
+    async put(key, bytes) {
+      stored.set(key, bytes);
+      return "version1";
+    },
+    async get(key, version) {
+      assert.equal(version, "version1");
+      return stored.get(key)!;
+    },
+  };
+  const f = await fixture(t, false, store);
+  const root = `${f.root}/brands/${f.input.brandId}`;
+  const bytes = await sharp({
+    create: { width: 2, height: 2, channels: 4, background: "#ff000080" },
+  })
+    .png()
+    .toBuffer();
+  const input = {
+    expectedKitId: null,
+    name: "Logo",
+    type: "logo",
+    contentType: "image/png",
+    base64: bytes.toString("base64"),
+  };
+  const upload = await f.request(root + "/images", input);
+  assert.equal(upload.status, 201);
+  const kits = f.db.rows("brand_kits");
+  assert.equal(kits.length, 1);
+  assert.equal(kits[0].status, "approved");
+  assert.equal(kits[0].assets.length, 1);
+  const digest = kits[0].assets[0].object.key
+    .split("/")
+    .at(-1)
+    .replace(".png", "");
+  const download = await f.request(
+    root + `/kits/${upload.body.id}/images/${digest}`,
+  );
+  assert.equal(download.status, 200);
+  assert.equal(download.body.contentType, "image/png");
+  assert.equal((await f.request(root + "/images", input)).status, 200);
+  assert.equal(kits.length, 1);
+  assert.equal(stored.size, 1);
+  assert.equal(
+    (await f.request(root + "/images", { ...input, name: "Changed" })).status,
+    409,
+  );
+  const replacement = await f.request(root + "/images", {
+    ...input,
+    name: "Photo",
+    type: "photography",
+    expectedKitId: upload.body.id,
+    expectedUpdatedAt: upload.body.updatedAt,
+  });
+  assert.equal(replacement.status, 201);
+  assert.equal(kits.length, 2);
+  assert.equal(kits[0].status, "retired");
+  assert.equal(kits[1].assets.length, 2);
+  assert.equal(kits.filter((k) => k.status === "approved").length, 1);
+  const beforeFailure = structuredClone(f.db.rows("brand_kits"));
+  f.db.failCollection = "events";
+  const failed = await f.request(root + "/images", {
+    ...input,
+    name: "Transactional failure",
+    expectedKitId: replacement.body.id,
+    expectedUpdatedAt: replacement.body.updatedAt,
+  });
+  assert.equal(failed.status, 503);
+  assert.deepEqual(f.db.rows("brand_kits"), beforeFailure);
+  f.db.failCollection = undefined;
+
+  assert.equal((await f.request(root + "/images", input, f.vapp)).status, 404);
+  const otherBrand = generatePlatformId("brand");
+  assert.equal(
+    (await f.request(`${f.root}/brands/${otherBrand}/images`, input)).status,
+    404,
+  );
+  const membership = f.db.rows("workspace_memberships")[0];
+  membership.role = "viewer";
+  // End the Queen assignment too; the same human can have both independent roles.
+  for (const a of f.db.rows("workspace_partner_assignments"))
+    a.status = "ended";
+  const denied = await f.request(root + "/images", {
+    ...input,
+    name: "Denied",
+  });
+  assert.equal(denied.status, 404);
+});
+
+test("Brand Kit sections save immediately, retain other content, reject stale and cross-scope writes and roll back atomically", async (t) => {
+  const f = await fixture(t);
+  const inputs = {
+    colours: [{ role: "primary", name: "Plum", hex: "#663366" }],
+    typography: [{ role: "heading", family: "Arial", weights: [400, 700] }],
+    visualRules: { layout: "Use a clear grid", do: ["Leave space"] },
+    voice: { descriptors: ["Clear"], writingStyle: "Direct and helpful" },
+    terminology: { use: ["Energy intelligence"], avoid: ["Magic"] },
+    descriptions: { short: "Independent energy analysis" },
+    imageryGuidance: { photography: "Use real buildings" },
+    emailDefaults: { fromDisplayName: "Built Matters", signature: "The team" },
+  };
+  let latest: { id: string; updatedAt: string } | undefined;
+  const save = (content: unknown, extra = {}) =>
+    f.request(f.root + "/kit-save", {
+      brandId: f.input.brandId,
+      expectedKitId: latest?.id ?? null,
+      expectedUpdatedAt: latest?.updatedAt,
+      content,
+      ...extra,
+    });
+  for (const [key, value] of Object.entries(inputs)) {
+    const result = await save({ [key]: value });
+    assert.equal(result.status, 200);
+    latest = result.body;
+    const current = f.db
+      .rows("brand_kits")
+      .filter((k) => k.status === "approved");
+    assert.equal(current.length, 1);
+    assert.deepEqual(current[0][key], value);
+  }
+  const current = f.db.rows("brand_kits").find((k) => k.status === "approved")!;
+  for (const [key, value] of Object.entries(inputs))
+    assert.deepEqual(current[key], value);
+  current.assets = [
+    {
+      type: "logo",
+      name: "Existing logo",
+      status: "approved",
+      object: {
+        store: "s3",
+        bucket: "brand-images-test",
+        key: "retained.png",
+        versionId: "v1",
+      },
+    },
+  ];
+  const before = structuredClone(current.assets);
+  const changed = await save({ colours: [] });
+  assert.equal(changed.status, 200);
+  assert.deepEqual(
+    f.db.rows("brand_kits").find((k) => k.status === "approved")!.assets,
+    before,
+  );
+  assert.equal((await save({ voice: { writingStyle: "Stale" } })).status, 409);
+  latest = changed.body;
+  assert.equal(
+    (
+      await save({
+        colours: [{ role: "primary", name: "Invalid", hex: "javascript:bad" }],
+      })
+    ).status,
+    400,
+  );
+  assert.equal((await save({ assets: [] })).status, 400);
+  assert.equal((await save({ voice: {}, terminology: {} })).status, 400);
+  assert.equal(
+    (
+      await save({
+        emailDefaults: { replyToContactPointId: generatePlatformId("contact") },
+      })
+    ).status,
+    404,
+  );
+  assert.equal(
+    (
+      await save({
+        descriptions: {
+          products: [
+            {
+              productId: generatePlatformId("product"),
+              description: "Foreign",
+            },
+          ],
+        },
+      })
+    ).status,
+    404,
+  );
+  assert.equal(
+    (await save({ voice: {} }, { brandId: generatePlatformId("brand") }))
+      .status,
+    409,
+  );
+  const beforeFailure = structuredClone(f.db.rows("brand_kits"));
+  f.db.failCollection = "events";
+  assert.equal(
+    (await save({ voice: { writingStyle: "Must roll back" } })).status,
+    503,
+  );
+  assert.deepEqual(f.db.rows("brand_kits"), beforeFailure);
+  f.db.failCollection = undefined;
+  f.db.rows("workspace_memberships")[0].role = "viewer";
+  for (const a of f.db.rows("workspace_partner_assignments"))
+    a.status = "ended";
+  assert.equal((await save({ voice: {} })).status, 404);
+});
+
+test("brand read carries stored onboarding website only for its exact brand and preserves corrections", async (t) => {
+  const f = await fixture(t);
+  f.db.rows("client_onboardings").push({
+    result: { workspaceId: f.input.workspaceId, brandId: f.input.brandId },
+    details: { intake: { websiteUrl: "https://www.odyssiant.ai/" } },
+  });
+  const response = await f.request(f.root + "/brands");
+  assert.equal(response.status, 200);
+  assert.equal(response.body.brands[0].primaryDomain, "www.odyssiant.ai");
+  assert.equal(f.db.rows("brands")[0].primaryDomain, undefined);
+  f.db.rows("brands")[0].primaryDomain = "corrected.example";
+  const corrected = await f.request(f.root + "/brands");
+  assert.equal(corrected.body.brands[0].primaryDomain, "corrected.example");
+});
+
+import { expressionDefaults } from "../src/domain/brand-expression";
+test("brand expression keeps independent approval, preserves kit history, reads fresh brand context and fences stale/foreign writes", async (t) => {
+  const f = await fixture(t);
+  f.db.rows("schema_versions")[0]!.version = 25;
+  const call = (op: string, body: unknown) =>
+    f.request(f.root + "/kit-expression-" + op, body);
+  const base = {
+    brandId: f.input.brandId,
+    expectedKitId: null,
+    dimension: "tone",
+    content: {
+      ...expressionDefaults.tone,
+      defaultTone: "Clear and direct",
+      variations: [{ context: "email", guidance: "Brief and personal" }],
+    },
+  };
+  const saved = await call("save", base);
+  assert.equal(saved.status, 200, JSON.stringify(saved.body));
+  const contextPath =
+    f.root + `/brands/${f.input.brandId}/expression/context?format=email`;
+  assert.equal((await f.request(contextPath)).body.context.tone, null);
+  const approved = await call("approve", {
+    brandId: f.input.brandId,
+    expectedKitId: saved.body.id,
+    expectedUpdatedAt: saved.body.updatedAt,
+    dimension: "tone",
+  });
+  assert.equal(approved.status, 200, JSON.stringify(approved.body));
+  assert.equal(
+    (await f.request(contextPath)).body.context.tone.guidance,
+    "Brief and personal",
+  );
+  const next = await call("save", {
+    ...base,
+    expectedKitId: approved.body.id,
+    expectedUpdatedAt: approved.body.updatedAt,
+    content: { ...base.content, defaultTone: "DRAFT" },
+  });
+  assert.equal(next.status, 200);
+  assert.equal(
+    (await f.request(contextPath)).body.context.tone.defaultTone,
+    "Clear and direct",
+  );
+  assert.equal((await call("save", base)).status, 409);
+  const personality = await call("save", {
+    ...base,
+    expectedKitId: next.body.id,
+    expectedUpdatedAt: next.body.updatedAt,
+    dimension: "personality",
+    content: { ...expressionDefaults.personality, character: "Curious" },
+  });
+  assert.equal(personality.status, 200);
+  const final = await call("approve", {
+    brandId: f.input.brandId,
+    expectedKitId: personality.body.id,
+    expectedUpdatedAt: personality.body.updatedAt,
+    dimension: "personality",
+  });
+  assert.equal(final.status, 200);
+  const ctx = (await f.request(contextPath)).body.context;
+  assert.equal(ctx.personality.character, "Curious");
+  assert.equal(ctx.tone.defaultTone, "Clear and direct");
+  assert.equal(
+    f.db.rows("brand_kits").filter((x) => x.status === "approved").length,
+    1,
+  );
+  assert.equal(
+    f.db.rows("brand_kits").filter((x) => x.status === "retired").length,
+    4,
+  );
+  assert.equal(
+    (
+      await f.request(
+        f.root +
+          `/brands/${generatePlatformId("brand")}/expression/context?format=email`,
+      )
+    ).status,
+    403,
+  );
+  assert.equal(
+    (
+      await f.request(
+        contextPath.replace(
+          f.input.workspaceId,
+          generatePlatformId("workspace"),
+        ),
+      )
+    ).status,
+    403,
+  );
+});
+
+test("brand interpretation and preview reuse scoped jobs, retain lineage and usage, and never approve settings", async (t) => {
+  const inputs: import("../src/services/brand-expression/generate").BrandGenerationInput[] =
+    [];
+  const f = await fixture(t, false, undefined, async (input) => {
+    inputs.push(input);
+    return {
+      result:
+        input.mode === "interpret"
+          ? { settings: expressionDefaults }
+          : { sample: "A short sample" },
+      usage: { model: "fixture", inputTokens: 10, outputTokens: 20 },
+    };
+  });
+  f.db.rows("schema_versions")[0]!.version = 25;
+  const root = f.root + `/brands/${f.input.brandId}/expression/generations`;
+  const input = {
+    requestKey: crypto.randomUUID(),
+    mode: "interpret",
+    description: "We are curious",
+    format: "website",
+    useDrafts: false,
+  };
+  const started = await f.request(root, input);
+  assert.equal(started.status, 202, JSON.stringify(started.body));
+  let result;
+  for (let i = 0; i < 30; i++) {
+    result = await f.request(root + "/" + started.body.id);
+    if (result.body.status !== "generating") break;
+    await new Promise((r) => setTimeout(r, 10));
+  }
+  assert.equal(result!.body.status, "completed", JSON.stringify(result));
+  assert.equal(result!.body.usage.inputTokens, 10);
+  assert.equal(f.db.rows("brand_kits").length, 0);
+  assert.equal((await f.request(root, input)).body.id, started.body.id);
+  assert.equal(inputs.length, 1);
+  assert.equal(
+    (await f.request(root, { ...input, description: "Changed" })).status,
+    409,
+  );
+  const saved = await f.request(f.root + "/kit-expression-save", {
+    brandId: f.input.brandId,
+    expectedKitId: null,
+    dimension: "personality",
+    content: { ...expressionDefaults.personality, character: "Human edited" },
+    originalDescription: input.description,
+    sourceGenerationId: started.body.id,
+  });
+  assert.equal(saved.status, 200, JSON.stringify(saved.body));
+  const draft = f.db.rows("brand_kits")[0]!.expression.personality.draft;
+  assert.equal(draft.content.character, "Human edited");
+  assert.equal(draft.proposedContent.character, "");
+  assert.equal(
+    f.db.rows("brand_kits")[0]!.expression.personality.approved,
+    undefined,
+  );
+  const preview = await f.request(root, {
+    ...input,
+    requestKey: crypto.randomUUID(),
+    mode: "preview",
+    description: "Our company",
+    useDrafts: true,
+  });
+  assert.equal(preview.status, 202);
+  for (let i = 0; i < 30; i++) {
+    result = await f.request(root + "/" + preview.body.id);
+    if (result.body.status !== "generating") break;
+    await new Promise((r) => setTimeout(r, 10));
+  }
+  assert.equal(result!.body.result.sample, "A short sample");
+  assert.equal(
+    (inputs[1]!.context as { personality: { character: string } }).personality
+      .character,
+    "Human edited",
+  );
+  assert.equal(f.db.rows("brand_kits").length, 1);
+});
+
+test("client-managed provisioning creates no Queen and direct client admin can manage Brand Kit without platform power", async (t) => {
+  const f = await fixture(t);
+  f.db.rows("schema_versions")[0]!.version = 25;
+  const input = {
+    management: "client",
+    organisationId: generatePlatformId("org"),
+    organisationName: "Self service company",
+    workspaceId: generatePlatformId("workspace"),
+    brandId: generatePlatformId("brand"),
+    clientMembershipId: generatePlatformId("workspacemembership"),
+    workspaceName: "Self service",
+    brandName: "Own brand",
+    brandSlug: "own",
+    human: { ...human, id: "client-only" },
+  };
+  const partners = f.db.rows("hvm_partners").length,
+    assignments = f.db.rows("workspace_partner_assignments").length;
+  await provisionHvmClient(f.db.mongo, input, testIssuer);
+  await provisionHvmClient(f.db.mongo, input, testIssuer);
+  assert.equal(f.db.rows("hvm_partners").length, partners);
+  assert.equal(f.db.rows("workspace_partner_assignments").length, assignments);
+  const token = await f.auth.sign({
+    client_id: "hvmclient",
+    sub: "client-only",
+  });
+  const context = await f.request("/api/v1/hvm/context", undefined, token);
+  assert.equal(context.body.partners.length, 0);
+  assert.equal(context.body.clients[0].role, "admin");
+  assert.equal(context.body.platform.empress, false);
+  const root = `/api/v1/hvm/workspaces/${input.workspaceId}`;
+  const draft = await f.request(
+    root + "/kit-expression-save",
+    {
+      brandId: input.brandId,
+      expectedKitId: null,
+      dimension: "personality",
+      content: { ...expressionDefaults.personality, character: "Independent" },
+    },
+    token,
+  );
+  assert.equal(draft.status, 200, JSON.stringify(draft.body));
+  assert.equal(
+    (
+      await f.request(
+        root + "/kit-expression-approve",
+        {
+          brandId: input.brandId,
+          expectedKitId: draft.body.id,
+          expectedUpdatedAt: draft.body.updatedAt,
+          dimension: "personality",
+        },
+        token,
+      )
+    ).status,
+    200,
+  );
+  assert.equal(
+    (await f.request(f.root + "/team", undefined, token)).status,
+    404,
+  );
+  assert.equal(
+    (await f.request(root + "/team", undefined, token)).body.management,
+    "client",
+  );
+  assert.equal(f.db.rows("workspace_billing").length, 0);
+});
+
+test("management handovers keep identity, end old Queen access, retain client admin and reject member or stale changes", async (t) => {
+  const f = await fixture(t);
+  const direct = await f.auth.sign({
+    client_id: "hvmclient",
+    sub: "direct-admin",
+  });
+  f.db
+    .rows("workspace_memberships")
+    .push(
+      WorkspaceMembershipSchema.parse({
+        ...dates,
+        id: generatePlatformId("workspacemembership"),
+        workspaceId: f.input.workspaceId,
+        human: { ...human, id: "direct-admin" },
+        role: "admin",
+        status: "active",
+        joinedAt: dates.createdAt,
+      }),
+    );
+  // Original user is exclusively the managing Queen for this check.
+  f.db.rows("workspace_memberships").splice(0, 1);
+  const team = await f.request(f.root + "/team", undefined, direct);
+  assert.equal(team.body.canChangeManagement, true);
+  const change = {
+    management: "client",
+    expectedUpdatedAt: team.body.updatedAt,
+    confirm: true,
+  };
+  assert.equal(
+    (await f.request(f.root + "/management-change", change)).status,
+    404,
+  );
+  const fresh = await f.request(f.root + "/team", undefined, direct);
+  assert.equal(
+    (
+      await f.request(
+        f.root + "/management-change",
+        { ...change, expectedUpdatedAt: fresh.body.updatedAt },
+        direct,
+      )
+    ).status,
+    200,
+  );
+  assert.equal((await f.request(f.root + "/team")).status, 404);
+  assert.equal(
+    (await f.request(f.root + "/team", undefined, direct)).body.management,
+    "client",
+  );
+  assert.equal(f.db.rows("workspace_partner_assignments")[0].status, "ended");
+  assert.equal(f.db.rows("brands")[0].id, f.input.brandId);
+  assert.equal(
+    f.db.rows("crm_workspaces")[0].clientOrganisationId,
+    f.input.organisationId,
+  );
+  assert.equal(
+    (await f.request(f.root + "/management-change", change, direct)).status,
+    409,
+  );
+  const now = await f.request(f.root + "/team", undefined, direct);
+  assert.equal(
+    (
+      await f.request(
+        f.root + "/management-change",
+        {
+          management: "queen",
+          partnerId: f.input.partnerId,
+          confirm: true,
+          expectedUpdatedAt: now.body.updatedAt,
+        },
+        direct,
+      )
+    ).status,
+    200,
+  );
+  assert.equal((await f.request(f.root + "/team")).status, 200);
+  const admin = f.db
+    .rows("workspace_memberships")
+    .find((m) => m.human.id === "direct-admin")!;
+  assert.equal(
+    (
+      await f.request(f.root + "/member-revoke", {
+        id: admin.id,
+        expectedUpdatedAt: admin.updatedAt.toISOString(),
+      })
+    ).status,
+    409,
+  );
+  assert.equal(
+    f.db
+      .rows("events")
+      .filter((e) => e.eventType === "workspace_management_changed").length,
+    2,
+  );
+  f.db
+    .rows("workspace_memberships")
+    .push(
+      WorkspaceMembershipSchema.parse({
+        ...dates,
+        id: generatePlatformId("workspacemembership"),
+        workspaceId: f.input.workspaceId,
+        human: { ...human, id: "reader" },
+        role: "member",
+        status: "active",
+        joinedAt: dates.createdAt,
+      }),
+    );
+  const reader = await f.auth.sign({ client_id: "hvmclient", sub: "reader" });
+  assert.equal(
+    (await f.request(f.root + "/team", undefined, reader)).body.canManage,
+    false,
+  );
+  assert.equal(
+    (
+      await f.request(
+        f.root + "/member-provision",
+        { human: { ...human, id: "reader" }, role: "admin" },
+        reader,
+      )
+    ).status,
+    404,
+  );
+  assert.equal(
+    (await f.request(f.root + "/management-change", change, reader)).status,
+    404,
+  );
+  assert.equal(
+    (
+      await f.request(
+        f.root + "/kit-save",
+        {
+          brandId: f.input.brandId,
+          expectedKitId: null,
+          content: { voice: { writingStyle: "Changed" } },
+        },
+        reader,
+      )
+    ).status,
+    404,
+  );
 });

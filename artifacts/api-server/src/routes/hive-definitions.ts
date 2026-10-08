@@ -1,3 +1,4 @@
+import { AgentProposalStale } from "../services/agent-proposal-freshness";
 import { Router, type ErrorRequestHandler } from "express";
 import { z, ZodError } from "zod";
 import type { AppConfig } from "../config";
@@ -86,7 +87,9 @@ export function createHiveDefinitionsRouter(
         ? 404
         : error instanceof ZodError
           ? 400
-          : error instanceof HiveConflict || error?.code === 11000
+          : error instanceof HiveConflict ||
+              error instanceof AgentProposalStale ||
+              error?.code === 11000
             ? 409
             : 503;
     res.status(status).json({

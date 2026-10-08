@@ -20,19 +20,39 @@ export const HvmProvisionInput = z
     organisationId: platformIdSchema("org"),
     organisationName: z.string().trim().min(1).max(200).optional(),
     workspaceId: platformIdSchema("workspace"),
-    partnerId: platformIdSchema("partner"),
-    partnerMembershipId: platformIdSchema("partnermembership"),
-    assignmentId: platformIdSchema("partnerassignment"),
+    management: z.enum(["queen", "client"]).default("queen"),
+    partnerId: platformIdSchema("partner").optional(),
+    partnerMembershipId: platformIdSchema("partnermembership").optional(),
+    assignmentId: platformIdSchema("partnerassignment").optional(),
     brandId: platformIdSchema("brand"),
     clientMembershipId: platformIdSchema("workspacemembership").optional(),
     workspaceName: z.string().trim().min(1).max(200),
-    partnerName: z.string().trim().min(1).max(200),
+    partnerName: z.string().trim().min(1).max(200).optional(),
     brandName: z.string().trim().min(1).max(200),
     brandSlug: z.string().regex(/^[a-z0-9][a-z0-9-]{0,99}$/),
     brandPrimaryDomain: BrandRecordSchema.shape.primaryDomain,
     human: partnerHumanSchema,
   })
-  .strict();
+  .strict()
+  .superRefine((v, ctx) => {
+    if (
+      v.management === "client"
+        ? !v.clientMembershipId ||
+          v.partnerId ||
+          v.partnerMembershipId ||
+          v.assignmentId ||
+          v.partnerName
+        : !v.partnerId ||
+          !v.partnerMembershipId ||
+          !v.assignmentId ||
+          !v.partnerName
+    )
+      ctx.addIssue({
+        code: "custom",
+        message:
+          "Client-managed provisioning requires a client administrator and no Partner records; Queen-managed provisioning requires explicit Partner identities.",
+      });
+  });
 /** Operator-only command/service. Explicit stable IDs are the idempotency keys. No HTTP route. */
 export async function provisionHvmClient(
   mongo: MongoService,
@@ -50,8 +70,31 @@ export async function provisionHvmClient(
     const ledger = await db
       .collection("schema_versions")
       .findOne({ _id: "vapp-v1" } as Document, options);
-    if (![5, 6].includes(ledger?.version ?? 0))
-      throw new Error("Provisioning requires reviewed/applied schema v5 or v6");
+    if (
+      ![
+        5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23,
+        24, 25,
+      ].includes(ledger?.version ?? 0)
+    )
+      throw new Error(
+        "Provisioning requires reviewed/applied schema v5, v6, v7, v8 or v9",
+      );
+    if (
+      input.management === "client" &&
+      (await db
+        .collection("workspace_partner_assignments")
+        .findOne(
+          {
+            workspaceId: input.workspaceId,
+            status: "active",
+            archived: { $ne: true },
+          },
+          options,
+        ))
+    )
+      throw new Error(
+        "Use an authorized management transition for an assigned workspace",
+      );
     const organisation = await db.collection("organisations").findOne(
       {
         id: input.organisationId,
@@ -121,31 +164,33 @@ export async function provisionHvmClient(
         }),
         ["name"],
       );
-    await ensure(
-      "hvm_partners",
-      HvmPartnerSchema.parse({
-        ...base,
-        id: input.partnerId,
-        organisationId: input.organisationId,
-        displayName: input.partnerName,
-        status: "active",
-      }),
-      ["organisationId", "displayName", "status"],
-    );
-    await ensure(
-      "hvm_partner_memberships",
-      HvmPartnerMembershipSchema.parse({
-        ...base,
-        id: input.partnerMembershipId,
-        partnerId: input.partnerId,
-        human: input.human,
-        role: "owner",
-        status: "active",
-        joinedAt: now,
-        addedBy: input.human,
-      }),
-      ["partnerId", "human", "role", "status"],
-    );
+    if (input.management === "queen") {
+      await ensure(
+        "hvm_partners",
+        HvmPartnerSchema.parse({
+          ...base,
+          id: input.partnerId,
+          organisationId: input.organisationId,
+          displayName: input.partnerName,
+          status: "active",
+        }),
+        ["organisationId", "displayName", "status"],
+      );
+      await ensure(
+        "hvm_partner_memberships",
+        HvmPartnerMembershipSchema.parse({
+          ...base,
+          id: input.partnerMembershipId,
+          partnerId: input.partnerId,
+          human: input.human,
+          role: "owner",
+          status: "active",
+          joinedAt: now,
+          addedBy: input.human,
+        }),
+        ["partnerId", "human", "role", "status"],
+      );
+    }
     await ensure(
       "crm_workspaces",
       CrmWorkspaceSchema.parse({
@@ -157,20 +202,22 @@ export async function provisionHvmClient(
       }),
       ["kind", "clientOrganisationId", "name"],
     );
-    await ensure(
-      "workspace_partner_assignments",
-      WorkspacePartnerAssignmentSchema.parse({
-        ...base,
-        id: input.assignmentId,
-        workspaceId: input.workspaceId,
-        partnerId: input.partnerId,
-        role: "primary",
-        status: "active",
-        assignedAt: now,
-        assignedBy: { type: "human", id: input.human.id },
-      }),
-      ["workspaceId", "partnerId", "role", "status"],
-    );
+    if (input.management === "queen") {
+      await ensure(
+        "workspace_partner_assignments",
+        WorkspacePartnerAssignmentSchema.parse({
+          ...base,
+          id: input.assignmentId,
+          workspaceId: input.workspaceId,
+          partnerId: input.partnerId,
+          role: "primary",
+          status: "active",
+          assignedAt: now,
+          assignedBy: { type: "human", id: input.human.id },
+        }),
+        ["workspaceId", "partnerId", "role", "status"],
+      );
+    }
     await ensure(
       "brands",
       BrandSchema.parse({

@@ -1,0 +1,165 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$"
+    },
+    "runId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$"
+    },
+    "attemptId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$"
+    },
+    "workspaceId": {
+      "type": "string",
+      "pattern": "^workspace_[0-7][0-9abcdefghjkmnpqrstvwxyz]{25}$"
+    },
+    "clientAgentId": {
+      "type": "string",
+      "pattern": "^clientagent_[0-7][0-9abcdefghjkmnpqrstvwxyz]{25}$"
+    },
+    "invocationId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$"
+    },
+    "category": { "type": "string", "enum": ["model", "tool"] },
+    "provider": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^[a-z][a-z0-9_]*$"
+    },
+    "model": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^[a-z][a-z0-9_]*$"
+    },
+    "tool": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^[a-z][a-z0-9_]*$"
+    },
+    "operation": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^[a-z][a-z0-9_]*$"
+    },
+    "quantities": {
+      "minItems": 1,
+      "maxItems": 20,
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "unit": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "pattern": "^[a-z][a-z0-9_]*$"
+          },
+          "quantity": {
+            "type": "string",
+            "maxLength": 32,
+            "pattern": "^(0|[1-9][0-9]{0,17})(\\.[0-9]{1,12})?$"
+          }
+        },
+        "required": ["unit", "quantity"],
+        "additionalProperties": false
+      }
+    },
+    "startedAt": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d\\.\\d{3}(?:Z))$"
+    },
+    "endedAt": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d\\.\\d{3}(?:Z))$"
+    },
+    "durationMs": { "type": "integer", "minimum": 0, "maximum": 86400000 },
+    "cost": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": { "status": { "type": "string", "const": "unknown" } },
+          "required": ["status"],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "status": {
+              "type": "string",
+              "enum": ["estimated", "provider_confirmed"]
+            },
+            "amount": {
+              "type": "string",
+              "maxLength": 32,
+              "pattern": "^(0|[1-9][0-9]{0,17})(\\.[0-9]{1,12})?$"
+            },
+            "currency": { "type": "string", "pattern": "^[A-Z]{3}$" },
+            "source": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64,
+              "pattern": "^[a-z][a-z0-9_]*$"
+            },
+            "rateCardVersion": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            }
+          },
+          "required": ["status", "amount", "currency", "source"],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "retryOf": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$"
+    },
+    "supersedes": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$"
+    }
+  },
+  "required": [
+    "id",
+    "runId",
+    "attemptId",
+    "workspaceId",
+    "invocationId",
+    "category",
+    "provider",
+    "operation",
+    "quantities",
+    "startedAt",
+    "endedAt",
+    "durationMs",
+    "cost"
+  ],
+  "additionalProperties": false,
+  "x-protocol-version": "1.2",
+  "x-runtime-validation": "Zod plus canonicalJson is authoritative. JSON Schema omits digest, byte/depth, scope, chronology, completeness and cross-reference refinements."
+}

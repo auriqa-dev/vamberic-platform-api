@@ -1,0 +1,154 @@
+{
+  "protocolVersion": "1.0",
+  "resultSchemaVersion": 1,
+  "runId": "run:synthetic-1",
+  "attemptId": "attempt:synthetic-1",
+  "generation": 1,
+  "fence": 1,
+  "submissionId": "submission:fc3236c8a55c5c7dfc50a06052d4fe07d39341fb",
+  "payloadDigest": "b7cd1cd4b74e2aa2986133187c2869b1cea0824fe0d91b7c453c0a19c4fd385b",
+  "implementation": {
+    "key": "internal_fake",
+    "version": 1,
+    "manifestDigest": "9e7e951ff64105b33b757c5ad19f17cc0f044684cc73c68691f7ea4f5b26ee08",
+    "buildDigest": "92b88de21b5f13dfb763e7aefea32dacdb15cf42625f8e1048569fd8857fef70"
+  },
+  "instruction": {
+    "version": 1,
+    "hash": "5a8541c9c71fea0c684cadf646e13c5439497ee18e14153fe84db13e17515622"
+  },
+  "traceId": "trace:synthetic-1",
+  "startedAt": "2026-10-01T09:00:00.000Z",
+  "endedAt": "2026-10-01T09:00:00.004Z",
+  "outcome": {
+    "kind": "success",
+    "completeness": { "kind": "complete" },
+    "content": {
+      "domainOutput": { "summary": "Synthetic finding" },
+      "findings": [
+        {
+          "id": "finding:synthetic-1",
+          "kind": "evidence_backed_finding",
+          "statement": "Synthetic finding",
+          "evidenceIds": ["evidence:synthetic-1"],
+          "lineageIds": ["consumed:eb35eac17448164bb5505e1d368a9d6ef7f28898"]
+        }
+      ],
+      "evidence": [
+        {
+          "id": "evidence:synthetic-1",
+          "origin": "external_evidence",
+          "claim": "A synthetic source says this.",
+          "provenance": {
+            "provider": "fake_provider",
+            "adapterKey": "fake_paid_read",
+            "adapterVersion": 1,
+            "invocationId": "call:7088efe4e42044c9f48ead1c807a91ce1e97e9d9",
+            "providerRequestId": "fake:call:7088efe4e42044c9f48ead1c807a91ce1e97e9d9",
+            "modelVersion": "fake-1"
+          },
+          "source": {
+            "kind": "external",
+            "url": "https://example.invalid/source"
+          },
+          "observedAt": "2026-10-01T09:00:00.004Z",
+          "retrievedAt": "2026-10-01T09:00:00.004Z",
+          "digest": "5f344c605fd1655c60ba9c0f0df61e41a002d32dc6bcfc4db1637c323d63933f",
+          "verification": "observed"
+        }
+      ],
+      "assumptions": [],
+      "unknowns": [],
+      "proposals": [
+        {
+          "id": "proposal:synthetic-1",
+          "targetKind": "synthetic_record",
+          "target": {
+            "kind": "update",
+            "reference": {
+              "resourceType": "synthetic_record",
+              "id": "synthetic:record-1",
+              "workspaceId": "workspace_00000000000000000000000001",
+              "revision": 3,
+              "contentHash": "28fa7241afd19bea76f207bf1f24bba1e83abe784dc86a946226fe1556da8f46"
+            }
+          },
+          "candidate": { "label": "Synthetic candidate" },
+          "evidenceIds": ["evidence:synthetic-1"],
+          "rationale": "Demonstrate a candidate, never apply it.",
+          "lineageIds": ["consumed:eb35eac17448164bb5505e1d368a9d6ef7f28898"]
+        }
+      ],
+      "artifacts": [],
+      "warnings": [],
+      "lineage": [
+        {
+          "id": "consumed:eb35eac17448164bb5505e1d368a9d6ef7f28898",
+          "role": "consumed",
+          "purpose": "Synthetic context",
+          "source": {
+            "kind": "resource",
+            "reference": {
+              "resourceType": "synthetic_record",
+              "id": "synthetic:record-1",
+              "workspaceId": "workspace_00000000000000000000000001",
+              "revision": 3,
+              "contentHash": "28fa7241afd19bea76f207bf1f24bba1e83abe784dc86a946226fe1556da8f46"
+            }
+          },
+          "observedAt": "2026-10-01T09:00:00.000Z",
+          "fetchedAt": "2026-10-01T09:00:00.000Z",
+          "fields": ["label"]
+        }
+      ]
+    }
+  },
+  "usage": [
+    {
+      "id": "usage:14fbf96451ed31b77d0bf947b65b55daed637327",
+      "runId": "run:synthetic-1",
+      "attemptId": "attempt:synthetic-1",
+      "workspaceId": "workspace_00000000000000000000000001",
+      "clientAgentId": "clientagent_00000000000000000000000001",
+      "invocationId": "call:fa05de6a4ba23dd2beb5edee728efcec0d6ab1d8",
+      "category": "model",
+      "provider": "fake_provider",
+      "model": "fake_model",
+      "operation": "summarize",
+      "quantities": [{ "unit": "calls", "quantity": "1" }],
+      "startedAt": "2026-10-01T09:00:00.000Z",
+      "endedAt": "2026-10-01T09:00:00.002Z",
+      "durationMs": 2,
+      "cost": {
+        "status": "estimated",
+        "amount": "0.001",
+        "currency": "GBP",
+        "source": "fake_rate",
+        "rateCardVersion": "1"
+      }
+    },
+    {
+      "id": "usage:d5884ba819b49aa47a78fc0d346d7b4a9e8d066c",
+      "runId": "run:synthetic-1",
+      "attemptId": "attempt:synthetic-1",
+      "workspaceId": "workspace_00000000000000000000000001",
+      "clientAgentId": "clientagent_00000000000000000000000001",
+      "invocationId": "call:7088efe4e42044c9f48ead1c807a91ce1e97e9d9",
+      "category": "tool",
+      "provider": "fake_provider",
+      "tool": "fake_paid_read",
+      "operation": "inspect",
+      "quantities": [{ "unit": "calls", "quantity": "1" }],
+      "startedAt": "2026-10-01T09:00:00.002Z",
+      "endedAt": "2026-10-01T09:00:00.004Z",
+      "durationMs": 2,
+      "cost": {
+        "status": "estimated",
+        "amount": "0.001",
+        "currency": "GBP",
+        "source": "fake_rate",
+        "rateCardVersion": "1"
+      }
+    }
+  ]
+}

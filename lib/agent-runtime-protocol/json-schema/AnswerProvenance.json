@@ -1,0 +1,98 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "kind": { "type": "string", "const": "platform_answer_provenance" },
+    "schemaVersion": { "type": "number", "const": 1 },
+    "submissionId": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "workspaceId": {
+      "type": "string",
+      "pattern": "^workspace_[0-7][0-9abcdefghjkmnpqrstvwxyz]{25}$"
+    },
+    "runId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$"
+    },
+    "operation": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^[a-z][a-z0-9_]*$"
+    },
+    "action": { "type": "string", "const": "respond" },
+    "requestId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$"
+    },
+    "requestDigest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "checkpoint": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$"
+        },
+        "digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+      },
+      "required": ["id", "digest"],
+      "additionalProperties": false
+    },
+    "submissionGeneration": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 1000000
+    },
+    "resumeGeneration": { "type": "integer", "minimum": 1, "maximum": 1000000 },
+    "responseDigest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "actor": {
+      "type": "object",
+      "properties": {
+        "type": { "type": "string", "const": "human" },
+        "issuer": { "type": "string", "minLength": 1, "maxLength": 500 },
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$"
+        }
+      },
+      "required": ["type", "issuer", "id"],
+      "additionalProperties": false
+    },
+    "capacity": { "type": "string", "enum": ["partner", "client"] },
+    "submittedAt": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d\\.\\d{3}(?:Z))$"
+    },
+    "digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+  },
+  "required": [
+    "kind",
+    "schemaVersion",
+    "submissionId",
+    "workspaceId",
+    "runId",
+    "operation",
+    "action",
+    "requestId",
+    "requestDigest",
+    "checkpoint",
+    "submissionGeneration",
+    "resumeGeneration",
+    "responseDigest",
+    "actor",
+    "capacity",
+    "submittedAt",
+    "digest"
+  ],
+  "additionalProperties": false,
+  "x-protocol-version": "1.2",
+  "x-runtime-validation": "Zod plus canonicalJson is authoritative. JSON Schema omits digest, byte/depth, scope, chronology, completeness and cross-reference refinements."
+}

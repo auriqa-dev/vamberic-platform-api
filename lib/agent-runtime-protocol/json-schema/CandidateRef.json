@@ -1,0 +1,86 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "caseId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$"
+    },
+    "revision": { "type": "integer", "minimum": 1, "maximum": 3 },
+    "runId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$"
+    },
+    "attemptId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$"
+    },
+    "resultId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$"
+    },
+    "envelopeDigest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "contentDigest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "selector": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": { "type": "string", "const": "domain_output" }
+          },
+          "required": ["kind"],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": { "type": "string", "const": "proposal" },
+            "proposalId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$"
+            }
+          },
+          "required": ["kind", "proposalId"],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": { "type": "string", "const": "artifact" },
+            "artifactId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$"
+            }
+          },
+          "required": ["kind", "artifactId"],
+          "additionalProperties": false
+        }
+      ]
+    }
+  },
+  "required": [
+    "caseId",
+    "revision",
+    "runId",
+    "attemptId",
+    "resultId",
+    "envelopeDigest",
+    "contentDigest",
+    "selector"
+  ],
+  "additionalProperties": false,
+  "x-protocol-version": "1.2",
+  "x-runtime-validation": "Zod plus canonicalJson is authoritative. JSON Schema omits digest, byte/depth, scope, chronology, completeness and cross-reference refinements."
+}

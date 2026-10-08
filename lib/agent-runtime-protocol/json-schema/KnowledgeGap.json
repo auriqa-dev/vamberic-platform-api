@@ -1,0 +1,111 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$"
+    },
+    "question": { "type": "string", "minLength": 1, "maxLength": 2000 },
+    "whyRequired": { "type": "string", "minLength": 1, "maxLength": 2000 },
+    "severity": { "type": "string", "enum": ["blocking", "non_blocking"] },
+    "checked": {
+      "minItems": 1,
+      "maxItems": 10,
+      "type": "array",
+      "items": { "type": "string", "minLength": 1, "maxLength": 500 }
+    },
+    "evidenceIds": {
+      "maxItems": 20,
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 100,
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$"
+      }
+    },
+    "findingIds": {
+      "maxItems": 20,
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 100,
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$"
+      }
+    },
+    "lineageIds": {
+      "maxItems": 20,
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 100,
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$"
+      }
+    },
+    "resolution": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": { "type": "string", "const": "human_input" }
+          },
+          "required": ["kind"],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": { "kind": { "type": "string", "const": "research" } },
+          "required": ["kind"],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": { "type": "string", "const": "capability" },
+            "requiredCapability": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64,
+              "pattern": "^[a-z][a-z0-9_]*$"
+            }
+          },
+          "required": ["kind", "requiredCapability"],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": { "kind": { "type": "string", "const": "unresolved" } },
+          "required": ["kind"],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "context": {
+      "type": "object",
+      "properties": {
+        "subject": { "type": "string", "minLength": 1, "maxLength": 500 },
+        "scope": { "type": "string", "minLength": 1, "maxLength": 500 }
+      },
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "id",
+    "question",
+    "whyRequired",
+    "severity",
+    "checked",
+    "evidenceIds",
+    "findingIds",
+    "lineageIds",
+    "resolution"
+  ],
+  "additionalProperties": false,
+  "x-protocol-version": "1.2",
+  "x-runtime-validation": "Zod plus canonicalJson is authoritative. JSON Schema omits digest, byte/depth, scope, chronology, completeness and cross-reference refinements."
+}

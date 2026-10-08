@@ -1,0 +1,18 @@
+{
+  "id": "proposal:synthetic-1",
+  "targetKind": "synthetic_record",
+  "target": {
+    "kind": "update",
+    "reference": {
+      "resourceType": "synthetic_record",
+      "id": "synthetic:record-1",
+      "workspaceId": "workspace_00000000000000000000000001",
+      "revision": 3,
+      "contentHash": "28fa7241afd19bea76f207bf1f24bba1e83abe784dc86a946226fe1556da8f46"
+    }
+  },
+  "candidate": { "label": "Synthetic candidate" },
+  "evidenceIds": ["evidence:synthetic-1"],
+  "rationale": "Demonstrate a candidate, never apply it.",
+  "lineageIds": ["consumed:eb35eac17448164bb5505e1d368a9d6ef7f28898"]
+}

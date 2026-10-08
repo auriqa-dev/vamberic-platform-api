@@ -1,0 +1,445 @@
+{
+  "$jsonSchema": {
+    "bsonType": "object",
+    "additionalProperties": false,
+    "properties": {
+      "id": {
+        "bsonType": "string",
+        "pattern": "^clientonboarding_[0-7][0-9abcdefghjkmnpqrstvwxyz]{25}$"
+      },
+      "partnerId": {
+        "bsonType": "string",
+        "pattern": "^partner_[0-7][0-9abcdefghjkmnpqrstvwxyz]{25}$"
+      },
+      "createScope": {
+        "bsonType": "string",
+        "pattern": "^[a-f0-9]{64}$"
+      },
+      "createDigest": {
+        "bsonType": "string",
+        "pattern": "^[a-f0-9]{64}$"
+      },
+      "revision": {
+        "bsonType": [
+          "int",
+          "long",
+          "double"
+        ],
+        "multipleOf": 1,
+        "minimum": 0,
+        "exclusiveMinimum": true,
+        "maximum": 9007199254740991
+      },
+      "executionSerial": {
+        "bsonType": [
+          "int",
+          "long",
+          "double"
+        ],
+        "multipleOf": 1,
+        "minimum": 0,
+        "maximum": 9007199254740991
+      },
+      "details": {
+        "bsonType": "object",
+        "additionalProperties": false,
+        "properties": {
+          "intake": {
+            "bsonType": "object",
+            "additionalProperties": false,
+            "properties": {
+              "organisationName": {
+                "bsonType": "string",
+                "minLength": 1,
+                "maxLength": 200,
+                "pattern": "\\S"
+              },
+              "websiteUrl": {
+                "bsonType": "string",
+                "maxLength": 2048
+              },
+              "currentMarketingPlatform": {
+                "bsonType": "string",
+                "minLength": 1,
+                "maxLength": 200,
+                "pattern": "\\S"
+              },
+              "currentContactCount": {
+                "bsonType": [
+                  "int",
+                  "long",
+                  "double"
+                ],
+                "multipleOf": 1,
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "contactCountDescription": {
+                "bsonType": "string",
+                "minLength": 1,
+                "maxLength": 1000,
+                "pattern": "\\S"
+              },
+              "growthExpectation": {
+                "bsonType": "string",
+                "minLength": 1,
+                "maxLength": 1000,
+                "pattern": "\\S"
+              },
+              "otherTools": {
+                "bsonType": "array",
+                "items": {
+                  "bsonType": "string",
+                  "minLength": 1,
+                  "maxLength": 200,
+                  "pattern": "\\S"
+                },
+                "maxItems": 40
+              }
+            },
+            "required": [
+              "organisationName",
+              "websiteUrl",
+              "otherTools"
+            ]
+          },
+          "workspaceName": {
+            "bsonType": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "pattern": "\\S"
+          },
+          "brandName": {
+            "bsonType": "string",
+            "minLength": 1,
+            "maxLength": 200,
+            "pattern": "\\S"
+          },
+          "brandSlug": {
+            "bsonType": "string",
+            "pattern": "^[a-z0-9][a-z0-9-]{0,99}$"
+          }
+        },
+        "required": [
+          "intake",
+          "workspaceName",
+          "brandName",
+          "brandSlug"
+        ]
+      },
+      "proposal": {
+        "bsonType": "object",
+        "additionalProperties": false,
+        "properties": {
+          "version": {
+            "enum": [
+              1
+            ]
+          },
+          "treatment": {
+            "enum": [
+              "internal"
+            ]
+          },
+          "scope": {
+            "enum": [
+              "hvm_platform_and_agent_services"
+            ]
+          },
+          "customerChargeMinor": {
+            "enum": [
+              0
+            ]
+          },
+          "basis": {
+            "enum": [
+              "empress_exemption_required"
+            ]
+          },
+          "externalServicesIncluded": {
+            "enum": [
+              false
+            ]
+          }
+        },
+        "required": [
+          "version",
+          "treatment",
+          "scope",
+          "customerChargeMinor",
+          "basis",
+          "externalServicesIncluded"
+        ]
+      },
+      "binding": {
+        "bsonType": "object",
+        "additionalProperties": false,
+        "properties": {
+          "onboardingId": {
+            "bsonType": "string",
+            "pattern": "^clientonboarding_[0-9a-hjkmnp-tv-z]{26}$"
+          },
+          "partnerId": {
+            "bsonType": "string",
+            "pattern": "^partner_[0-7][0-9abcdefghjkmnpqrstvwxyz]{25}$"
+          },
+          "intakeRevision": {
+            "bsonType": [
+              "int",
+              "long",
+              "double"
+            ],
+            "multipleOf": 1,
+            "minimum": 0,
+            "exclusiveMinimum": true,
+            "maximum": 9007199254740991
+          },
+          "intakeDigest": {
+            "bsonType": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "quoteRevision": {
+            "bsonType": [
+              "int",
+              "long",
+              "double"
+            ],
+            "multipleOf": 1,
+            "minimum": 0,
+            "exclusiveMinimum": true,
+            "maximum": 9007199254740991
+          },
+          "quoteDigest": {
+            "bsonType": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          }
+        },
+        "required": [
+          "onboardingId",
+          "partnerId",
+          "intakeRevision",
+          "intakeDigest",
+          "quoteRevision",
+          "quoteDigest"
+        ]
+      },
+      "approval": {
+        "bsonType": "object",
+        "additionalProperties": false,
+        "properties": {
+          "version": {
+            "enum": [
+              1
+            ]
+          },
+          "revision": {
+            "bsonType": [
+              "int",
+              "long",
+              "double"
+            ],
+            "multipleOf": 1,
+            "minimum": 0,
+            "exclusiveMinimum": true,
+            "maximum": 9007199254740991
+          },
+          "status": {
+            "enum": [
+              "active",
+              "revoked"
+            ]
+          },
+          "binding": {
+            "bsonType": "object",
+            "additionalProperties": false,
+            "properties": {
+              "onboardingId": {
+                "bsonType": "string",
+                "pattern": "^clientonboarding_[0-9a-hjkmnp-tv-z]{26}$"
+              },
+              "partnerId": {
+                "bsonType": "string",
+                "pattern": "^partner_[0-7][0-9abcdefghjkmnpqrstvwxyz]{25}$"
+              },
+              "intakeRevision": {
+                "bsonType": [
+                  "int",
+                  "long",
+                  "double"
+                ],
+                "multipleOf": 1,
+                "minimum": 0,
+                "exclusiveMinimum": true,
+                "maximum": 9007199254740991
+              },
+              "intakeDigest": {
+                "bsonType": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              "quoteRevision": {
+                "bsonType": [
+                  "int",
+                  "long",
+                  "double"
+                ],
+                "multipleOf": 1,
+                "minimum": 0,
+                "exclusiveMinimum": true,
+                "maximum": 9007199254740991
+              },
+              "quoteDigest": {
+                "bsonType": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              }
+            },
+            "required": [
+              "onboardingId",
+              "partnerId",
+              "intakeRevision",
+              "intakeDigest",
+              "quoteRevision",
+              "quoteDigest"
+            ]
+          },
+          "treatment": {
+            "enum": [
+              "internal"
+            ]
+          },
+          "scope": {
+            "enum": [
+              "hvm_platform_and_agent_services"
+            ]
+          },
+          "reason": {
+            "bsonType": "string",
+            "minLength": 1,
+            "maxLength": 1000,
+            "pattern": "\\S"
+          },
+          "approvedBy": {
+            "bsonType": "object",
+            "additionalProperties": false,
+            "properties": {
+              "type": {
+                "enum": [
+                  "human"
+                ]
+              },
+              "issuer": {
+                "bsonType": "string",
+                "maxLength": 500,
+                "pattern": "^https?:\\/\\/[^\\s]+$"
+              },
+              "id": {
+                "bsonType": "string",
+                "minLength": 1,
+                "maxLength": 300,
+                "pattern": "\\S"
+              }
+            },
+            "required": [
+              "type",
+              "issuer",
+              "id"
+            ]
+          },
+          "approvedAt": {
+            "bsonType": "date"
+          },
+          "validUntil": {
+            "bsonType": "date"
+          }
+        },
+        "required": [
+          "version",
+          "revision",
+          "status",
+          "binding",
+          "treatment",
+          "scope",
+          "reason",
+          "approvedBy",
+          "approvedAt",
+          "validUntil"
+        ]
+      },
+      "result": {
+        "bsonType": "object",
+        "additionalProperties": false,
+        "properties": {
+          "organisationId": {
+            "bsonType": "string",
+            "pattern": "^org_[0-7][0-9abcdefghjkmnpqrstvwxyz]{25}$"
+          },
+          "workspaceId": {
+            "bsonType": "string",
+            "pattern": "^workspace_[0-7][0-9abcdefghjkmnpqrstvwxyz]{25}$"
+          },
+          "brandId": {
+            "bsonType": "string",
+            "pattern": "^brand_[0-7][0-9abcdefghjkmnpqrstvwxyz]{25}$"
+          },
+          "partnerId": {
+            "bsonType": "string",
+            "pattern": "^partner_[0-7][0-9abcdefghjkmnpqrstvwxyz]{25}$"
+          }
+        },
+        "required": [
+          "organisationId",
+          "workspaceId",
+          "brandId",
+          "partnerId"
+        ]
+      },
+      "createdBy": {
+        "bsonType": "object",
+        "additionalProperties": false,
+        "properties": {
+          "type": {
+            "enum": [
+              "human"
+            ]
+          },
+          "issuer": {
+            "bsonType": "string",
+            "maxLength": 500,
+            "pattern": "^https?:\\/\\/[^\\s]+$"
+          },
+          "id": {
+            "bsonType": "string",
+            "minLength": 1,
+            "maxLength": 300,
+            "pattern": "\\S"
+          }
+        },
+        "required": [
+          "type",
+          "issuer",
+          "id"
+        ]
+      },
+      "createdAt": {
+        "bsonType": "date"
+      },
+      "updatedAt": {
+        "bsonType": "date"
+      },
+      "_id": {}
+    },
+    "required": [
+      "id",
+      "partnerId",
+      "createScope",
+      "createDigest",
+      "revision",
+      "executionSerial",
+      "details",
+      "proposal",
+      "binding",
+      "createdBy",
+      "createdAt",
+      "updatedAt"
+    ]
+  }
+}

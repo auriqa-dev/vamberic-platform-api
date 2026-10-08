@@ -1,0 +1,189 @@
+{
+  "protocolVersion": "1.1",
+  "resultSchemaVersion": 2,
+  "runId": "run:synthetic-1",
+  "attemptId": "attempt:synthetic-1",
+  "generation": 1,
+  "fence": 1,
+  "submissionId": "submission:fc3236c8a55c5c7dfc50a06052d4fe07d39341fb",
+  "payloadDigest": "65db3f39a65237b684275f6558450301edb810f9e0c51ccdad1ff271308a2aa0",
+  "implementation": {
+    "key": "internal_fake",
+    "version": 2,
+    "manifestDigest": "1d4554beb212572ba3ac19a05cb8a73f1b8929626d714199f9567c12e9e7524a",
+    "buildDigest": "6c0ecae75cd1fb85bfcd724f7daa4f1b956beb6bf561e2d242dbec1c92c57fa9"
+  },
+  "instruction": {
+    "version": 1,
+    "hash": "5a8541c9c71fea0c684cadf646e13c5439497ee18e14153fe84db13e17515622"
+  },
+  "traceId": "trace:synthetic-1",
+  "startedAt": "2026-10-01T09:00:00.000Z",
+  "endedAt": "2026-10-01T09:00:00.000Z",
+  "outcome": {
+    "kind": "needs_input",
+    "completeness": {
+      "kind": "partial",
+      "omissions": ["Required synthetic label not established"],
+      "reason": "Authorized knowledge is insufficient"
+    },
+    "content": {
+      "domainOutput": {
+        "summary": "Synthetic context checked; label not established"
+      },
+      "findings": [],
+      "evidence": [],
+      "assumptions": [],
+      "unknowns": [],
+      "knowledgeGaps": [
+        {
+          "id": "gap:required-label",
+          "question": "What is the required synthetic label?",
+          "whyRequired": "A confirmed label is needed for the synthetic domain output",
+          "severity": "blocking",
+          "checked": [
+            "Read the authorized projected synthetic context; it does not establish the required label"
+          ],
+          "evidenceIds": [],
+          "findingIds": [],
+          "lineageIds": ["consumed:eb35eac17448164bb5505e1d368a9d6ef7f28898"],
+          "resolution": { "kind": "human_input" },
+          "context": {
+            "subject": "Synthetic required label",
+            "scope": "Current task only"
+          }
+        }
+      ],
+      "proposals": [],
+      "artifacts": [],
+      "warnings": [],
+      "lineage": [
+        {
+          "id": "consumed:eb35eac17448164bb5505e1d368a9d6ef7f28898",
+          "role": "consumed",
+          "purpose": "Synthetic context",
+          "source": {
+            "kind": "resource",
+            "reference": {
+              "resourceType": "synthetic_record",
+              "id": "synthetic:record-1",
+              "workspaceId": "workspace_00000000000000000000000001",
+              "revision": 3,
+              "contentHash": "28fa7241afd19bea76f207bf1f24bba1e83abe784dc86a946226fe1556da8f46"
+            }
+          },
+          "observedAt": "2026-10-01T09:00:00.000Z",
+          "fetchedAt": "2026-10-01T09:00:00.000Z",
+          "fields": ["label"]
+        }
+      ]
+    },
+    "checkpoint": {
+      "id": "checkpoint:attempt:synthetic-1",
+      "schemaVersion": 2,
+      "implementation": { "key": "internal_fake", "version": 2 },
+      "runId": "run:synthetic-1",
+      "createdAt": "2026-10-01T09:00:00.000Z",
+      "payload": {
+        "stage": "waiting",
+        "content": {
+          "findings": [],
+          "evidence": [],
+          "assumptions": [],
+          "unknowns": [],
+          "knowledgeGaps": [
+            {
+              "id": "gap:required-label",
+              "question": "What is the required synthetic label?",
+              "whyRequired": "A confirmed label is needed for the synthetic domain output",
+              "severity": "blocking",
+              "checked": [
+                "Read the authorized projected synthetic context; it does not establish the required label"
+              ],
+              "evidenceIds": [],
+              "findingIds": [],
+              "lineageIds": [
+                "consumed:eb35eac17448164bb5505e1d368a9d6ef7f28898"
+              ],
+              "resolution": { "kind": "human_input" },
+              "context": {
+                "subject": "Synthetic required label",
+                "scope": "Current task only"
+              }
+            }
+          ],
+          "proposals": [],
+          "artifacts": [],
+          "warnings": [],
+          "lineage": [
+            {
+              "id": "consumed:eb35eac17448164bb5505e1d368a9d6ef7f28898",
+              "role": "consumed",
+              "purpose": "Synthetic context",
+              "source": {
+                "kind": "resource",
+                "reference": {
+                  "resourceType": "synthetic_record",
+                  "id": "synthetic:record-1",
+                  "workspaceId": "workspace_00000000000000000000000001",
+                  "revision": 3,
+                  "contentHash": "28fa7241afd19bea76f207bf1f24bba1e83abe784dc86a946226fe1556da8f46"
+                }
+              },
+              "observedAt": "2026-10-01T09:00:00.000Z",
+              "fetchedAt": "2026-10-01T09:00:00.000Z",
+              "fields": ["label"]
+            }
+          ],
+          "domainOutput": {
+            "summary": "Synthetic context checked; label not established"
+          }
+        }
+      },
+      "lineage": [
+        {
+          "id": "consumed:eb35eac17448164bb5505e1d368a9d6ef7f28898",
+          "role": "consumed",
+          "purpose": "Synthetic context",
+          "source": {
+            "kind": "resource",
+            "reference": {
+              "resourceType": "synthetic_record",
+              "id": "synthetic:record-1",
+              "workspaceId": "workspace_00000000000000000000000001",
+              "revision": 3,
+              "contentHash": "28fa7241afd19bea76f207bf1f24bba1e83abe784dc86a946226fe1556da8f46"
+            }
+          },
+          "observedAt": "2026-10-01T09:00:00.000Z",
+          "fetchedAt": "2026-10-01T09:00:00.000Z",
+          "fields": ["label"]
+        }
+      ],
+      "completedInvocationIds": [],
+      "digest": "39d1d67d941aa04f0faeb6884681fbdc6878ba05a959ee88e7df4ef18691f709"
+    },
+    "inputRequest": {
+      "id": "input:required-label",
+      "schemaKey": "synthetic_answer",
+      "schemaVersion": 1,
+      "question": "Supply the required synthetic label.",
+      "reason": "Resolve the blocking knowledge prerequisite",
+      "fields": [
+        {
+          "key": "answer",
+          "label": "Label",
+          "required": true,
+          "type": "text",
+          "maxLength": 100
+        }
+      ],
+      "expiresAt": "2026-10-02T09:00:00.000Z",
+      "checkpoint": {
+        "id": "checkpoint:attempt:synthetic-1",
+        "digest": "39d1d67d941aa04f0faeb6884681fbdc6878ba05a959ee88e7df4ef18691f709"
+      }
+    }
+  },
+  "usage": []
+}

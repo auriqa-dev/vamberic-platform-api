@@ -14,6 +14,8 @@ const text = (maxLength = 2000) => ({
   bsonType: "string",
   minLength: 1,
   maxLength,
+  // Non-empty after the application trim step; reject whitespace-only direct writes.
+  pattern: "\\S",
 });
 const id = (prefix: string) => ({
   bsonType: "string",
@@ -42,7 +44,7 @@ const integer = {
 const human = object(
   {
     type: { enum: ["human"] },
-    id: text(300),
+    id: { ...text(300), pattern: "^(?!partner_)[\\s\\S]*\\S" },
     issuer: { ...text(500), pattern: "^https?://[^\\s]+$" },
   },
   ["type", "id", "issuer"],
@@ -56,7 +58,11 @@ const evidence = object(
     value: {
       oneOf: [
         text(10000),
-        { bsonType: ["int", "long", "double", "decimal"] },
+        {
+          bsonType: ["int", "long", "double"],
+          minimum: -Number.MAX_VALUE,
+          maximum: Number.MAX_VALUE,
+        },
         { bsonType: "bool" },
         list(),
       ],
@@ -87,7 +93,12 @@ const offering = object(
     businessModel: text(),
     primaryOfferingType: { enum: [...OFFERING_TYPES] },
     secondaryOfferingTypes: array({ enum: [...OFFERING_TYPES] }, 13),
-    websiteUrl: { ...text(2048), pattern: "^https?://[^\\s@]+$" },
+    // URL parsing/IDNA/port semantics remain application-owned. This syntax guard
+    // permits @ in paths, queries and fragments, but not nonempty user-info.
+    websiteUrl: {
+      ...text(2048),
+      pattern: String.raw`^[\x00-\x20]*[hH][\t\r\n]*[tT][\t\r\n]*[tT][\t\r\n]*[pP][\t\r\n]*(?:[sS][\t\r\n]*)?:[\\/]*(?::?@)?(?:\[[0-9a-fA-F:.]+\]|[^\\/ @:#?\[\]\x00-\x08\x0b\x0c\x0e-\x1f]+)(?::[0-9]*)?(?:[\\/?#][\s\S]*)?[\x00-\x20]*$`,
+    },
     whatItIs: text(10000),
     whatCustomerBuys: text(10000),
     deliveryModes: array({ enum: [...DELIVERY_MODES] }, 13),
@@ -203,6 +214,49 @@ const records = {
 // Cross-collection references and semantic hashes are checked transactionally by the service.
 const lifecycle = {
   $and: [
+    {
+      $or: [
+        {
+          status: "approved",
+          approvedRevision: { $exists: true },
+          $expr: { $eq: ["$approvedRevision", "$revision"] },
+        },
+        { status: { $ne: "approved" }, approvedRevision: { $exists: false } },
+        {
+          status: "draft",
+          approvedRevision: { $exists: true },
+          $expr: { $lt: ["$approvedRevision", "$revision"] },
+        },
+        {
+          status: "retired",
+          approvedRevision: { $exists: true },
+          $expr: { $lte: ["$approvedRevision", "$revision"] },
+        },
+      ],
+    },
+    {
+      $expr: {
+        $allElementsTrue: [
+          {
+            $map: {
+              input: { $cond: [{ $isArray: "$evidence" }, "$evidence", []] },
+              as: "observation",
+              in: {
+                $and: [
+                  {
+                    $lte: [
+                      "$$observation.observedAt",
+                      "$$observation.recordedAt",
+                    ],
+                  },
+                  { $lte: ["$$observation.recordedAt", "$updatedAt"] },
+                ],
+              },
+            },
+          },
+        ],
+      },
+    },
     { $expr: { $gte: ["$updatedAt", "$createdAt"] } },
     {
       $or: [
@@ -253,6 +307,26 @@ const lifecycle = {
     },
   ],
 };
+/** Reuse exactly the current lifecycle at the snapshot path, including chronology. */
+function atSnapshot(value: unknown): unknown {
+  if (
+    typeof value === "string" &&
+    value.startsWith("$") &&
+    !value.startsWith("$$")
+  )
+    return `$snapshot.${value.slice(1)}`;
+  if (Array.isArray(value)) return value.map(atSnapshot);
+  if (value && typeof value === "object")
+    return Object.fromEntries(
+      Object.entries(value).map(([key, child]) => [
+        key.startsWith("$") || ["input", "as", "in"].includes(key)
+          ? key
+          : `snapshot.${key}`,
+        atSnapshot(child),
+      ]),
+    );
+  return value;
+}
 export const HIVE_MONGO_VALIDATORS: Record<string, Document> =
   Object.fromEntries(
     Object.entries(records).map(([name, schema]) => [
@@ -262,6 +336,7 @@ export const HIVE_MONGO_VALIDATORS: Record<string, Document> =
   );
 HIVE_MONGO_VALIDATORS.hive_definition_revisions = {
   $and: [
+    atSnapshot(lifecycle),
     {
       $jsonSchema: object(
         {

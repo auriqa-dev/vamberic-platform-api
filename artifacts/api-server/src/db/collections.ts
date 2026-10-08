@@ -1,3 +1,46 @@
+import { HIVE_IMPORT_INDEXES } from "./hive-import-indexes";
+import { CANONICAL_SUPPORT_INDEX } from "./canonical-support-v18";
+import { ACTION_LIBRARY_COLLECTIONS } from "./action-library-v17";
+import type { z } from "zod";
+import type {
+  ActionTypeSchema,
+  ActionDefinitionSchema,
+  ActionDefinitionRevisionSchema,
+  ReasoningDecisionV17Schema,
+  ReasoningActionLinkV17Schema,
+} from "../domain/action-library";
+import { V16_BUDGET_COLLECTIONS } from "./agent-foundation-v16";
+import type {
+  CommercialTransactionV15,
+  CommercialSubscriptionV15,
+  CommercialRelationshipV15,
+  RelationshipValueV15,
+  ReasoningContextV15,
+} from "../domain/commercial-outcomes-v15";
+import { V15_INDEXES } from "./commercial-outcomes-v15";
+import {
+  V14_COLLECTION_DEFINITIONS,
+  V14_EVENT_IDENTITY_INDEX,
+} from "./identity-value-v14";
+import type {
+  EventV14,
+  InteractionIdentity,
+  IdentityResolution,
+  ContactStrategyPolicyV14,
+} from "../domain/identity-value-v14";
+import { REASONING_COLLECTION_DEFINITIONS } from "./reasoning-foundation";
+import type { ScopedLearning } from "../domain/reasoning-foundation";
+import { EFFECTIVENESS_COLLECTION_DEFINITIONS } from "./agent-effectiveness-validators";
+import type { EffectivenessCase } from "../domain/agent-effectiveness";
+import { AGENT_COLLECTION_DEFINITIONS } from "./agent-control-plane-collections";
+import type {
+  AgentRun,
+  AgentAttempt,
+  AgentResult,
+  AgentUsage,
+} from "../domain/agent-control-plane";
+import type { Document } from "mongodb";
+import type { OfferDesign, Offer, OfferRevision } from "../domain/offers";
 import type {
   Offering,
   IdealCustomerProfile,
@@ -35,7 +78,6 @@ import type {
   Campaign,
   ContactPoint,
   Entitlement,
-  Event,
   ImportRecord,
   MarketingPermission,
   Opportunity,
@@ -49,6 +91,37 @@ import type {
 } from "../domain/schemas";
 
 export const COLLECTION_NAMES = [
+  "action_types",
+  "action_definitions",
+  "action_definition_revisions",
+  "execution_budget_policies",
+  "execution_budget_windows",
+  "execution_budget_reservations",
+  "interaction_identities",
+  "identity_resolutions",
+  "relationship_value_assessments",
+  "reasoning_contexts",
+  "reasoning_decisions",
+  "scoped_learning",
+  "contact_strategy_policies",
+  "agent_effectiveness_cases",
+  "agent_runs",
+  "agent_attempts",
+  "agent_results",
+  "agent_usage_observations",
+  "agent_definitions",
+  "integration_providers",
+  "swarm_templates",
+  "commercial_policies",
+  "methodology_availability",
+  "client_agents",
+  "client_swarms",
+  "pricing_recommendations",
+  "swarm_agreements",
+
+  "offer_designs",
+  "offers",
+  "offer_revisions",
   "offerings",
   "ideal_customer_profiles",
   "buyer_profiles",
@@ -93,6 +166,37 @@ export type DomainCollectionName = (typeof COLLECTION_NAMES)[number];
  * collection with an unrelated document type.
  */
 export interface DomainPersistenceByCollection {
+  execution_budget_policies: Document;
+  execution_budget_windows: Document;
+  execution_budget_reservations: Document;
+  action_types: z.infer<typeof ActionTypeSchema>;
+  action_definitions: z.infer<typeof ActionDefinitionSchema>;
+  action_definition_revisions: z.infer<typeof ActionDefinitionRevisionSchema>;
+  interaction_identities: InteractionIdentity;
+  identity_resolutions: IdentityResolution;
+  relationship_value_assessments: RelationshipValueV15;
+  reasoning_contexts: ReasoningContextV15;
+  reasoning_decisions: z.infer<typeof ReasoningDecisionV17Schema>;
+  scoped_learning: ScopedLearning;
+  contact_strategy_policies: ContactStrategyPolicyV14;
+  agent_runs: AgentRun;
+  agent_attempts: AgentAttempt;
+  agent_results: AgentResult;
+  agent_usage_observations: AgentUsage;
+  agent_effectiveness_cases: EffectivenessCase;
+  agent_definitions: Document;
+  integration_providers: Document;
+  swarm_templates: Document;
+  commercial_policies: Document;
+  methodology_availability: Document;
+  client_agents: Document;
+  client_swarms: Document;
+  pricing_recommendations: Document;
+  swarm_agreements: Document;
+
+  offer_designs: OfferDesign;
+  offers: Offer;
+  offer_revisions: OfferRevision;
   offerings: Offering;
   ideal_customer_profiles: IdealCustomerProfile;
   buyer_profiles: BuyerProfile;
@@ -111,22 +215,28 @@ export interface DomainPersistenceByCollection {
   crm_pipelines: CrmPipeline;
   crm_workspaces: CrmWorkspace;
   crm_leads: CrmLead;
-  crm_tasks: CrmTask;
+  crm_tasks: CrmTask & {
+    reasoning?: z.infer<typeof ReasoningActionLinkV17Schema>;
+  };
   external_references: ExternalReference;
   products: Product;
   people: Person;
   contact_points: ContactPoint;
   organisations: Organisation;
   organisation_relationships: OrganisationRelationship;
-  product_relationships: ProductRelationship;
+  product_relationships: ProductRelationship | CommercialRelationshipV15;
   marketing_permissions: MarketingPermission;
   opportunities: Opportunity;
-  subscriptions: Subscription;
+  subscriptions: Subscription | CommercialSubscriptionV15;
   entitlements: Entitlement;
   campaigns: Campaign;
   imports: ImportRecord;
-  events: Event;
-  transactions: Transaction;
+  events: EventV14 & {
+    commercialTransaction?: import("zod").z.infer<
+      typeof import("../domain/commercial-outcomes-v15").TransactionReferenceV15
+    >;
+  };
+  transactions: Transaction | CommercialTransactionV15;
 }
 
 export type DomainCollection<
@@ -147,7 +257,13 @@ export function getDomainCollections(db: Db): DomainCollections {
 export const getCollections = getDomainCollections;
 
 export interface CollectionDefinition {
-  name: DomainCollectionName;
+  name:
+    | DomainCollectionName
+    | "client_onboardings"
+    | "agent_capacity_observations"
+    | "agent_execution_slots"
+    | "agent_execution_invocations"
+    | "agent_execution_controls";
   indexes: IndexDescription[];
   reason: string;
 }
@@ -158,7 +274,194 @@ const appId = (name = "id"): IndexDescription => ({
   unique: true,
 });
 
-export const COLLECTION_DEFINITIONS: readonly CollectionDefinition[] = [
+export const V14_SETUP_COLLECTIONS: readonly CollectionDefinition[] = [
+  ...V14_COLLECTION_DEFINITIONS,
+  ...REASONING_COLLECTION_DEFINITIONS,
+  ...EFFECTIVENESS_COLLECTION_DEFINITIONS,
+  ...AGENT_COLLECTION_DEFINITIONS.map((d): CollectionDefinition =>
+    d.name === "agent_runs"
+      ? {
+          ...d,
+          indexes: [
+            ...d.indexes,
+            {
+              key: {
+                "effectiveness.caseId": 1,
+                "effectiveness.transitionKey": 1,
+              },
+              name: "effectiveness_transition_unique",
+              unique: true,
+              partialFilterExpression: {
+                "effectiveness.caseId": { $exists: true },
+              },
+            },
+            { key: { status: 1, id: 1 }, name: "active_status_id" },
+          ],
+        }
+      : d,
+  ),
+  {
+    name: "agent_definitions",
+    indexes: [
+      appId(),
+      { key: { key: 1, version: 1 }, name: "key_version_unique", unique: true },
+      {
+        key: { status: 1, availability: 1, id: 1 },
+        name: "available_catalogue",
+      },
+    ],
+    reason: "Empress operating-layer agent definitions",
+  },
+  {
+    name: "integration_providers",
+    indexes: [
+      appId(),
+      { key: { key: 1, version: 1 }, name: "key_version_unique", unique: true },
+      {
+        key: { status: 1, availability: 1, id: 1 },
+        name: "available_catalogue",
+      },
+    ],
+    reason: "Empress operating-layer integration providers",
+  },
+  {
+    name: "swarm_templates",
+    indexes: [
+      appId(),
+      { key: { key: 1, version: 1 }, name: "key_version_unique", unique: true },
+      {
+        key: { status: 1, availability: 1, id: 1 },
+        name: "available_catalogue",
+      },
+    ],
+    reason: "Empress operating-layer swarm templates",
+  },
+  {
+    name: "commercial_policies",
+    indexes: [
+      appId(),
+      { key: { key: 1, version: 1 }, name: "key_version_unique", unique: true },
+      {
+        key: { status: 1, availability: 1, id: 1 },
+        name: "available_catalogue",
+      },
+      {
+        key: { "data.currency": 1 },
+        name: "active_currency_unique",
+        unique: true,
+        partialFilterExpression: { status: "active" },
+      },
+    ],
+    reason: "Empress operating-layer commercial policies",
+  },
+  {
+    name: "methodology_availability",
+    indexes: [
+      appId(),
+      { key: { key: 1, version: 1 }, name: "key_version_unique", unique: true },
+      {
+        key: { status: 1, availability: 1, id: 1 },
+        name: "available_catalogue",
+      },
+    ],
+    reason: "Empress operating-layer methodology availability",
+  },
+  {
+    name: "client_agents",
+    indexes: [
+      appId(),
+      { key: { workspaceId: 1, id: 1 }, name: "workspace_id" },
+      {
+        key: { workspaceId: 1, "data.definition.id": 1 },
+        name: "workspace_definition",
+      },
+      {
+        key: { workspaceId: 1, "data.bindings.integrationId": 1 },
+        name: "workspace_integration",
+      },
+    ],
+    reason: "Empress operating-layer client agents",
+  },
+  {
+    name: "client_swarms",
+    indexes: [
+      appId(),
+      { key: { workspaceId: 1, id: 1 }, name: "workspace_id" },
+      {
+        key: { workspaceId: 1, "data.agentInstanceIds": 1 },
+        name: "workspace_agent",
+      },
+    ],
+    reason: "Empress operating-layer client swarms",
+  },
+  {
+    name: "pricing_recommendations",
+    indexes: [
+      appId(),
+      { key: { workspaceId: 1, id: 1 }, name: "workspace_id" },
+      {
+        key: { workspaceId: 1, "data.swarmId": 1, id: 1 },
+        name: "workspace_swarm",
+      },
+    ],
+    reason: "Empress operating-layer pricing recommendations",
+  },
+  {
+    name: "swarm_agreements",
+    indexes: [
+      appId(),
+      { key: { workspaceId: 1, id: 1 }, name: "workspace_id" },
+      {
+        key: {
+          workspaceId: 1,
+          "data.swarmId": 1,
+          status: 1,
+          "data.decision.effectiveFrom": 1,
+        },
+        name: "workspace_swarm_effectivity",
+      },
+    ],
+    reason: "Empress operating-layer swarm agreements",
+  },
+  {
+    name: "offer_designs",
+    indexes: [
+      appId(),
+      {
+        key: { workspaceId: 1, offeringId: 1, id: 1 },
+        name: "workspace_offering_designs",
+      },
+    ],
+    reason: "Resumable workspace-owned Offer Design sessions.",
+  },
+  {
+    name: "offers",
+    indexes: [
+      appId(),
+      {
+        key: { workspaceId: 1, offeringId: 1, id: 1 },
+        name: "workspace_offering_offers",
+      },
+      {
+        key: { workspaceId: 1, offerDesignId: 1 },
+        name: "workspace_design_offers",
+      },
+    ],
+    reason:
+      "Canonical market-facing propositions separate from factual Offerings.",
+  },
+  {
+    name: "offer_revisions",
+    indexes: [
+      appId(),
+      {
+        key: { workspaceId: 1, offerId: 1, revision: 1 },
+        name: "offer_revision_unique",
+        unique: true,
+      },
+    ],
+    reason: "Immutable approved Offers and their completed design artifacts.",
+  },
   {
     name: "offerings",
     indexes: [
@@ -425,6 +728,9 @@ export const COLLECTION_DEFINITIONS: readonly CollectionDefinition[] = [
   {
     name: "organisations",
     indexes: [
+      ...HIVE_IMPORT_INDEXES.filter(
+        (i) => i.collection === "organisations",
+      ).map((i) => i.index),
       appId(),
       { key: { domain: 1 }, name: "domain" },
       ...[...PUBLIC_ENQUIRY_INDEXES, ...WORKSPACE_ENQUIRY_INDEXES]
@@ -548,6 +854,9 @@ export const COLLECTION_DEFINITIONS: readonly CollectionDefinition[] = [
   {
     name: "imports",
     indexes: [
+      ...HIVE_IMPORT_INDEXES.filter((i) => i.collection === "imports").map(
+        (i) => i.index,
+      ),
       appId(),
       { key: { provider: 1, importedAt: -1 }, name: "provider_imported_at" },
       { key: { campaignId: 1 }, name: "campaign" },
@@ -558,6 +867,10 @@ export const COLLECTION_DEFINITIONS: readonly CollectionDefinition[] = [
   {
     name: "events",
     indexes: [
+      ...HIVE_IMPORT_INDEXES.filter((i) => i.collection === "events").map(
+        (i) => i.index,
+      ),
+      V14_EVENT_IDENTITY_INDEX,
       appId(),
       { key: { occurredAt: -1 }, name: "occurred_at" },
       { key: { eventType: 1, occurredAt: -1 }, name: "type_occurred_at" },
@@ -637,7 +950,7 @@ export const COLLECTION_DEFINITIONS: readonly CollectionDefinition[] = [
 ];
 
 export const SCHEMA_VERSIONS_COLLECTION = "schema_versions";
-export const DATABASE_SCHEMA_VERSION = 6;
+export const DATABASE_SCHEMA_VERSION = 19;
 export const DATABASE_SCHEMA_VERSION_ID = "vapp-v1";
 export const DATABASE_MIGRATION_ID = "001-vapp-v1-baseline";
 
@@ -650,3 +963,36 @@ export const BRAND_FOUNDATION_MIGRATION_ID = "004-brand-foundation";
 export const HVM_PHASE1_MIGRATION_ID = "005-hvm-phase1";
 
 export const HIVE_FOUNDATION_MIGRATION_ID = "006-hive-definitions";
+
+export const HIVE_VALIDATOR_CORRECTION_MIGRATION_ID =
+  "007-hive-validator-consistency";
+
+export const OFFER_FOUNDATION_MIGRATION_ID = "008-offer-foundation";
+
+export const OPERATING_FOUNDATION_MIGRATION_ID =
+  "009-empress-operating-foundation";
+
+export const AGENT_CONTROL_PLANE_MIGRATION_ID = "010-agent-control-plane";
+
+export const EFFECTIVENESS_MIGRATION_ID = "011-agent-effectiveness";
+
+export const PROTOCOL_V12_MIGRATION_ID = "012-answer-provenance-protocol";
+
+export const V15_SETUP_COLLECTIONS: CollectionDefinition[] =
+  V14_SETUP_COLLECTIONS.map((definition) => ({
+    ...definition,
+    indexes: [...definition.indexes, ...(V15_INDEXES[definition.name] ?? [])],
+  }));
+
+export const COLLECTION_DEFINITIONS: CollectionDefinition[] = [
+  ...V15_SETUP_COLLECTIONS,
+  ...V16_BUDGET_COLLECTIONS,
+  ...ACTION_LIBRARY_COLLECTIONS,
+].map((definition) =>
+  definition.name === "events"
+    ? {
+        ...definition,
+        indexes: [...definition.indexes, CANONICAL_SUPPORT_INDEX],
+      }
+    : definition,
+);

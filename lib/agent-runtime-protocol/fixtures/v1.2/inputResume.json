@@ -1,0 +1,353 @@
+{
+  "protocolVersion": "1.2",
+  "runId": "run:synthetic-1",
+  "attemptId": "attempt:synthetic-1",
+  "generation": 2,
+  "fence": 1,
+  "lease": {
+    "id": "lease:synthetic-1",
+    "workerId": "worker:synthetic-1",
+    "expiresAt": "2026-10-01T10:00:00.000Z"
+  },
+  "workspaceId": "workspace_00000000000000000000000001",
+  "clientId": "org_00000000000000000000000001",
+  "operation": "exercise",
+  "definition": {
+    "id": "agentdefinition_00000000000000000000000001",
+    "key": "internal_fake_definition",
+    "version": 1
+  },
+  "implementation": {
+    "key": "internal_fake",
+    "version": 2,
+    "manifestDigest": "1d4554beb212572ba3ac19a05cb8a73f1b8929626d714199f9567c12e9e7524a",
+    "buildDigest": "6c0ecae75cd1fb85bfcd724f7daa4f1b956beb6bf561e2d242dbec1c92c57fa9"
+  },
+  "clientAgent": {
+    "id": "clientagent_00000000000000000000000001",
+    "revision": 1,
+    "configuration": {
+      "scenario": "success",
+      "context": {
+        "reference": {
+          "resourceType": "synthetic_record",
+          "id": "synthetic:record-1",
+          "workspaceId": "workspace_00000000000000000000000001",
+          "revision": 3,
+          "contentHash": "28fa7241afd19bea76f207bf1f24bba1e83abe784dc86a946226fe1556da8f46"
+        },
+        "fields": ["label"]
+      },
+      "model": {
+        "provider": "fake_provider",
+        "model": "fake_model",
+        "purpose": "summarize"
+      },
+      "tool": {
+        "key": "fake_paid_read",
+        "version": 1,
+        "operation": "inspect",
+        "class": "cost_incurring_read",
+        "provider": "fake_provider",
+        "bindingId": "integration_00000000000000000000000001"
+      },
+      "useModel": true,
+      "useTool": true
+    }
+  },
+  "context": {
+    "references": [
+      {
+        "reference": {
+          "resourceType": "synthetic_record",
+          "id": "synthetic:record-1",
+          "workspaceId": "workspace_00000000000000000000000001",
+          "revision": 3,
+          "contentHash": "28fa7241afd19bea76f207bf1f24bba1e83abe784dc86a946226fe1556da8f46"
+        },
+        "fields": ["label"]
+      }
+    ],
+    "snapshots": []
+  },
+  "input": {
+    "subject": "Synthetic example"
+  },
+  "resultSchemaVersion": 2,
+  "checkpointSchemaVersion": 2,
+  "grant": {
+    "id": "grant:synthetic-1",
+    "version": 1,
+    "runId": "run:synthetic-1",
+    "workspaceId": "workspace_00000000000000000000000001",
+    "expiresAt": "2026-10-01T10:00:00.000Z",
+    "resources": [
+      {
+        "reference": {
+          "resourceType": "synthetic_record",
+          "id": "synthetic:record-1",
+          "workspaceId": "workspace_00000000000000000000000001",
+          "revision": 3,
+          "contentHash": "28fa7241afd19bea76f207bf1f24bba1e83abe784dc86a946226fe1556da8f46"
+        },
+        "fields": ["label"]
+      }
+    ],
+    "proposalTargets": [
+      {
+        "kind": "update",
+        "targetKind": "synthetic_record",
+        "reference": {
+          "resourceType": "synthetic_record",
+          "id": "synthetic:record-1",
+          "workspaceId": "workspace_00000000000000000000000001",
+          "revision": 3,
+          "contentHash": "28fa7241afd19bea76f207bf1f24bba1e83abe784dc86a946226fe1556da8f46"
+        }
+      }
+    ],
+    "tools": [
+      {
+        "key": "fake_paid_read",
+        "version": 1,
+        "operation": "inspect",
+        "class": "cost_incurring_read",
+        "provider": "fake_provider",
+        "bindingId": "integration_00000000000000000000000001"
+      }
+    ],
+    "bindings": ["integration_00000000000000000000000001"],
+    "models": [
+      {
+        "provider": "fake_provider",
+        "model": "fake_model",
+        "purpose": "summarize"
+      }
+    ],
+    "budgets": {
+      "deadline": "2026-10-01T10:00:00.000Z",
+      "modelCalls": 3,
+      "toolCalls": 3,
+      "providerCalls": [
+        {
+          "provider": "fake_provider",
+          "calls": 6
+        }
+      ],
+      "cost": {
+        "currency": "GBP",
+        "amount": "0.10"
+      }
+    }
+  },
+  "traceId": "trace:synthetic-1",
+  "lineage": [
+    {
+      "id": "lineage:requested-1",
+      "role": "requested",
+      "purpose": "Synthetic context",
+      "source": {
+        "kind": "resource",
+        "reference": {
+          "resourceType": "synthetic_record",
+          "id": "synthetic:record-1",
+          "workspaceId": "workspace_00000000000000000000000001",
+          "revision": 3,
+          "contentHash": "28fa7241afd19bea76f207bf1f24bba1e83abe784dc86a946226fe1556da8f46"
+        }
+      },
+      "observedAt": "2026-10-01T09:00:00.000Z",
+      "fetchedAt": "2026-10-01T09:00:00.000Z",
+      "fields": ["label"]
+    }
+  ],
+  "resume": {
+    "kind": "input",
+    "checkpoint": {
+      "id": "checkpoint:attempt:synthetic-1",
+      "schemaVersion": 2,
+      "implementation": {
+        "key": "internal_fake",
+        "version": 2
+      },
+      "runId": "run:synthetic-1",
+      "createdAt": "2026-10-01T09:00:00.004Z",
+      "payload": {
+        "stage": "waiting",
+        "content": {
+          "findings": [
+            {
+              "id": "finding:synthetic-1",
+              "kind": "evidence_backed_finding",
+              "statement": "Synthetic finding",
+              "evidenceIds": ["evidence:synthetic-1"],
+              "lineageIds": [
+                "consumed:eb35eac17448164bb5505e1d368a9d6ef7f28898"
+              ]
+            }
+          ],
+          "evidence": [
+            {
+              "id": "evidence:synthetic-1",
+              "origin": "external_evidence",
+              "claim": "A synthetic source says this.",
+              "source": {
+                "kind": "external",
+                "url": "https://example.invalid/source"
+              },
+              "observedAt": "2026-10-01T09:00:00.004Z",
+              "retrievedAt": "2026-10-01T09:00:00.004Z",
+              "digest": "5f344c605fd1655c60ba9c0f0df61e41a002d32dc6bcfc4db1637c323d63933f",
+              "provenance": {
+                "provider": "fake_provider",
+                "adapterKey": "fake_paid_read",
+                "adapterVersion": 1,
+                "invocationId": "call:7088efe4e42044c9f48ead1c807a91ce1e97e9d9",
+                "providerRequestId": "fake:call:7088efe4e42044c9f48ead1c807a91ce1e97e9d9",
+                "modelVersion": "fake-1"
+              },
+              "verification": "observed"
+            }
+          ],
+          "assumptions": [],
+          "unknowns": [],
+          "knowledgeGaps": [],
+          "proposals": [
+            {
+              "id": "proposal:synthetic-1",
+              "targetKind": "synthetic_record",
+              "target": {
+                "kind": "update",
+                "reference": {
+                  "resourceType": "synthetic_record",
+                  "id": "synthetic:record-1",
+                  "workspaceId": "workspace_00000000000000000000000001",
+                  "revision": 3,
+                  "contentHash": "28fa7241afd19bea76f207bf1f24bba1e83abe784dc86a946226fe1556da8f46"
+                }
+              },
+              "candidate": {
+                "label": "Synthetic candidate"
+              },
+              "evidenceIds": ["evidence:synthetic-1"],
+              "rationale": "Demonstrate a candidate, never apply it.",
+              "lineageIds": [
+                "consumed:eb35eac17448164bb5505e1d368a9d6ef7f28898"
+              ]
+            }
+          ],
+          "artifacts": [],
+          "warnings": [],
+          "lineage": [
+            {
+              "id": "consumed:eb35eac17448164bb5505e1d368a9d6ef7f28898",
+              "role": "consumed",
+              "purpose": "Synthetic context",
+              "source": {
+                "kind": "resource",
+                "reference": {
+                  "resourceType": "synthetic_record",
+                  "id": "synthetic:record-1",
+                  "workspaceId": "workspace_00000000000000000000000001",
+                  "revision": 3,
+                  "contentHash": "28fa7241afd19bea76f207bf1f24bba1e83abe784dc86a946226fe1556da8f46"
+                }
+              },
+              "observedAt": "2026-10-01T09:00:00.000Z",
+              "fetchedAt": "2026-10-01T09:00:00.000Z",
+              "fields": ["label"]
+            }
+          ],
+          "domainOutput": {
+            "summary": "Synthetic finding"
+          }
+        }
+      },
+      "lineage": [
+        {
+          "id": "consumed:eb35eac17448164bb5505e1d368a9d6ef7f28898",
+          "role": "consumed",
+          "purpose": "Synthetic context",
+          "source": {
+            "kind": "resource",
+            "reference": {
+              "resourceType": "synthetic_record",
+              "id": "synthetic:record-1",
+              "workspaceId": "workspace_00000000000000000000000001",
+              "revision": 3,
+              "contentHash": "28fa7241afd19bea76f207bf1f24bba1e83abe784dc86a946226fe1556da8f46"
+            }
+          },
+          "observedAt": "2026-10-01T09:00:00.000Z",
+          "fetchedAt": "2026-10-01T09:00:00.000Z",
+          "fields": ["label"]
+        }
+      ],
+      "completedInvocationIds": [
+        "call:fa05de6a4ba23dd2beb5edee728efcec0d6ab1d8",
+        "call:7088efe4e42044c9f48ead1c807a91ce1e97e9d9"
+      ],
+      "digest": "925ac2af40c57b0508fa7f9b67173ce41ec368463899c996269e7e63e57f7f3e"
+    },
+    "request": {
+      "id": "input:synthetic-1",
+      "schemaKey": "synthetic_answer",
+      "schemaVersion": 1,
+      "question": "Choose a synthetic label.",
+      "reason": "Offline pause/resume fixture",
+      "fields": [
+        {
+          "key": "answer",
+          "label": "Label",
+          "required": true,
+          "type": "text",
+          "maxLength": 100
+        }
+      ],
+      "expiresAt": "2026-10-02T09:00:00.004Z",
+      "checkpoint": {
+        "id": "checkpoint:attempt:synthetic-1",
+        "digest": "925ac2af40c57b0508fa7f9b67173ce41ec368463899c996269e7e63e57f7f3e"
+      }
+    },
+    "response": {
+      "requestId": "input:synthetic-1",
+      "schemaKey": "synthetic_answer",
+      "schemaVersion": 1,
+      "values": [
+        {
+          "key": "answer",
+          "value": "confirmed"
+        }
+      ],
+      "answeredAt": "2026-10-01T09:00:00.004Z",
+      "actorReference": "human:operator"
+    },
+    "answerProvenance": {
+      "kind": "platform_answer_provenance",
+      "schemaVersion": 1,
+      "workspaceId": "workspace_00000000000000000000000001",
+      "runId": "run:synthetic-1",
+      "operation": "exercise",
+      "action": "respond",
+      "requestId": "input:synthetic-1",
+      "requestDigest": "8392d2ce3b1be5a4d318f6e1b04275c3bdcb6ddabd708f52a763f0a2959906fc",
+      "checkpoint": {
+        "id": "checkpoint:attempt:synthetic-1",
+        "digest": "925ac2af40c57b0508fa7f9b67173ce41ec368463899c996269e7e63e57f7f3e"
+      },
+      "submissionGeneration": 1,
+      "resumeGeneration": 2,
+      "responseDigest": "f35f3e36d5d861d232798f7b6183e8f9dcbfc7c01714b8ddc267bc67e677eb60",
+      "actor": {
+        "type": "human",
+        "issuer": "https://identity.invalid",
+        "id": "human:operator"
+      },
+      "capacity": "client",
+      "submittedAt": "2026-10-01T09:00:00.004Z",
+      "submissionId": "89539ed92e74dd9c3a2674968fb611b21edf4b4a38df2e8f943ce974b37cab24",
+      "digest": "8778a662489ba0f64e49e1a84f715498518312d0278ba56922fdf5ea928a6a5a"
+    }
+  }
+}

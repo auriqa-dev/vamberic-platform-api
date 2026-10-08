@@ -127,6 +127,7 @@ const forbidden = new Set([
   "updatedBy",
   "schemaVersion",
   "_crmReferenceRevision",
+  "executionSerial",
 ]);
 function objectSchema(collection: CrmWriteCollection): z.AnyZodObject {
   let schema: z.ZodTypeAny = CRM_SCHEMAS[collection];
@@ -424,7 +425,33 @@ async function write(
   if (existing && collection === "events")
     throw new CrmFoundationError("PROTECTED_VALUE", "Events are append-only");
   const actor = crmActorSchema.parse(actorInput);
+  if (
+    collection === "crm_workspaces" &&
+    input &&
+    typeof input === "object" &&
+    "billingExemption" in input
+  )
+    throw new CrmFoundationError(
+      "PROTECTED_VALUE",
+      "Billing governance requires the Empress operation",
+    );
   const patch = crmPatchSchema(collection).parse(input);
+  if (
+    collection === "events" &&
+    [
+      "canonical_support_certified",
+      "psu_generation_requested",
+      "psu_generation_finished",
+      "psu_review_saved",
+      "psu_content_chunk",
+      "hvm_queen_client_provisioned",
+      "workspace_billing_exemption_changed",
+    ].includes(String(patch.eventType))
+  )
+    throw new CrmFoundationError(
+      "PROTECTED_VALUE",
+      "Reserved Platform approval event",
+    );
   if (!mongo.withTransaction)
     throw new CrmFoundationError(
       "TRANSACTIONS_REQUIRED",

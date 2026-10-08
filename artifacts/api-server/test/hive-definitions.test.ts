@@ -514,7 +514,21 @@ test("schema v5 retains existing HVM access but new foundation fails closed with
     503,
   );
   assert.deepEqual(f.db.records, before);
-  f.db.rows("schema_versions")[0].version = 7;
+  f.db.rows("schema_versions")[0].version = 10;
+  assert.equal((await f.request("/api/v1/hvm/context")).status, 200);
+  f.db.rows("schema_versions")[0].version = 13;
+  assert.equal((await f.request("/api/v1/hvm/context")).status, 200);
+  f.db.rows("schema_versions")[0].version = 14;
+  assert.equal((await f.request("/api/v1/hvm/context")).status, 200);
+  f.db.rows("schema_versions")[0].version = 15;
+  assert.equal((await f.request("/api/v1/hvm/context")).status, 200);
+  f.db.rows("schema_versions")[0].version = 16;
+  assert.equal((await f.request("/api/v1/hvm/context")).status, 200);
+  for (const version of [17, 18, 19, 20, 21, 22, 23]) {
+    f.db.rows("schema_versions")[0].version = version;
+    assert.equal((await f.request("/api/v1/hvm/context")).status, 200);
+  }
+  f.db.rows("schema_versions")[0].version = 24;
   assert.equal((await f.request("/api/v1/hvm/context")).status, 503);
 });
 test("Organisation hard-delete preview blocks retained Offering references", async (t) => {
@@ -616,4 +630,29 @@ test("foreign-workspace parent IDs and revisions are denied even with the same O
     (await f.request(f.root + `/offerings/${offering.id}/revisions/1`)).status,
     404,
   );
+});
+
+test("schema v7 retains HVM and Hive lifecycle access", async (t) => {
+  const f = await fixture(t);
+  f.db.rows("schema_versions")[0].version = 7;
+  const row = await f.create();
+  assert.equal(row.status, "draft");
+  const approved = await f.request(
+    f.root + "/offerings/approve",
+    mutation(row),
+  );
+  assert.equal(approved.status, 200);
+});
+
+test("Offering URL boundary returns sanitized 400 for malformed input and accepts path @", async (t) => {
+  const f = await fixture(t);
+  const invalid = await f.request(f.root + "/offerings/create", {
+    definition: { ...definition, websiteUrl: "not a URL" },
+  });
+  assert.equal(invalid.status, 400);
+  assert.equal(invalid.body.error.code, "INVALID_INPUT");
+  const valid = await f.request(f.root + "/offerings/create", {
+    definition: { ...definition, websiteUrl: "https://example.com/@company" },
+  });
+  assert.equal(valid.status, 201);
 });
