@@ -21,7 +21,12 @@ try {
   assert.equal(plan.indexesToCreate.length, 0);
   assert.ok(
     plan.validatorsToApply.every((name) =>
-      ["offers", "offer_revisions", "ideal_customer_profiles", "hive_definition_revisions"].includes(name),
+      [
+        "offers",
+        "offer_revisions",
+        "ideal_customer_profiles",
+        "hive_definition_revisions",
+      ].includes(name),
     ),
   );
   if (mode === "--apply") await setup.setupDatabase(db);

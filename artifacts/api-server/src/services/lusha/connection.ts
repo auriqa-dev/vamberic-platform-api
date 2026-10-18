@@ -229,7 +229,18 @@ export function createLushaConnection(
             );
           previousReference = row?.secretReference;
           const record = WorkspaceIntegrationSchema.parse({
-            ...Object.fromEntries(Object.entries(row ?? {}).filter(([key]) => !["_id", "disconnectedAt", "lastSyncAt", "lastSuccessfulSyncAt", "errorCode"].includes(key))),
+            ...Object.fromEntries(
+              Object.entries(row ?? {}).filter(
+                ([key]) =>
+                  ![
+                    "_id",
+                    "disconnectedAt",
+                    "lastSyncAt",
+                    "lastSuccessfulSyncAt",
+                    "errorCode",
+                  ].includes(key),
+              ),
+            ),
             id: row?.id ?? generatePlatformId("integration"),
             workspaceId: w,
             provider: "lusha",

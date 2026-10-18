@@ -88,7 +88,10 @@ async function fixture(
       },
       ...(body === undefined ? {} : { body: JSON.stringify(body) }),
     });
-    assert.match(response.headers.get("access-control-expose-headers") ?? "", /Retry-After/i);
+    assert.match(
+      response.headers.get("access-control-expose-headers") ?? "",
+      /Retry-After/i,
+    );
     return { status: response.status, body: await response.json() };
   }
   const create = async () => {
@@ -320,7 +323,9 @@ test("workbook batches preserve registration identity, typed observations and sc
       {
         row: 1,
         company: "Example Registered Ltd",
-        registration: "123", registrationJurisdiction: "GB", registrationType: "company_number",
+        registration: "123",
+        registrationJurisdiction: "GB",
+        registrationType: "company_number",
         original: {},
       },
     ],
@@ -345,7 +350,9 @@ test("workbook batches preserve registration identity, typed observations and sc
         row: 2,
         sourceOnly: true,
         company: "Example Registered Ltd",
-        registration: "00000123", registrationJurisdiction: "GB", registrationType: "company_number",
+        registration: "00000123",
+        registrationJurisdiction: "GB",
+        registrationType: "company_number",
         origin: {
           sheet: "Responsible Undertaking",
           row: 2,
@@ -437,55 +444,207 @@ test("workbook batches preserve registration identity, typed observations and sc
 
 test("ICP company choices exclude retained ESOS supporting records", async (t) => {
   const f = await fixture(t);
-  for (const [name,system] of [["ESOS Main","hvm_hive_upload"],["ESOS Support","hvm_esos_supporting"]]) {
-    f.db.rows("organisations").push({id:generatePlatformId("org"),workspaceId:f.input.workspaceId,name,archived:false,source:{system}});
+  for (const [name, system] of [
+    ["ESOS Main", "hvm_hive_upload"],
+    ["ESOS Support", "hvm_esos_supporting"],
+  ]) {
+    f.db.rows("organisations").push({
+      id: generatePlatformId("org"),
+      workspaceId: f.input.workspaceId,
+      name,
+      archived: false,
+      source: { system },
+    });
   }
   const result = await f.request(f.root + "/icp/examples?type=company&q=ESOS");
-  assert.equal(result.status,200);
-  assert.deepEqual(result.body.map((r: {name:string})=>r.name),["ESOS Main"]);
+  assert.equal(result.status, 200);
+  assert.deepEqual(
+    result.body.map((r: { name: string }) => r.name),
+    ["ESOS Main"],
+  );
 });
 
-
-test("ICP setup persists independently, rejects stale revisions and isolates workspace access", async(t)=>{
- const f=await fixture(t);
- const input={offeringId:generatePlatformId("offering"),offer:{id:generatePlatformId("offer"),revision:1},profileType:"b2b",instructions:"Demand stress, distinguish evidence from inference",customerUrls:["https://www.kambi.com/"],researchDocuments:[],examples:[{id:generatePlatformId("org"),type:"company",name:"Kambi",reason:"Marketing maturity"}]};
- const saved=await f.request(f.root+"/icp/setup",{input,revision:0});
- assert.equal(saved.status,200,JSON.stringify(saved.body));assert.equal(saved.body.revision,1);
- const read=await f.request(f.root+`/icp/setup?offeringId=${input.offeringId}&offerId=${input.offer.id}`);
- assert.deepEqual(read.body.input,input);
- const stale=await f.request(f.root+"/icp/setup",{input:{...input,instructions:"Old tab"},revision:0});assert.equal(stale.status,409);
- const denied=await f.request(f.root+"/icp/setup",{input,revision:1},f.vapp);assert.equal(denied.status,404);
- const otherInput={...input,offer:{id:generatePlatformId("offer"),revision:1},instructions:"Enterprise buying group",examples:[]};
- const other=await f.request(f.root+"/icp/setup",{input:otherInput,revision:0});assert.equal(other.status,200);
- const original=await f.request(f.root+`/icp/setup?offeringId=${input.offeringId}&offerId=${input.offer.id}`);
- assert.equal(original.body.input.instructions,input.instructions);assert.deepEqual(original.body.input.examples,input.examples);
- const enterprise=await f.request(f.root+`/icp/setup?offeringId=${input.offeringId}&offerId=${otherInput.offer.id}`);
- assert.equal(enterprise.body.input.instructions,otherInput.instructions);
- assert.equal(f.db.rows("events").filter(r=>r.eventType==="icp_setup").length,2);
+test("ICP setup persists independently, rejects stale revisions and isolates workspace access", async (t) => {
+  const f = await fixture(t);
+  const input = {
+    offeringId: generatePlatformId("offering"),
+    offer: { id: generatePlatformId("offer"), revision: 1 },
+    profileType: "b2b",
+    instructions: "Demand stress, distinguish evidence from inference",
+    customerUrls: ["https://www.kambi.com/"],
+    researchDocuments: [],
+    examples: [
+      {
+        id: generatePlatformId("org"),
+        type: "company",
+        name: "Kambi",
+        reason: "Marketing maturity",
+      },
+    ],
+  };
+  const saved = await f.request(f.root + "/icp/setup", { input, revision: 0 });
+  assert.equal(saved.status, 200, JSON.stringify(saved.body));
+  assert.equal(saved.body.revision, 1);
+  const read = await f.request(
+    f.root +
+      `/icp/setup?offeringId=${input.offeringId}&offerId=${input.offer.id}`,
+  );
+  assert.deepEqual(read.body.input, input);
+  const stale = await f.request(f.root + "/icp/setup", {
+    input: { ...input, instructions: "Old tab" },
+    revision: 0,
+  });
+  assert.equal(stale.status, 409);
+  const denied = await f.request(
+    f.root + "/icp/setup",
+    { input, revision: 1 },
+    f.vapp,
+  );
+  assert.equal(denied.status, 404);
+  const otherInput = {
+    ...input,
+    offer: { id: generatePlatformId("offer"), revision: 1 },
+    instructions: "Enterprise buying group",
+    examples: [],
+  };
+  const other = await f.request(f.root + "/icp/setup", {
+    input: otherInput,
+    revision: 0,
+  });
+  assert.equal(other.status, 200);
+  const original = await f.request(
+    f.root +
+      `/icp/setup?offeringId=${input.offeringId}&offerId=${input.offer.id}`,
+  );
+  assert.equal(original.body.input.instructions, input.instructions);
+  assert.deepEqual(original.body.input.examples, input.examples);
+  const enterprise = await f.request(
+    f.root +
+      `/icp/setup?offeringId=${input.offeringId}&offerId=${otherInput.offer.id}`,
+  );
+  assert.equal(enterprise.body.input.instructions, otherInput.instructions);
+  assert.equal(
+    f.db.rows("events").filter((r) => r.eventType === "icp_setup").length,
+    2,
+  );
 });
 
-test("consumer examples need no employer; business examples remain explicit and tenant scoped",async(t)=>{
- let receivedExamples:unknown[]=[];
- const f=await fixture(t,async input=>{receivedExamples=input.examples;return {definition:{name:"Customers",description:"Local customers",profileType:input.profileType,consumerProfile:{}},rationale:"For review",usage:{model:"fixture",inputTokens:1,outputTokens:1}};});
- const product=await f.create();await f.request(f.root+"/offerings/approve",{id:product.id,expectedUpdatedAt:product.updatedAt});
- const person=generatePlatformId("person");f.db.rows("people").push({id:person,workspaceId:f.input.workspaceId,firstName:"Customer",archived:false});
- const request={requestKey:crypto.randomUUID(),offeringId:product.id,profileType:"b2c",instructions:"Appointment buyers",examples:[{id:person,type:"contact",reason:"Existing customer"}]};
- const started=await f.request(f.root+"/icp/generations",request);assert.equal(started.status,202,JSON.stringify(started.body));
- assert.equal((receivedExamples[0] as {id:string}).id,person);assert.equal((receivedExamples[0] as {companyId?:string}).companyId,undefined);
- const business=await f.request(f.root+"/icp/generations",{...request,requestKey:crypto.randomUUID(),profileType:"b2b"});assert.equal(business.status,409);
- f.db.rows("people").find(p=>p.id===person)!.workspaceId=generatePlatformId("workspace");
- const denied=await f.request(f.root+"/icp/generations",{...request,requestKey:crypto.randomUUID()});assert.notEqual(denied.status,202);
+test("consumer examples need no employer; business examples remain explicit and tenant scoped", async (t) => {
+  let receivedExamples: unknown[] = [];
+  const f = await fixture(t, async (input) => {
+    receivedExamples = input.examples;
+    return {
+      definition: {
+        name: "Customers",
+        description: "Local customers",
+        profileType: input.profileType,
+        consumerProfile: {},
+      },
+      rationale: "For review",
+      usage: { model: "fixture", inputTokens: 1, outputTokens: 1 },
+    };
+  });
+  const product = await f.create();
+  await f.request(f.root + "/offerings/approve", {
+    id: product.id,
+    expectedUpdatedAt: product.updatedAt,
+  });
+  const person = generatePlatformId("person");
+  f.db.rows("people").push({
+    id: person,
+    workspaceId: f.input.workspaceId,
+    firstName: "Customer",
+    archived: false,
+  });
+  const request = {
+    requestKey: crypto.randomUUID(),
+    offeringId: product.id,
+    profileType: "b2c",
+    instructions: "Appointment buyers",
+    examples: [{ id: person, type: "contact", reason: "Existing customer" }],
+  };
+  const started = await f.request(f.root + "/icp/generations", request);
+  assert.equal(started.status, 202, JSON.stringify(started.body));
+  assert.equal((receivedExamples[0] as { id: string }).id, person);
+  assert.equal(
+    (receivedExamples[0] as { companyId?: string }).companyId,
+    undefined,
+  );
+  const business = await f.request(f.root + "/icp/generations", {
+    ...request,
+    requestKey: crypto.randomUUID(),
+    profileType: "b2b",
+  });
+  assert.equal(business.status, 409);
+  f.db.rows("people").find((p) => p.id === person)!.workspaceId =
+    generatePlatformId("workspace");
+  const denied = await f.request(f.root + "/icp/generations", {
+    ...request,
+    requestKey: crypto.randomUUID(),
+  });
+  assert.notEqual(denied.status, 202);
 });
-test("unfinished audience selection is saved without inventing B2B",async t=>{
- const f=await fixture(t),input={offeringId:generatePlatformId("offering"),offer:{id:generatePlatformId("offer"),revision:1},profileType:null,instructions:"Choose audience later",examples:[]};
- const saved=await f.request(f.root+"/icp/setup",{input,revision:0});assert.equal(saved.status,200);assert.equal(saved.body.input.profileType,null);
+test("unfinished audience selection is saved without inventing B2B", async (t) => {
+  const f = await fixture(t),
+    input = {
+      offeringId: generatePlatformId("offering"),
+      offer: { id: generatePlatformId("offer"), revision: 1 },
+      profileType: null,
+      instructions: "Choose audience later",
+      examples: [],
+    };
+  const saved = await f.request(f.root + "/icp/setup", { input, revision: 0 });
+  assert.equal(saved.status, 200);
+  assert.equal(saved.body.input.profileType, null);
 });
 
-test("international registration import preserves identity and does not merge on an unverified identifier",async t=>{
- const f=await fixture(t);
- const input={requestKey:crypto.randomUUID(),filename:"international.csv",fieldMapping:{},rows:[{row:1,company:"North American maker",registration:"12-3456789",registrationJurisdiction:"US",registrationType:"tax_id",country:"United States",original:{}},{row:2,company:"German workshop",registration:"HRB 12345",registrationJurisdiction:"DE",registrationType:"trade_register",country:"Germany",original:{}}]};
- const preview=await f.request(f.root+"/icp/imports/preview",input);assert.equal(preview.status,200);assert.ok(preview.body.rows.every((r:{status:string})=>r.status==="create"));
- const committed=await f.request(f.root+"/icp/imports/commit",{...input,digest:preview.body.digest});assert.equal(committed.status,200,JSON.stringify(committed.body));
- const org=f.db.rows("organisations").find(o=>o.name==="German workshop")!;assert.equal(org.country,"DE");assert.match(org.source.reference,/HRB 12345/);
- const repeat=await f.request(f.root+"/icp/imports/preview",{...input,requestKey:crypto.randomUUID()});assert.ok(repeat.body.rows.every((r:{status:string})=>r.status==="review"));
+test("international registration import preserves identity and does not merge on an unverified identifier", async (t) => {
+  const f = await fixture(t);
+  const input = {
+    requestKey: crypto.randomUUID(),
+    filename: "international.csv",
+    fieldMapping: {},
+    rows: [
+      {
+        row: 1,
+        company: "North American maker",
+        registration: "12-3456789",
+        registrationJurisdiction: "US",
+        registrationType: "tax_id",
+        country: "United States",
+        original: {},
+      },
+      {
+        row: 2,
+        company: "German workshop",
+        registration: "HRB 12345",
+        registrationJurisdiction: "DE",
+        registrationType: "trade_register",
+        country: "Germany",
+        original: {},
+      },
+    ],
+  };
+  const preview = await f.request(f.root + "/icp/imports/preview", input);
+  assert.equal(preview.status, 200);
+  assert.ok(
+    preview.body.rows.every((r: { status: string }) => r.status === "create"),
+  );
+  const committed = await f.request(f.root + "/icp/imports/commit", {
+    ...input,
+    digest: preview.body.digest,
+  });
+  assert.equal(committed.status, 200, JSON.stringify(committed.body));
+  const org = f.db
+    .rows("organisations")
+    .find((o) => o.name === "German workshop")!;
+  assert.equal(org.country, "DE");
+  assert.match(org.source.reference, /HRB 12345/);
+  const repeat = await f.request(f.root + "/icp/imports/preview", {
+    ...input,
+    requestKey: crypto.randomUUID(),
+  });
+  assert.ok(
+    repeat.body.rows.every((r: { status: string }) => r.status === "review"),
+  );
 });

@@ -406,12 +406,16 @@ export function createEmailContent(
           },
           // Authoritative context is supplied once above. Do not repeat the NBA's
           // full approved snapshots, contact history and capability catalogue.
-          campaign: ctx.campaign ? {
-            setup: (ctx.campaign.data as Document).setup,
-            engagementPolicy: (ctx.campaign.data as Document).engagementPolicy,
-            restriction: (ctx.campaign.data as Document).restriction,
-            approvedResearch: (ctx.campaign.data as Document).approvedResearch,
-          } : null,
+          campaign: ctx.campaign
+            ? {
+                setup: (ctx.campaign.data as Document).setup,
+                engagementPolicy: (ctx.campaign.data as Document)
+                  .engagementPolicy,
+                restriction: (ctx.campaign.data as Document).restriction,
+                approvedResearch: (ctx.campaign.data as Document)
+                  .approvedResearch,
+              }
+            : null,
           currentDraft: input.currentDraft ?? ctx.old?.content,
           preferredCtaAssetId: input.ctaAssetId,
           candidates: ctx.candidates.slice(0, 60).map((r) => ({
@@ -527,9 +531,19 @@ export function createEmailContent(
           {
             $set: {
               "payload.status": "failed",
-              "payload.failureCode": error && typeof error === "object" && "generationFailureCode" in error &&
-                ["empty_output", "invalid_json", "result_contract", "refusal", "incomplete_output"].includes(String(error.generationFailureCode))
-                ? String(error.generationFailureCode) : "generation_failed",
+              "payload.failureCode":
+                error &&
+                typeof error === "object" &&
+                "generationFailureCode" in error &&
+                [
+                  "empty_output",
+                  "invalid_json",
+                  "result_contract",
+                  "refusal",
+                  "incomplete_output",
+                ].includes(String(error.generationFailureCode))
+                  ? String(error.generationFailureCode)
+                  : "generation_failed",
               ...(usage
                 ? { "payload.usage": usage }
                 : error && typeof error === "object" && "usage" in error

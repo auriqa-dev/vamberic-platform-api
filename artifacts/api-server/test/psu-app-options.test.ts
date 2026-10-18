@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { workspaceAgentFixture } from "./helpers/workspace-agent-v16";
 import { psuAppOptions } from "../src/services/psu-app-options";
-import { createPsuGateway } from "../../../../hvm-app/src/data/psu";
+import { createPsuGateway } from "../../../.integration/hvm-app-legacy-psu/src/data/psu";
 test("PSU discovery uses current Partner authority, exact manifest and no Client Agent", async () => {
   const f = await workspaceAgentFixture(true);
   const capabilities = {
@@ -35,17 +35,11 @@ test("PSU discovery uses current Partner authority, exact manifest and no Client
     0,
   );
   f.db.rows("hvm_partner_memberships")[0]!.status = "ended";
-  assert.equal(
-    (
-      await psuAppOptions(
-        f.config,
-        f.db.mongo,
-        f.queen,
-        f.workspaceId,
-        capabilities,
-      )
-    ).items.length,
-    0,
+  f.db.rows("workspace_memberships").forEach((m) => {
+    m.status = "ended";
+  });
+  await assert.rejects(
+    psuAppOptions(f.config, f.db.mongo, f.queen, f.workspaceId, capabilities),
   );
 });
 test("PSU discovery does not list an altered manifest or an Empress-only identity", async () => {

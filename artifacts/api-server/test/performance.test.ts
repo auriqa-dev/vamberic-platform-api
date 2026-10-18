@@ -246,30 +246,98 @@ test("performance events cannot be written through generic event ingestion", () 
 });
 
 test("malformed GA4 provider reports are unavailable rather than client input errors", async () => {
-  const client = googleAnalytics({clientId:"test",clientSecret:"test",redirectUri:"https://example.com/callback"}, async () => Response.json({rows:[],metadata:{timeZone:"Europe/London"}}));
-  await assert.rejects(client.report("test","properties/123",window,"Europe/London",{field:"sessionCampaignId",value:"new-campaign"}), (e: unknown) => e instanceof Error && "code" in e && e.code === "INVALID_REPORT" && !e.message.includes("metricHeaders"));
+  const client = googleAnalytics(
+    {
+      clientId: "test",
+      clientSecret: "test",
+      redirectUri: "https://example.com/callback",
+    },
+    async () =>
+      Response.json({ rows: [], metadata: { timeZone: "Europe/London" } }),
+  );
+  await assert.rejects(
+    client.report("test", "properties/123", window, "Europe/London", {
+      field: "sessionCampaignId",
+      value: "new-campaign",
+    }),
+    (e: unknown) =>
+      e instanceof Error &&
+      "code" in e &&
+      e.code === "INVALID_REPORT" &&
+      !e.message.includes("metricHeaders"),
+  );
 });
 
 test("recognises a typed empty Google report without inventing metrics or accepting malformed populated reports", () => {
- const empty={kind:"analyticsData#runReport",metadata:{timeZone:"Etc/GMT"}};
- for (const dimensions of [[],["date"],["sessionSourceMedium"],["sessionCampaignId","sessionCampaignName"]]) {
-  const result=parseReport(empty,dimensions);
-  assert.deepEqual(result.rows,[]); assert.equal(result.rowCount,0); assert.match(result.warnings[0]!,/not zero/);
- }
- assert.throws(()=>parseReport({},[]));
- assert.throws(()=>parseReport({...empty,rowCount:1},[]));
- assert.throws(()=>parseReport({...empty,rows:[{metricValues:metricNames.map(()=>({value:"0"}))}]},[]));
- assert.throws(()=>parseReport({...empty,kind:"other"},[]));
+  const empty = {
+    kind: "analyticsData#runReport",
+    metadata: { timeZone: "Etc/GMT" },
+  };
+  for (const dimensions of [
+    [],
+    ["date"],
+    ["sessionSourceMedium"],
+    ["sessionCampaignId", "sessionCampaignName"],
+  ]) {
+    const result = parseReport(empty, dimensions);
+    assert.deepEqual(result.rows, []);
+    assert.equal(result.rowCount, 0);
+    assert.match(result.warnings[0]!, /not zero/);
+  }
+  assert.throws(() => parseReport({}, []));
+  assert.throws(() => parseReport({ ...empty, rowCount: 1 }, []));
+  assert.throws(() =>
+    parseReport(
+      {
+        ...empty,
+        rows: [{ metricValues: metricNames.map(() => ({ value: "0" })) }],
+      },
+      [],
+    ),
+  );
+  assert.throws(() => parseReport({ ...empty, kind: "other" }, []));
 });
 
-test('guided campaign tags automatically match the bound property and never silently switch properties',async()=>{
- const f=await fixture(),id=generatePlatformId('campaign'),now=new Date();
- f.db.rows('events').push({id:generatePlatformId('event'),workspaceId:f.w,campaignId:id,eventType:'campaign_setup',createdAt:now,payload:{version:1,status:'draft',setup:{name:'Guided campaign'}}});
- const j={id:generatePlatformId('event'),workspaceId:f.w,campaignId:id,eventType:'campaign_journey',createdAt:now,payload:{version:1,ga4Property:'properties/123'}};
- f.db.rows('events').push(j);
- const result=await f.app.report(f.identity,f.w,{window,campaignId:id});
- assert.equal(result.mapping?.automatic,true);assert.deepEqual(result.mapping?.filter,{field:'sessionCampaignId',value:id});assert.ok(result.analytics);
- j.payload.ga4Property='properties/other';
- const changed=await f.app.report(f.identity,f.w,{window,campaignId:id});
- assert.equal(changed.analytics,null);assert.ok(changed.analyticsError);
+test("guided campaign tags automatically match the bound property and never silently switch properties", async () => {
+  const f = await fixture(),
+    id = generatePlatformId("campaign"),
+    now = new Date();
+  f.db.rows("events").push({
+    id: generatePlatformId("event"),
+    workspaceId: f.w,
+    campaignId: id,
+    eventType: "campaign_setup",
+    createdAt: now,
+    payload: {
+      version: 1,
+      status: "draft",
+      setup: { name: "Guided campaign" },
+    },
+  });
+  const j = {
+    id: generatePlatformId("event"),
+    workspaceId: f.w,
+    campaignId: id,
+    eventType: "campaign_journey",
+    createdAt: now,
+    payload: { version: 1, ga4Property: "properties/123" },
+  };
+  f.db.rows("events").push(j);
+  const result = await f.app.report(f.identity, f.w, {
+    window,
+    campaignId: id,
+  });
+  assert.equal(result.mapping?.automatic, true);
+  assert.deepEqual(result.mapping?.filter, {
+    field: "sessionCampaignId",
+    value: id,
+  });
+  assert.ok(result.analytics);
+  j.payload.ga4Property = "properties/other";
+  const changed = await f.app.report(f.identity, f.w, {
+    window,
+    campaignId: id,
+  });
+  assert.equal(changed.analytics, null);
+  assert.ok(changed.analyticsError);
 });

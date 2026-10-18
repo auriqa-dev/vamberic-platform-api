@@ -45,7 +45,11 @@ export async function projectCanonicalSupport(
   const ledger = await db
     .collection("schema_versions")
     .findOne({ _id: "vapp-v1" } as Document, { session });
-  if (![18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30].includes(ledger?.version ?? 0))
+  if (
+    ![18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30].includes(
+      ledger?.version ?? 0,
+    )
+  )
     throw new AgentProposalStale(
       "Canonical support requires applied schema 18",
     );
@@ -283,7 +287,11 @@ export async function readCanonicalSupport(
     const ledger = await db
       .collection("schema_versions")
       .findOne({ _id: "vapp-v1" } as Document, { session });
-    if (![18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30].includes(ledger?.version ?? 0))
+    if (
+      ![18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30].includes(
+        ledger?.version ?? 0,
+      )
+    )
       throw new AgentProposalStale(
         "Canonical support requires applied schema 18",
       );

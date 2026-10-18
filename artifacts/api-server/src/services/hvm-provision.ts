@@ -74,23 +74,22 @@ export async function provisionHvmClient(
     if (
       ![
         5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23,
-        24, 25, 26, 27, 28, 29, 30].includes(ledger?.version ?? 0)
+        24, 25, 26, 27, 28, 29, 30,
+      ].includes(ledger?.version ?? 0)
     )
       throw new Error(
         "Provisioning requires reviewed/applied schema v5, v6, v7, v8 or v9",
       );
     if (
       input.management === "client" &&
-      (await db
-        .collection("workspace_partner_assignments")
-        .findOne(
-          {
-            workspaceId: input.workspaceId,
-            status: "active",
-            archived: { $ne: true },
-          },
-          options,
-        ))
+      (await db.collection("workspace_partner_assignments").findOne(
+        {
+          workspaceId: input.workspaceId,
+          status: "active",
+          archived: { $ne: true },
+        },
+        options,
+      ))
     )
       throw new Error(
         "Use an authorized management transition for an assigned workspace",

@@ -19,12 +19,58 @@ export function createIcpRouter(
     importer = createHiveImporter(config, mongo),
     app = createIcpApplication(config, mongo, generator);
   const root = "/workspaces/:workspaceId/icp";
-  router.get(root + "/setup", async(req,res)=>res.json(await app.readSetup(req.auth!,z.string().parse(req.params.workspaceId),req.query)));
-  router.post(root + "/setup", async(req,res)=>res.json(await app.saveSetup(req.auth!,z.string().parse(req.params.workspaceId),req.body)));
-  const eligibility = createEligibility(config, mongo, marketDiscoveryFromEnvironment());
-  router.get(root + "/eligibility/discovery", async (req, res) => res.json(await eligibility.discoveryLatest(req.auth!, z.string().parse(req.params.workspaceId), z.string().parse(req.query.policyId))));
-  router.post(root + "/eligibility/discovery", async (req, res) => res.status(202).json(await eligibility.discoveryStart(req.auth!, z.string().parse(req.params.workspaceId), req.body)));
-  router.get(root + "/eligibility/discovery/:id", async (req, res) => res.json(await eligibility.discoveryRead(req.auth!, z.string().parse(req.params.workspaceId), z.string().parse(req.params.id))));
+  router.get(root + "/setup", async (req, res) =>
+    res.json(
+      await app.readSetup(
+        req.auth!,
+        z.string().parse(req.params.workspaceId),
+        req.query,
+      ),
+    ),
+  );
+  router.post(root + "/setup", async (req, res) =>
+    res.json(
+      await app.saveSetup(
+        req.auth!,
+        z.string().parse(req.params.workspaceId),
+        req.body,
+      ),
+    ),
+  );
+  const eligibility = createEligibility(
+    config,
+    mongo,
+    marketDiscoveryFromEnvironment(),
+  );
+  router.get(root + "/eligibility/discovery", async (req, res) =>
+    res.json(
+      await eligibility.discoveryLatest(
+        req.auth!,
+        z.string().parse(req.params.workspaceId),
+        z.string().parse(req.query.policyId),
+      ),
+    ),
+  );
+  router.post(root + "/eligibility/discovery", async (req, res) =>
+    res
+      .status(202)
+      .json(
+        await eligibility.discoveryStart(
+          req.auth!,
+          z.string().parse(req.params.workspaceId),
+          req.body,
+        ),
+      ),
+  );
+  router.get(root + "/eligibility/discovery/:id", async (req, res) =>
+    res.json(
+      await eligibility.discoveryRead(
+        req.auth!,
+        z.string().parse(req.params.workspaceId),
+        z.string().parse(req.params.id),
+      ),
+    ),
+  );
   router.get(root + "/eligibility", async (req, res) =>
     res.json(
       await eligibility.read(
@@ -177,18 +223,36 @@ export function createIcpRouter(
             : 503;
     if (status === 503 && /\/imports\/(preview|commit)$/.test(_req.path)) {
       // Deliberately omit messages, query values, records and request bodies.
-      const allowedNames = ["TypeError", "RangeError", "MongoServerError", "MongoNetworkError", "MongoServerSelectionError"];
-      logger.error({
-        operation: _req.path.endsWith("/preview") ? "hive_import_preview" : "hive_import_commit",
-        errorType: allowedNames.includes(error?.name) ? error.name : "Error",
-        databaseCode: Number.isInteger(error?.code) ? error.code : undefined,
-        locations: typeof error?.stack === "string"
-          ? error.stack.split("\n").slice(1).flatMap((line: string) => {
-              const location = line.match(/(?:src|dist)\/[a-zA-Z0-9_./-]+:\d+:\d+/);
-              return location ? [location[0]] : [];
-            }).slice(0, 5)
-          : [],
-      }, "Import operation failed");
+      const allowedNames = [
+        "TypeError",
+        "RangeError",
+        "MongoServerError",
+        "MongoNetworkError",
+        "MongoServerSelectionError",
+      ];
+      logger.error(
+        {
+          operation: _req.path.endsWith("/preview")
+            ? "hive_import_preview"
+            : "hive_import_commit",
+          errorType: allowedNames.includes(error?.name) ? error.name : "Error",
+          databaseCode: Number.isInteger(error?.code) ? error.code : undefined,
+          locations:
+            typeof error?.stack === "string"
+              ? error.stack
+                  .split("\n")
+                  .slice(1)
+                  .flatMap((line: string) => {
+                    const location = line.match(
+                      /(?:src|dist)\/[a-zA-Z0-9_./-]+:\d+:\d+/,
+                    );
+                    return location ? [location[0]] : [];
+                  })
+                  .slice(0, 5)
+              : [],
+        },
+        "Import operation failed",
+      );
     }
     res.status(status).json({
       error: {

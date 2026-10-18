@@ -111,16 +111,14 @@ export function createBusinessOutcomes(config: AppConfig, mongo: MongoService) {
     )
       throw new HiveConflict("Brand unavailable in this workspace.");
     if (d.campaignId) {
-      const c = await db
-        .collection("events")
-        .findOne(
-          {
-            workspaceId: w,
-            eventType: "campaign_setup",
-            campaignId: d.campaignId,
-          },
-          { session, sort: { "payload.version": -1 } },
-        );
+      const c = await db.collection("events").findOne(
+        {
+          workspaceId: w,
+          eventType: "campaign_setup",
+          campaignId: d.campaignId,
+        },
+        { session, sort: { "payload.version": -1 } },
+      );
       if (
         !c ||
         c.payload.status === "archived" ||
@@ -182,20 +180,18 @@ export function createBusinessOutcomes(config: AppConfig, mongo: MongoService) {
       definitions: definitions
         .slice(0, 500)
         .map((r) => ({ id: r.id, ...r.payload, tokenHash: undefined })),
-      evidence: evidence
-        .slice(0, 100)
-        .map((r) => ({
-          id: r.id,
-          outcomeId: r.payload.outcomeId,
-          outcomeName: r.payload.outcomeName,
-          occurredAt: r.payload.occurredAt,
-          receivedAt: r.createdAt.toISOString(),
-          campaignId: r.payload.campaignId,
-          attribution: r.payload.attribution,
-          testOnly: r.payload.testOnly,
-          retracted: r.payload.retracted,
-          reviewNote: r.payload.reviewNote || "",
-        })),
+      evidence: evidence.slice(0, 100).map((r) => ({
+        id: r.id,
+        outcomeId: r.payload.outcomeId,
+        outcomeName: r.payload.outcomeName,
+        occurredAt: r.payload.occurredAt,
+        receivedAt: r.createdAt.toISOString(),
+        campaignId: r.payload.campaignId,
+        attribution: r.payload.attribution,
+        testOnly: r.payload.testOnly,
+        retracted: r.payload.retracted,
+        reviewNote: r.payload.reviewNote || "",
+      })),
       campaignsTruncated: rawCampaigns.length > 2000,
       definitionsTruncated: definitions.length > 500,
       evidenceTruncated: evidence.length > 100,
@@ -231,40 +227,36 @@ export function createBusinessOutcomes(config: AppConfig, mongo: MongoService) {
       const actor = await access(db, u, w, "update", session);
       await lockIcpWorkspace(db, w, session);
       if (
-        await db
-          .collection("events")
-          .findOne(
-            {
-              workspaceId: w,
-              eventType: "business_outcome_change",
-              "payload.requestId": input.requestId,
-            },
-            { session },
-          )
+        await db.collection("events").findOne(
+          {
+            workspaceId: w,
+            eventType: "business_outcome_change",
+            "payload.requestId": input.requestId,
+          },
+          { session },
+        )
       )
         return;
       const old = input.id ? await setup(db, w, input.id, session) : null;
       if (input.action === "retract") {
         if (!input.note || !input.id)
           throw new HiveConflict("Give a reason for retracting this evidence.");
-        const result = await db
-          .collection("events")
-          .updateOne(
-            {
-              workspaceId: w,
-              id: input.id,
-              eventType: evidenceType,
-              "payload.retracted": false,
+        const result = await db.collection("events").updateOne(
+          {
+            workspaceId: w,
+            id: input.id,
+            eventType: evidenceType,
+            "payload.retracted": false,
+          },
+          {
+            $set: {
+              "payload.retracted": true,
+              "payload.reviewNote": input.note,
+              updatedAt: new Date(),
             },
-            {
-              $set: {
-                "payload.retracted": true,
-                "payload.reviewNote": input.note,
-                updatedAt: new Date(),
-              },
-            },
-            { session },
-          );
+          },
+          { session },
+        );
         if (!result.matchedCount)
           throw new HiveConflict(
             "Evidence changed or is unavailable. Refresh.",
@@ -357,23 +349,21 @@ export function createBusinessOutcomes(config: AppConfig, mongo: MongoService) {
           await db.collection("events").insertOne(created, { session });
         }
       }
-      await db
-        .collection("events")
-        .insertOne(
-          row(
-            w,
-            "business_outcome_change",
-            {
-              requestId: input.requestId,
-              outcomeId: targetId,
-              action: input.action,
-              previous: old ? { ...old.payload, tokenHash: undefined } : null,
-              note: input.note ?? null,
-            },
-            actor,
-          ),
-          { session },
-        );
+      await db.collection("events").insertOne(
+        row(
+          w,
+          "business_outcome_change",
+          {
+            requestId: input.requestId,
+            outcomeId: targetId,
+            action: input.action,
+            previous: old ? { ...old.payload, tokenHash: undefined } : null,
+            note: input.note ?? null,
+          },
+          actor,
+        ),
+        { session },
+      );
     });
     return { state: await state(u, w), ...(token ? { token } : {}) };
   }
@@ -418,55 +408,49 @@ export function createBusinessOutcomes(config: AppConfig, mongo: MongoService) {
           "Payload does not match the saved outcome mapping.",
         );
       }
-      const existing = await db
-        .collection("events")
-        .findOne(
-          {
-            workspaceId: w,
-            eventType: evidenceType,
-            "payload.outcomeId": id,
-            "payload.testOnly": testOnly,
-            ...(testOnly ? { "payload.definitionVersion": p.version } : {}),
-            $or: [
-              { "payload.eventHash": mapped.eventHash },
-              { "payload.subjectHash": mapped.subjectHash },
-            ],
-          },
-          { session },
-        );
+      const existing = await db.collection("events").findOne(
+        {
+          workspaceId: w,
+          eventType: evidenceType,
+          "payload.outcomeId": id,
+          "payload.testOnly": testOnly,
+          ...(testOnly ? { "payload.definitionVersion": p.version } : {}),
+          $or: [
+            { "payload.eventHash": mapped.eventHash },
+            { "payload.subjectHash": mapped.subjectHash },
+          ],
+        },
+        { session },
+      );
       if (existing) {
         duplicate = true;
         return;
       }
-      await db
-        .collection("events")
-        .insertOne(
-          row(w, evidenceType, {
-            ...mapped,
-            outcomeId: id,
-            outcomeName: d.name,
-            brandId: d.brandId,
-            sourceName: d.sourceName,
-            definitionVersion: p.version,
-            testOnly,
-            retracted: false,
-          }),
-          { session },
-        );
-      await db
-        .collection("events")
-        .updateOne(
-          { workspaceId: w, id },
-          {
-            $set: {
-              "payload.lastReceivedAt": new Date().toISOString(),
-              ...(testOnly
-                ? { "payload.connectionTestedAt": new Date().toISOString() }
-                : {}),
-            },
+      await db.collection("events").insertOne(
+        row(w, evidenceType, {
+          ...mapped,
+          outcomeId: id,
+          outcomeName: d.name,
+          brandId: d.brandId,
+          sourceName: d.sourceName,
+          definitionVersion: p.version,
+          testOnly,
+          retracted: false,
+        }),
+        { session },
+      );
+      await db.collection("events").updateOne(
+        { workspaceId: w, id },
+        {
+          $set: {
+            "payload.lastReceivedAt": new Date().toISOString(),
+            ...(testOnly
+              ? { "payload.connectionTestedAt": new Date().toISOString() }
+              : {}),
           },
-          { session },
-        );
+        },
+        { session },
+      );
     });
     return { accepted: true, duplicate, testOnly };
   }

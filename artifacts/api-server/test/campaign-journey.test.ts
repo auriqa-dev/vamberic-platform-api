@@ -529,17 +529,36 @@ test("large preparation is chunked without relaxing event bounds and corrupt rec
   );
 });
 
-
 test("generic CRM patches cannot rewrite or relabel campaign approval history", async () => {
-  const {updateCrmRecord} = await import("../src/services/crm-foundation");
-  for (const patch of [{payload: {status: "approved"}}, {eventType: "ordinary_note"}]) {
+  const { updateCrmRecord } = await import("../src/services/crm-foundation");
+  for (const patch of [
+    { payload: { status: "approved" } },
+    { eventType: "ordinary_note" },
+  ]) {
     let writes = 0;
-    const row = {id: generatePlatformId("event"), updatedAt: new Date(), eventType: "campaign_journey"};
-    const mongo = {withTransaction: async (fn: (db: unknown) => Promise<unknown>) => fn({collection: () => ({
-      findOne: async () => row,
-      updateOne: async () => { writes++; },
-    })})};
-    await assert.rejects(updateCrmRecord(mongo as never, "events", row.id, row.updatedAt, patch, {type: "human", id: "synthetic"}), /Events are append-only/);
+    const row = {
+      id: generatePlatformId("event"),
+      updatedAt: new Date(),
+      eventType: "campaign_journey",
+    };
+    const mongo = {
+      withTransaction: async (fn: (db: unknown) => Promise<unknown>) =>
+        fn({
+          collection: () => ({
+            findOne: async () => row,
+            updateOne: async () => {
+              writes++;
+            },
+          }),
+        }),
+    };
+    await assert.rejects(
+      updateCrmRecord(mongo as never, "events", row.id, row.updatedAt, patch, {
+        type: "human",
+        id: "synthetic",
+      }),
+      /Events are append-only/,
+    );
     assert.equal(writes, 0);
   }
 });

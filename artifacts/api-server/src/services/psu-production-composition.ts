@@ -67,45 +67,78 @@ export function composePsuProduction(
     ...authentication,
     capacity,
     clock,
-    ...(nbaEnabled ? {nbaAvailable: (db?: import("mongodb").Db, session?: import("mongodb").ClientSession) => db && session ? capacity.admit(db,session) : capacity.available()} : {}),
+    ...(nbaEnabled
+      ? {
+          nbaAvailable: (
+            db?: import("mongodb").Db,
+            session?: import("mongodb").ClientSession,
+          ) =>
+            db && session ? capacity.admit(db, session) : capacity.available(),
+        }
+      : {}),
     capabilities: {
       availabilityState: async (value, operation) =>
-        ((value.manifestDigest === manifest.manifestDigest && manifest.operations.includes(operation)) ||
-          (nbaEnabled && value.manifestDigest === NBA_FOUNDATION_MANIFEST.manifestDigest && operation === "reconsider"))
+        (value.manifestDigest === manifest.manifestDigest &&
+          manifest.operations.includes(operation)) ||
+        (nbaEnabled &&
+          value.manifestDigest === NBA_FOUNDATION_MANIFEST.manifestDigest &&
+          operation === "reconsider")
           ? capacity.status()
           : "unavailable",
       admission: async (db, session, value, operation) =>
-        ((value.manifestDigest === manifest.manifestDigest && manifest.operations.includes(operation)) ||
-          (nbaEnabled && value.manifestDigest === NBA_FOUNDATION_MANIFEST.manifestDigest && operation === "reconsider")) &&
+        ((value.manifestDigest === manifest.manifestDigest &&
+          manifest.operations.includes(operation)) ||
+          (nbaEnabled &&
+            value.manifestDigest === NBA_FOUNDATION_MANIFEST.manifestDigest &&
+            operation === "reconsider")) &&
         (await capacity.admit(db, session)),
       continuing: async (value, operation) =>
-        ((value.manifestDigest === manifest.manifestDigest && manifest.operations.includes(operation)) ||
-          (nbaEnabled && value.manifestDigest === NBA_FOUNDATION_MANIFEST.manifestDigest && operation === "reconsider")),
+        (value.manifestDigest === manifest.manifestDigest &&
+          manifest.operations.includes(operation)) ||
+        (nbaEnabled &&
+          value.manifestDigest === NBA_FOUNDATION_MANIFEST.manifestDigest &&
+          operation === "reconsider"),
       manifest: async (key, version, value) =>
         key === manifest.implementation.key &&
         version === manifest.implementation.version &&
         value === manifest.manifestDigest
           ? manifest
-          : nbaEnabled && key === NBA_FOUNDATION_MANIFEST.implementation.key && version === 1 && value === NBA_FOUNDATION_MANIFEST.manifestDigest
-            ? NBA_FOUNDATION_MANIFEST : undefined,
+          : nbaEnabled &&
+              key === NBA_FOUNDATION_MANIFEST.implementation.key &&
+              version === 1 &&
+              value === NBA_FOUNDATION_MANIFEST.manifestDigest
+            ? NBA_FOUNDATION_MANIFEST
+            : undefined,
       available: async (value, operation) =>
-        ((value.manifestDigest === manifest.manifestDigest && manifest.operations.includes(operation)) ||
-          (nbaEnabled && value.manifestDigest === NBA_FOUNDATION_MANIFEST.manifestDigest && operation === "reconsider")) &&
+        ((value.manifestDigest === manifest.manifestDigest &&
+          manifest.operations.includes(operation)) ||
+          (nbaEnabled &&
+            value.manifestDigest === NBA_FOUNDATION_MANIFEST.manifestDigest &&
+            operation === "reconsider")) &&
         (await capacity.available()),
       reasoningToolAllowed: (m, operation, tool) =>
         website &&
         m.manifestDigest === manifest.manifestDigest &&
         operation === "understand" &&
         digest(tool) === digest(SUBMITTED_PAGE_TOOL),
-      reasoningOperations: (m) => m.manifestDigest === NBA_FOUNDATION_MANIFEST.manifestDigest && nbaEnabled ? ["reconsider"] : manifest.operations,
+      reasoningOperations: (m) =>
+        m.manifestDigest === NBA_FOUNDATION_MANIFEST.manifestDigest &&
+        nbaEnabled
+          ? ["reconsider"]
+          : manifest.operations,
       reasoningConfiguration: () => [],
     },
     execution: {
       allowInternal: false,
       dependencies: async () => [],
       allowed: async (_db, _workspace, work, session) => {
-        if (work.implementation.manifestDigest === NBA_FOUNDATION_MANIFEST.manifestDigest)
-          return nbaEnabled && nbaWorkAllowed(_db,_workspace,work,session,config);
+        if (
+          work.implementation.manifestDigest ===
+          NBA_FOUNDATION_MANIFEST.manifestDigest
+        )
+          return (
+            nbaEnabled && nbaWorkAllowed(_db, _workspace, work, session, config)
+          );
         const role =
           work.operation === "understand"
             ? "maker"

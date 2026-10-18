@@ -139,14 +139,26 @@ test("normal discovery still returns its full interpretation", async () => {
   assert.deepEqual(result.interpretation, interpretation);
 });
 test("full brief uses strict structured output and preserves required null identities", async () => {
-  const interpret = createOfferBriefInterpreter({apiKey:"fixture",project:"proj_fixture"}, async (_url, init) => {
-    const body = JSON.parse(String(init?.body));
-    assert.equal(body.text.format.type,"json_schema");
-    assert.equal(body.text.format.strict,true);
-    assert.equal(body.text.format.schema.additionalProperties,false);
-    return response({explanation:"Two options for review",offers:[{...selected,methodologyRecommendation:null}]});
-  });
-  const result = await interpret({intent:"Two offers",product:{},existingOffers:[]},new AbortController().signal);
-  assert.equal(result.interpretation.offers[0]?.existingOfferId,null);
-  assert.equal(result.interpretation.offers[0]?.methodologyRecommendation,undefined);
+  const interpret = createOfferBriefInterpreter(
+    { apiKey: "fixture", project: "proj_fixture" },
+    async (_url, init) => {
+      const body = JSON.parse(String(init?.body));
+      assert.equal(body.text.format.type, "json_schema");
+      assert.equal(body.text.format.strict, true);
+      assert.equal(body.text.format.schema.additionalProperties, false);
+      return response({
+        explanation: "Two options for review",
+        offers: [{ ...selected, methodologyRecommendation: null }],
+      });
+    },
+  );
+  const result = await interpret(
+    { intent: "Two offers", product: {}, existingOffers: [] },
+    new AbortController().signal,
+  );
+  assert.equal(result.interpretation.offers[0]?.existingOfferId, null);
+  assert.equal(
+    result.interpretation.offers[0]?.methodologyRecommendation,
+    undefined,
+  );
 });

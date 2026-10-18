@@ -168,7 +168,10 @@ export function createOfferGenerator(
           );
       } catch (error) {
         if (error instanceof OfferIncompleteError && error.usage) {
-          researchUsage = { ...error.usage, searchCalls: error.usage.searchCalls ?? 0 };
+          researchUsage = {
+            ...error.usage,
+            searchCalls: error.usage.searchCalls ?? 0,
+          };
         }
         await report("research", "warning", safeOfferFailure(error));
         limitations.push(
@@ -298,7 +301,10 @@ export function createOfferGenerator(
     const envelope = z
       .object({
         status: z.string(),
-        incomplete_details: z.object({reason:z.string().optional()}).nullable().optional(),
+        incomplete_details: z
+          .object({ reason: z.string().optional() })
+          .nullable()
+          .optional(),
         model: z.string(),
         usage: z.object({
           input_tokens: z.number().int().nonnegative(),
@@ -318,9 +324,18 @@ export function createOfferGenerator(
       .parse(parseProviderJson(Buffer.concat(chunks).toString("utf8")));
     if (envelope.status !== "completed") {
       const reason = envelope.incomplete_details?.reason;
-      throw new OfferIncompleteError(reason === "max_output_tokens" ? "output_limit" : reason === "content_filter" ? "content_filter" : "incomplete", {
-        model:envelope.model,inputTokens:envelope.usage.input_tokens,outputTokens:envelope.usage.output_tokens,
-      });
+      throw new OfferIncompleteError(
+        reason === "max_output_tokens"
+          ? "output_limit"
+          : reason === "content_filter"
+            ? "content_filter"
+            : "incomplete",
+        {
+          model: envelope.model,
+          inputTokens: envelope.usage.input_tokens,
+          outputTokens: envelope.usage.output_tokens,
+        },
+      );
     }
     const output = envelope.output
       .filter((x) => x.type === "message")

@@ -260,6 +260,10 @@ export function queenClientBase(
       }),
     ],
   ] as const;
-  const templateRecords = planStrategyTemplates(result.workspaceId, [], now).created.map(record => ["contact_strategy_policies", record] as const);
+  const templateRecords = planStrategyTemplates(
+    result.workspaceId,
+    [],
+    now,
+  ).created.map((record) => ["contact_strategy_policies", record] as const);
   return { result, records: [...records, ...templateRecords], base };
 }

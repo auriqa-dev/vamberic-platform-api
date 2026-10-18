@@ -1,4 +1,4 @@
-import { OPENAI_TERMINAL_POLICY } from "../../../../vamberic-agent-runtime/dist/src/models/openai/terminal-policy.js";
+import { OPENAI_TERMINAL_POLICY } from "../../../.integration/vamberic-agent-runtime/dist/src/models/openai/terminal-policy.js";
 import { openAITerminalQualification } from "../src/services/psu-terminal-qualification";
 import { cases } from "./agent-execution-evidence-v23-parity.test";
 import { agentMongoParity } from "./helpers/agent-mongo-parity";

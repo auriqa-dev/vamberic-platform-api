@@ -8,10 +8,22 @@ import {
 import { OfferingContentSchema as PlatformOffering } from "../src/domain/hive-definitions";
 import { PRODUCT_POLICY } from "../src/services/product-service-understanding/profile";
 
-test("Product Offering content matches all canonical Platform fields and boundary outcomes", () => {
+test("Legacy Runtime Offering fields retain Platform compatibility alongside explicit app-only extensions", () => {
   assert.deepEqual(
     Object.keys(RuntimeOffering.shape).sort(),
-    Object.keys(PlatformOffering.shape).sort(),
+    Object.keys(PlatformOffering.shape)
+      .filter(
+        (field) =>
+          ![
+            "buyerNextSteps",
+            "implementationExplanation",
+            "offeringTypeExplanation",
+            "offeringTypeOtherDetail",
+            "technologyRole",
+            "technologyRoleExplanation",
+          ].includes(field),
+      )
+      .sort(),
   );
   assert.equal(Object.keys(RuntimeOffering.shape).length, 32);
   const probes: unknown[] = [

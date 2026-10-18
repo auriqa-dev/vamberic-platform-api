@@ -164,20 +164,46 @@ test("detailed profile keeps supported fields when another value or reference is
 });
 
 test("PSU diagnostics classify internal validation failures without disclosing provider content", async () => {
-  const { safePsuValidationReason } = await import("../src/services/psu/generate");
-  assert.equal(safePsuValidationReason(new Error("Duplicate proposed field")), "duplicate_field");
-  assert.equal(safePsuValidationReason(new Error("private generated text")), "validation_failed");
+  const { safePsuValidationReason } =
+    await import("../src/services/psu/generate");
+  assert.equal(
+    safePsuValidationReason(new Error("Duplicate proposed field")),
+    "duplicate_field",
+  );
+  assert.equal(
+    safePsuValidationReason(new Error("private generated text")),
+    "validation_failed",
+  );
 });
 
 test("duplicate generated fields are omitted for review without losing other detailed fields", () => {
   const text = "Supplier provides a professional service.";
-  const result = validateDetail({ fields: [
-    { field: "name", value: "Service", sources: [0] },
-    { field: "whatCustomerBuys", value: "Advice", sources: [0] },
-    { field: "whatCustomerBuys", value: "Software", sources: [0] },
-  ], unknowns: [] }, [{ url: "https://example.com", title: "Service", text,
-    digest: pageTextDigest(text), retrievedAt: new Date().toISOString() }]);
-  assert.deepEqual(result.fields.map(f => f.binding.field), ["name"]);
-  assert.match(result.unknowns.join(" "), /whatCustomerBuys: more than one value/);
+  const result = validateDetail(
+    {
+      fields: [
+        { field: "name", value: "Service", sources: [0] },
+        { field: "whatCustomerBuys", value: "Advice", sources: [0] },
+        { field: "whatCustomerBuys", value: "Software", sources: [0] },
+      ],
+      unknowns: [],
+    },
+    [
+      {
+        url: "https://example.com",
+        title: "Service",
+        text,
+        digest: pageTextDigest(text),
+        retrievedAt: new Date().toISOString(),
+      },
+    ],
+  );
+  assert.deepEqual(
+    result.fields.map((f) => f.binding.field),
+    ["name"],
+  );
+  assert.match(
+    result.unknowns.join(" "),
+    /whatCustomerBuys: more than one value/,
+  );
   assert.equal(result.approval, "not_approved");
 });

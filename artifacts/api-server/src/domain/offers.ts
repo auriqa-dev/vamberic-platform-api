@@ -25,7 +25,10 @@ export const OfferQualificationShape = {
   handoverRecipient: text().optional(),
   handoverRequirements: texts().optional(),
   afterHandover: text().optional(),
-  bookingUrl: text(2048).url().refine(v => /^https:\/\//i.test(v), "Use an HTTPS booking URL").optional(),
+  bookingUrl: text(2048)
+    .url()
+    .refine((v) => /^https:\/\//i.test(v), "Use an HTTPS booking URL")
+    .optional(),
   meetingPurpose: text().optional(),
 };
 const key = methodologyKeySchema;

@@ -92,7 +92,15 @@ export function createAgentSubsystem(
   return {
     effectiveness,
     control,
-    nba: options.nbaAvailable ? createNbaNativeExecution(config,mongo,authority,readiness.policy,options.nbaAvailable) : undefined,
+    nba: options.nbaAvailable
+      ? createNbaNativeExecution(
+          config,
+          mongo,
+          authority,
+          readiness.policy,
+          options.nbaAvailable,
+        )
+      : undefined,
     human: createAgentHumanRouter(config, mongo, control, {
       psuOptions: (identity, workspaceId) =>
         psuAppOptions(

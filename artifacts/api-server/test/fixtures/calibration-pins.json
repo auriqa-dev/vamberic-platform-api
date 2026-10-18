@@ -1,0 +1,307 @@
+{
+  "manifest": {
+    "implementation": {
+      "key": "product_service_understanding",
+      "version": 2
+    },
+    "compatibleDefinitions": [
+      {
+        "key": "product_service_understanding",
+        "version": 1
+      }
+    ],
+    "protocolVersions": [
+      "1.2",
+      "2.0"
+    ],
+    "operations": [
+      "understand",
+      "evaluate_understanding",
+      "revise_understanding"
+    ],
+    "resultSchemaVersions": [
+      2
+    ],
+    "checkpointSchemaVersions": [
+      1
+    ],
+    "instruction": {
+      "version": 2,
+      "hash": "0f53def990b5f5a4d0eebbf8360a8508755de7e1bc4800bbe7931f08ed98d4ba"
+    },
+    "buildDigest": "8a38bf4b89b9ee3dbc0fa531f31a0a899d1a1f00d5d19a8d1781dc0a03aff360",
+    "manifestDigest": "fe862ce8ac9c3ca052c88abc115fee28ee4dbb727b6477b2bca7432c8c14ee89"
+  },
+  "profile": {
+    "key": "product_service_understanding_v1",
+    "version": 1,
+    "digest": "58cac160d93d5d9e6b6da9867a9bb0a1111274f9f939de12dc912c987aef43a3"
+  },
+  "policy": {
+    "identity": {
+      "key": "product_service_understanding_v1",
+      "version": 1,
+      "digest": "637b590c9e0c5da12d9e601963843cb2d17db967b141c812025f7c97b499ac2b"
+    },
+    "maxRevisions": 2,
+    "manualOverride": false,
+    "consequences": [
+      {
+        "key": "validity_hold",
+        "onFailure": "hold",
+        "onUncertain": "hold"
+      },
+      {
+        "key": "repair",
+        "onFailure": "revise",
+        "onUncertain": "hold"
+      },
+      {
+        "key": "structure_review",
+        "onFailure": "escalate",
+        "onUncertain": "escalate"
+      }
+    ]
+  },
+  "effectiveness": {
+    "maker": "understand",
+    "evaluator": "evaluate_understanding",
+    "revision": "revise_understanding",
+    "profile": {
+      "key": "product_service_understanding_v1",
+      "version": 1,
+      "digest": "58cac160d93d5d9e6b6da9867a9bb0a1111274f9f939de12dc912c987aef43a3"
+    },
+    "policy": {
+      "key": "product_service_understanding_v1",
+      "version": 1,
+      "digest": "637b590c9e0c5da12d9e601963843cb2d17db967b141c812025f7c97b499ac2b"
+    },
+    "required": true,
+    "maxRevisions": 2
+  },
+  "criteria": {
+    "schemaVersion": 1,
+    "profile": {
+      "key": "product_service_understanding_v1",
+      "version": 1,
+      "digest": "58cac160d93d5d9e6b6da9867a9bb0a1111274f9f939de12dc912c987aef43a3"
+    },
+    "objective": "Establish what the client actually sells with preserved evidence and uncertainty",
+    "intendedNextAction": "Human review of an Offering draft proposal; canonical approval remains separate",
+    "lineage": [],
+    "criteria": [
+      {
+        "id": "scope_identity",
+        "version": 1,
+        "category": "validity",
+        "requirement": "One selected thing, exact workspace/target/Brand pins, authorized roles",
+        "rationale": "Preserve the reviewed Product understanding and downstream factual boundary",
+        "importance": "mandatory",
+        "method": "deterministic",
+        "methodKey": "psu_scope_v1",
+        "evidence": "none",
+        "applicabilityRule": "always",
+        "consequenceKey": "validity_hold",
+        "lineageIds": []
+      },
+      {
+        "id": "contract_integrity",
+        "version": 1,
+        "category": "validity",
+        "requirement": "Strict domain/proposal shape, byte bounds, resolved IDs, complete coverage of material bindings",
+        "rationale": "Preserve the reviewed Product understanding and downstream factual boundary",
+        "importance": "mandatory",
+        "method": "deterministic",
+        "methodKey": "psu_contract_v1",
+        "evidence": "none",
+        "applicabilityRule": "always",
+        "consequenceKey": "validity_hold",
+        "lineageIds": []
+      },
+      {
+        "id": "core_knowledge",
+        "version": 1,
+        "category": "validity",
+        "requirement": "Identity, substance, receipt, capability, delivery and material constraints legitimately established; no blocking gaps",
+        "rationale": "Preserve the reviewed Product understanding and downstream factual boundary",
+        "importance": "mandatory",
+        "method": "deterministic",
+        "methodKey": "psu_core_v1",
+        "evidence": "required",
+        "applicabilityRule": "always",
+        "consequenceKey": "validity_hold",
+        "lineageIds": []
+      },
+      {
+        "id": "source_integrity",
+        "version": 1,
+        "category": "validity",
+        "requirement": "Exact source identities/import mappings, authentic input provenance, no silently substituted content",
+        "rationale": "Preserve the reviewed Product understanding and downstream factual boundary",
+        "importance": "mandatory",
+        "method": "deterministic",
+        "methodKey": "psu_sources_v1",
+        "evidence": "none",
+        "applicabilityRule": "always",
+        "consequenceKey": "validity_hold",
+        "lineageIds": []
+      },
+      {
+        "id": "epistemic_projection",
+        "version": 1,
+        "category": "validity",
+        "requirement": "Every proposed material value has retained basis; no assumption/core inference promoted; required Hive mapping fits",
+        "rationale": "Preserve the reviewed Product understanding and downstream factual boundary",
+        "importance": "mandatory",
+        "method": "deterministic",
+        "methodKey": "psu_projection_v1",
+        "evidence": "none",
+        "applicabilityRule": "always",
+        "consequenceKey": "validity_hold",
+        "lineageIds": []
+      },
+      {
+        "id": "fresh_application_base",
+        "version": 1,
+        "category": "validity",
+        "requirement": "Current target/parent/source and expected application tokens remain valid",
+        "rationale": "Preserve the reviewed Product understanding and downstream factual boundary",
+        "importance": "mandatory",
+        "method": "deterministic",
+        "methodKey": "psu_freshness_v1",
+        "evidence": "none",
+        "applicabilityRule": "always",
+        "consequenceKey": "validity_hold",
+        "lineageIds": []
+      },
+      {
+        "id": "product_clarity",
+        "version": 1,
+        "category": "effectiveness",
+        "requirement": "A reader can identify the concrete thing received without interpreting promotional language",
+        "rationale": "Preserve the reviewed Product understanding and downstream factual boundary",
+        "importance": "mandatory",
+        "method": "judgement",
+        "methodKey": "psu_clarity_v1",
+        "evidence": "none",
+        "applicabilityRule": "always",
+        "consequenceKey": "repair",
+        "lineageIds": []
+      },
+      {
+        "id": "receipt_and_delivery",
+        "version": 1,
+        "category": "effectiveness",
+        "requirement": "Deliverables distinct from activity; responsibilities and delivery sufficiently specific for the selected type",
+        "rationale": "Preserve the reviewed Product understanding and downstream factual boundary",
+        "importance": "mandatory",
+        "method": "judgement",
+        "methodKey": "psu_delivery_v1",
+        "evidence": "none",
+        "applicabilityRule": "always",
+        "consequenceKey": "repair",
+        "lineageIds": []
+      },
+      {
+        "id": "product_offer_boundary",
+        "version": 1,
+        "category": "effectiveness",
+        "requirement": "Existing commercial reality is recorded, never redesigned or confused with core product",
+        "rationale": "Preserve the reviewed Product understanding and downstream factual boundary",
+        "importance": "mandatory",
+        "method": "judgement",
+        "methodKey": "psu_boundary_v1",
+        "evidence": "none",
+        "applicabilityRule": "always",
+        "consequenceKey": "repair",
+        "lineageIds": []
+      },
+      {
+        "id": "claim_grounding",
+        "version": 1,
+        "category": "effectiveness",
+        "requirement": "Actual excerpts/answers support assertion meaning and qualifications; intended/observed/guaranteed distinct",
+        "rationale": "Preserve the reviewed Product understanding and downstream factual boundary",
+        "importance": "mandatory",
+        "method": "judgement",
+        "methodKey": "psu_grounding_v1",
+        "evidence": "required",
+        "applicabilityRule": "always",
+        "consequenceKey": "repair",
+        "lineageIds": []
+      },
+      {
+        "id": "constraint_preservation",
+        "version": 1,
+        "category": "effectiveness",
+        "requirement": "Material limits, exclusions, planned state and prerequisites survive synthesis",
+        "rationale": "Preserve the reviewed Product understanding and downstream factual boundary",
+        "importance": "mandatory",
+        "method": "judgement",
+        "methodKey": "psu_constraints_v1",
+        "evidence": "none",
+        "applicabilityRule": "always",
+        "consequenceKey": "repair",
+        "lineageIds": []
+      },
+      {
+        "id": "grouping_coherence",
+        "version": 1,
+        "category": "effectiveness",
+        "requirement": "Confirmed scope/components form one legitimate context; no unresolved strategic split/merge hidden",
+        "rationale": "Preserve the reviewed Product understanding and downstream factual boundary",
+        "importance": "mandatory",
+        "method": "judgement",
+        "methodKey": "psu_grouping_v1",
+        "evidence": "none",
+        "applicabilityRule": "always",
+        "consequenceKey": "structure_review",
+        "lineageIds": []
+      },
+      {
+        "id": "downstream_sufficiency",
+        "version": 1,
+        "category": "effectiveness",
+        "requirement": "ICP/Offer can consume structured facts/basis without guessing core knowledge or inheriting an ICP/Offer decision",
+        "rationale": "Preserve the reviewed Product understanding and downstream factual boundary",
+        "importance": "mandatory",
+        "method": "judgement",
+        "methodKey": "psu_handoff_v1",
+        "evidence": "none",
+        "applicabilityRule": "always",
+        "consequenceKey": "repair",
+        "lineageIds": []
+      },
+      {
+        "id": "brand_term_preservation",
+        "version": 1,
+        "category": "brand",
+        "requirement": "Existing selected required/avoided terminology respected without overriding facts",
+        "rationale": "Preserve the reviewed Product understanding and downstream factual boundary",
+        "importance": "mandatory",
+        "method": "deterministic",
+        "methodKey": "psu_terms_v1",
+        "evidence": "none",
+        "applicabilityRule": "selected_terms",
+        "consequenceKey": "repair",
+        "lineageIds": []
+      },
+      {
+        "id": "question_economy",
+        "version": 1,
+        "category": "effectiveness",
+        "requirement": "Evidence-first synthesis, specific justified questions, no repeats after “don't know”",
+        "rationale": "Preserve the reviewed Product understanding and downstream factual boundary",
+        "importance": "advisory",
+        "method": "judgement",
+        "methodKey": "psu_questions_v1",
+        "evidence": "none",
+        "applicabilityRule": "questions_present",
+        "consequenceKey": "repair",
+        "lineageIds": []
+      }
+    ],
+    "digest": "88ccc48c0a207182f5ef5703b8612889e576b22f4322939c2397a7eec2158cf4"
+  }
+}

@@ -465,7 +465,7 @@ async function write(
       "content_strategy_generation",
       "content_strategy_handoff",
       "contact_strategy_definition",
-    "contact_strategy_changed",
+      "contact_strategy_changed",
       "contact_strategy_interpretation",
       "contact_strategy_assessed",
       "hubspot_engagement_observed",
@@ -482,8 +482,16 @@ async function write(
       "PROTECTED_VALUE",
       "Reserved Platform approval event",
     );
-  if (collection === "events" && /^(business_outcome_|performance_|ga4_|interaction_|website_tracking_|measurement_|nba_measurement_|communication)/.test(String(patch.eventType || "")))
-    throw new CrmFoundationError("PROTECTED_VALUE", "Use the dedicated reviewed operation for interaction and communication records");
+  if (
+    collection === "events" &&
+    /^(business_outcome_|performance_|ga4_|interaction_|website_tracking_|measurement_|nba_measurement_|communication)/.test(
+      String(patch.eventType || ""),
+    )
+  )
+    throw new CrmFoundationError(
+      "PROTECTED_VALUE",
+      "Use the dedicated reviewed operation for interaction and communication records",
+    );
   if (!mongo.withTransaction)
     throw new CrmFoundationError(
       "TRANSACTIONS_REQUIRED",
@@ -497,8 +505,17 @@ async function write(
           { session },
         )
       : undefined;
-    if (collection === "events" && previous && /^(business_outcome_|performance_|ga4_|interaction_|website_tracking_|measurement_|nba_measurement_|communication)/.test(String(previous.eventType)))
-      throw new CrmFoundationError("PROTECTED_VALUE", "Use the dedicated reviewed operation for interaction and communication records");
+    if (
+      collection === "events" &&
+      previous &&
+      /^(business_outcome_|performance_|ga4_|interaction_|website_tracking_|measurement_|nba_measurement_|communication)/.test(
+        String(previous.eventType),
+      )
+    )
+      throw new CrmFoundationError(
+        "PROTECTED_VALUE",
+        "Use the dedicated reviewed operation for interaction and communication records",
+      );
     if (existing && !previous)
       throw new CrmFoundationError(
         "CONFLICT",

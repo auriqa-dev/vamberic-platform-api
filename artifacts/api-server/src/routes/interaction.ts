@@ -11,7 +11,9 @@ import { contentGeneratorFromEnvironment } from "../services/content-strategy/ge
 import { rateLimit } from "../middlewares/rate-limit";
 import { HiveConflict } from "../services/hive-definitions";
 import { interactionWidget } from "../services/interaction/widget";
-const errors: ErrorRequestHandler = (e, _req, res, _next) => {
+const errors: ErrorRequestHandler = (e, _req, res, next) => {
+  // Express identifies error handlers by their four-argument signature.
+  void next;
   res
     .status(e instanceof ZodError ? 400 : e instanceof HiveConflict ? 409 : 503)
     .json({

@@ -58,11 +58,24 @@ export const researchRequest = z
 export const researchOutput = z
   .object({
     summary: text(4000),
-    assessments: z.array(z.object({
-      organisationId: text(100), personId: text(100).optional(), website: text(2048), offerId: text(100), icpId: text(100),
-      fit: z.enum(["potential_fit", "not_fit", "needs_research"]),
-      rationale: text(1500), evidenceIds: z.array(text(100)).max(20), unknowns: z.array(text(500)).max(10),
-    }).strict()).max(40).default([]),
+    assessments: z
+      .array(
+        z
+          .object({
+            organisationId: text(100),
+            personId: text(100).optional(),
+            website: text(2048),
+            offerId: text(100),
+            icpId: text(100),
+            fit: z.enum(["potential_fit", "not_fit", "needs_research"]),
+            rationale: text(1500),
+            evidenceIds: z.array(text(100)).max(20),
+            unknowns: z.array(text(500)).max(10),
+          })
+          .strict(),
+      )
+      .max(40)
+      .default([]),
     organisations: z
       .array(
         z

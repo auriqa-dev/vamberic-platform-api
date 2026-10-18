@@ -36,16 +36,14 @@ export async function acceptCapabilityResult(
   )
     throw new HiveConflict("The result does not belong to this decision.");
   const receiptHash = nbaHash(result);
-  const prior = await db
-    .collection("events")
-    .findOne(
-      {
-        workspaceId: request.workspaceId,
-        eventType: "nba_capability_result",
-        "payload.idempotencyKey": request.idempotencyKey,
-      },
-      { session },
-    );
+  const prior = await db.collection("events").findOne(
+    {
+      workspaceId: request.workspaceId,
+      eventType: "nba_capability_result",
+      "payload.idempotencyKey": request.idempotencyKey,
+    },
+    { session },
+  );
   if (prior) {
     if (prior.payload.receiptHash !== receiptHash)
       throw new HiveConflict(

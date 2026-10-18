@@ -47,10 +47,16 @@ test("bad references and duplicates omit affected fields; empty results still fa
   assert.match(result.companyDraft!.unknowns.join(" "), /source reference/);
   assert.equal(result.draft!.fields.length, 2);
   data.company.push(data.company[0]!);
-  assert.throws(() => validateQuickSummary(data, [page], true), /No usable summary fields/);
+  assert.throws(
+    () => validateQuickSummary(data, [page], true),
+    /No usable summary fields/,
+  );
   data.company[1]!.sources = [0];
   const partial = validateQuickSummary(data, [page], true);
-  assert.deepEqual(partial.companyDraft!.fields.map(f => f.binding.field), ["description"]);
+  assert.deepEqual(
+    partial.companyDraft!.fields.map((f) => f.binding.field),
+    ["description"],
+  );
   assert.match(partial.companyDraft!.unknowns.join(" "), /more than one value/);
   assert.equal(partial.draft!.fields.length, 2);
 });
@@ -192,27 +198,139 @@ test("named summary slots require each field to be considered and preserve hones
     false,
   );
 });
-test("progressive generation uses two bounded synthesis stages with retained usage and optional external discovery",async()=>{
- let summaries=0, searches=0; const stages:string[]=[], previews:unknown[]=[];
- const generate=createPsuGenerator({apiKey:"offline",project:"proj_test",model:"unused"},async (_url,init)=>{
-   const body=JSON.parse(String(init?.body));
-   if(body.tools.length){searches++;return new Response(JSON.stringify({status:"completed",model:"gpt-4.1-mini",usage:{input_tokens:10,output_tokens:5},output:[{type:"web_search_call",action:{sources:[{url:"https://independent.org/acme/comparison"}]}}]}));}
-   summaries++;
-   return new Response(JSON.stringify({model:SUMMARY_MODEL,status:"completed",usage:{input_tokens:100,output_tokens:50},output:[{type:"message",role:"assistant",status:"completed",content:[{type:"output_text",text:JSON.stringify(payload())}]}]}));
- },{resolve:async()=>["93.184.216.34"],read:async({url})=>({access:"allowed",decodedBytes:100,text:text+url,title:"Acme",links:url.endsWith("/")?Array.from({length:9},(_,i)=>`/product/${i}`):[]})},
- {resolve:async()=>["93.184.216.34"],read:async()=>({access:"allowed",decodedBytes:0,text:"",title:""})});
- const result=await generate({kind:"company",depth:"summary",workingLabel:"Acme",orientation:"",websiteUrls:[page.url],context:{},includeWebResearch:true},new AbortController().signal,async(p,preview)=>{stages.push(p.phase);if(preview)previews.push(preview);});
- assert.equal(summaries,2);assert.equal(searches,1);assert.equal(previews.length,1);assert.ok(stages.includes("refining"));
- assert.equal(result.preliminaryUsage?.inputTokens,100);assert.equal(result.researchUsage?.searchCalls,1);
- assert.deepEqual(result.researchSources,["https://independent.org/acme/comparison"]);assert.equal(result.companyDraft?.approval,"not_approved");
+test("progressive generation uses two bounded synthesis stages with retained usage and optional external discovery", async () => {
+  let summaries = 0,
+    searches = 0;
+  const stages: string[] = [],
+    previews: unknown[] = [];
+  const generate = createPsuGenerator(
+    { apiKey: "offline", project: "proj_test", model: "unused" },
+    async (_url, init) => {
+      const body = JSON.parse(String(init?.body));
+      if (body.tools.length) {
+        searches++;
+        return new Response(
+          JSON.stringify({
+            status: "completed",
+            model: "gpt-4.1-mini",
+            usage: { input_tokens: 10, output_tokens: 5 },
+            output: [
+              {
+                type: "web_search_call",
+                action: {
+                  sources: [{ url: "https://independent.org/acme/comparison" }],
+                },
+              },
+            ],
+          }),
+        );
+      }
+      summaries++;
+      return new Response(
+        JSON.stringify({
+          model: SUMMARY_MODEL,
+          status: "completed",
+          usage: { input_tokens: 100, output_tokens: 50 },
+          output: [
+            {
+              type: "message",
+              role: "assistant",
+              status: "completed",
+              content: [
+                { type: "output_text", text: JSON.stringify(payload()) },
+              ],
+            },
+          ],
+        }),
+      );
+    },
+    {
+      resolve: async () => ["93.184.216.34"],
+      read: async ({ url }) => ({
+        access: "allowed",
+        decodedBytes: 100,
+        text: text + url,
+        title: "Acme",
+        links: url.endsWith("/")
+          ? Array.from({ length: 9 }, (_, i) => `/product/${i}`)
+          : [],
+      }),
+    },
+    {
+      resolve: async () => ["93.184.216.34"],
+      read: async () => ({
+        access: "allowed",
+        decodedBytes: 0,
+        text: "",
+        title: "",
+      }),
+    },
+  );
+  const result = await generate(
+    {
+      kind: "company",
+      depth: "summary",
+      workingLabel: "Acme",
+      orientation: "",
+      websiteUrls: [page.url],
+      context: {},
+      includeWebResearch: true,
+    },
+    new AbortController().signal,
+    async (p, preview) => {
+      stages.push(p.phase);
+      if (preview) previews.push(preview);
+    },
+  );
+  assert.equal(summaries, 2);
+  assert.equal(searches, 1);
+  assert.equal(previews.length, 1);
+  assert.ok(stages.includes("refining"));
+  assert.equal(result.preliminaryUsage?.inputTokens, 100);
+  assert.equal(result.researchUsage?.searchCalls, 1);
+  assert.deepEqual(result.researchSources, [
+    "https://independent.org/acme/comparison",
+  ]);
+  assert.equal(result.companyDraft?.approval, "not_approved");
 });
 test("unknown region placeholders do not become market facts", () => {
   const base = payload();
-  const result = validateQuickSummary({...base,
-    company: [...base.company, {field:"regionsServed",value:["Not explicitly stated"],sources:[0]}],
-    product: [...base.product, {field:"regionsServed",value:["Unknown", "United Kingdom"],sources:[0]}],
-  }, [page], true);
-  assert.equal(result.companyDraft!.fields.some(f => f.binding.field === "regionsServed"), false);
-  assert.deepEqual(result.draft!.fields.find(f => f.binding.field === "regionsServed")!.binding.value, ["United Kingdom"]);
-  assert.match(result.companyDraft!.unknowns.join(" "), /Regions served: not established/);
+  const result = validateQuickSummary(
+    {
+      ...base,
+      company: [
+        ...base.company,
+        {
+          field: "regionsServed",
+          value: ["Not explicitly stated"],
+          sources: [0],
+        },
+      ],
+      product: [
+        ...base.product,
+        {
+          field: "regionsServed",
+          value: ["Unknown", "United Kingdom"],
+          sources: [0],
+        },
+      ],
+    },
+    [page],
+    true,
+  );
+  assert.equal(
+    result.companyDraft!.fields.some(
+      (f) => f.binding.field === "regionsServed",
+    ),
+    false,
+  );
+  assert.deepEqual(
+    result.draft!.fields.find((f) => f.binding.field === "regionsServed")!
+      .binding.value,
+    ["United Kingdom"],
+  );
+  assert.match(
+    result.companyDraft!.unknowns.join(" "),
+    /Regions served: not established/,
+  );
 });

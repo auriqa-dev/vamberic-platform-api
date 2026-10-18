@@ -57,18 +57,42 @@ test("new and reconnected records survive Mongo BSON without null lifecycle fiel
   const { BSON } = await import("mongodb");
   const { WorkspaceIntegrationSchema } = await import("../src/domain");
   const f = await lushaFixture();
-  const input = {apiKey:"test-secret-only",expectedUpdatedAt:null as string|null,permissions:{research:true,discovery:true,enrichment:true}};
-  const first = await f.service.connect(f.identity,f.w,input);
+  const input = {
+    apiKey: "test-secret-only",
+    expectedUpdatedAt: null as string | null,
+    permissions: { research: true, discovery: true, enrichment: true },
+  };
+  const first = await f.service.connect(f.identity, f.w, input);
   const row = f.db.rows("workspace_integrations")[0]!;
-  const persisted = BSON.deserialize(BSON.serialize(row,{ignoreUndefined:false}));
-  for (const field of ["disconnectedAt","lastSyncAt","lastSuccessfulSyncAt","errorCode"]) assert.equal(Object.hasOwn(persisted,field),false);
+  const persisted = BSON.deserialize(
+    BSON.serialize(row, { ignoreUndefined: false }),
+  );
+  for (const field of [
+    "disconnectedAt",
+    "lastSyncAt",
+    "lastSuccessfulSyncAt",
+    "errorCode",
+  ])
+    assert.equal(Object.hasOwn(persisted, field), false);
   WorkspaceIntegrationSchema.parse(persisted);
-  const disconnected = await f.service.update(f.identity,f.w,{expectedUpdatedAt:first.updatedAt,permissions:input.permissions,disconnect:true});
-  Object.assign(row,{_id:new BSON.ObjectId()});
-  const second = await f.service.connect(f.identity,f.w,{...input,expectedUpdatedAt:disconnected.updatedAt});
-  assert.equal(second.status,"connected");
-  const replacement=BSON.deserialize(BSON.serialize(f.db.rows("workspace_integrations")[0]!,{ignoreUndefined:false}));
-  const {_id: mongoId,...domainRecord}=replacement;
+  const disconnected = await f.service.update(f.identity, f.w, {
+    expectedUpdatedAt: first.updatedAt,
+    permissions: input.permissions,
+    disconnect: true,
+  });
+  Object.assign(row, { _id: new BSON.ObjectId() });
+  const second = await f.service.connect(f.identity, f.w, {
+    ...input,
+    expectedUpdatedAt: disconnected.updatedAt,
+  });
+  assert.equal(second.status, "connected");
+  const replacement = BSON.deserialize(
+    BSON.serialize(f.db.rows("workspace_integrations")[0]!, {
+      ignoreUndefined: false,
+    }),
+  );
+  const { _id: mongoId, ...domainRecord } = replacement;
+  assert.ok(mongoId instanceof BSON.ObjectId);
   WorkspaceIntegrationSchema.parse(domainRecord);
-  assert.equal(Object.hasOwn(replacement,"disconnectedAt"),false);
+  assert.equal(Object.hasOwn(replacement, "disconnectedAt"), false);
 });

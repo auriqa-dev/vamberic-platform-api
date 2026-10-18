@@ -47,3 +47,6 @@ Thumbs.db
 # Replit
 .cache/
 .local/
+
+# Extracted, hash-verified cross-repository test inputs
+.integration/

@@ -191,12 +191,7 @@ test("revision invalidates approval and exact request reuse rejects changed inpu
     }),
   );
 });
-for (const fault of [
-  "revoked",
-  "tampered",
-  "empressRemoved",
-  "ownerRevoked",
-]) {
+for (const fault of ["revoked", "tampered", "empressRemoved", "ownerRevoked"]) {
   test(`provision fails closed: ${fault}`, async () => {
     const f = fixture(),
       a = await f.create();
@@ -433,7 +428,7 @@ test("approval revision remains monotonic across intake revision and reapproval"
   assert.notDeepEqual(d.approval!.binding, b.approval!.binding);
 });
 
-import { createOperatingGateway } from "../../../../hvm-app/src/data/operating/gateway";
+import { createOperatingGateway } from "../../../.integration/hvm-app/src/data/operating/gateway";
 import { readWorkspaceBilling } from "../src/services/workspace-billing";
 test("real frontend onboarding transport parses Queen save, independent Empress approval, provision and billing", async () => {
   const f = fixture();
@@ -541,7 +536,14 @@ test("schema24 onboarding approval and provisioning remain compatible", async ()
   const f = fixture();
   f.db.rows("schema_versions")[0].version = 24;
   const saved = await f.create();
-  const approved = await f.run(command("approve", saved.revision), saved.id, true);
-  const provisioned = await f.run(command("provision", approved.revision), saved.id);
+  const approved = await f.run(
+    command("approve", saved.revision),
+    saved.id,
+    true,
+  );
+  const provisioned = await f.run(
+    command("provision", approved.revision),
+    saved.id,
+  );
   assert.ok(provisioned.result?.workspaceId);
 });

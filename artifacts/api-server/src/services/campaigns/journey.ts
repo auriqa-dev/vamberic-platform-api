@@ -105,17 +105,15 @@ export async function appendJourney(
     payload.parts = parts.length;
     payload.partsHash = journeyHash(serial);
     for (let index = 0; index < parts.length; index++)
-      await db
-        .collection("events")
-        .insertOne(
-          EventSchema.parse({
-            ...row,
-            id: generatePlatformId("event"),
-            eventType: "campaign_journey_part",
-            payload: { parentId: row.id, index, text: parts[index] },
-          }),
-          { session },
-        );
+      await db.collection("events").insertOne(
+        EventSchema.parse({
+          ...row,
+          id: generatePlatformId("event"),
+          eventType: "campaign_journey_part",
+          payload: { parentId: row.id, index, text: parts[index] },
+        }),
+        { session },
+      );
   }
   await db
     .collection("events")

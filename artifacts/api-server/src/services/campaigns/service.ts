@@ -1,5 +1,12 @@
 import { contactContextAccess, readContactContext } from "../contact-context";
-import { readCampaignJourney, appendJourney, latestJourney, recipientEvidence, journeyMutation, journeyHash } from "./journey";
+import {
+  readCampaignJourney,
+  appendJourney,
+  latestJourney,
+  recipientEvidence,
+  journeyMutation,
+  journeyHash,
+} from "./journey";
 import { readMeasurement } from "../measurement/read";
 import { currentRecords } from "../content-strategy/application";
 import { campaignMeasurement } from "./measurement";
@@ -254,17 +261,15 @@ export function createCampaignService(
         throw new HiveConflict(
           "Reopen an active campaign to update a meeting.",
         );
-      const duplicate = await db
-        .collection("events")
-        .findOne(
-          {
-            workspaceId: w,
-            campaignId: id,
-            eventType: "campaign_meeting",
-            "payload.requestKey": input.requestKey,
-          },
-          { session },
-        );
+      const duplicate = await db.collection("events").findOne(
+        {
+          workspaceId: w,
+          campaignId: id,
+          eventType: "campaign_meeting",
+          "payload.requestKey": input.requestKey,
+        },
+        { session },
+      );
       if (duplicate) {
         if (duplicate.payload.inputHash !== hash(input))
           throw new HiveConflict("Request changed.");
@@ -308,24 +313,22 @@ export function createCampaignService(
         updatedAt: now.toISOString(),
         inputHash: hash(input),
       };
-      await db
-        .collection("events")
-        .insertOne(
-          EventSchema.parse({
-            id: generatePlatformId("event"),
-            workspaceId: w,
-            campaignId: id,
-            eventType: "campaign_meeting",
-            occurredAt: now,
-            createdAt: now,
-            updatedAt: now,
-            createdBy: actor,
-            updatedBy: actor,
-            source: { system: "hvm_campaign" },
-            payload,
-          }),
-          { session },
-        );
+      await db.collection("events").insertOne(
+        EventSchema.parse({
+          id: generatePlatformId("event"),
+          workspaceId: w,
+          campaignId: id,
+          eventType: "campaign_meeting",
+          occurredAt: now,
+          createdAt: now,
+          updatedAt: now,
+          createdBy: actor,
+          updatedBy: actor,
+          source: { system: "hvm_campaign" },
+          payload,
+        }),
+        { session },
+      );
       return payload;
     });
   }
@@ -845,71 +848,221 @@ export function createCampaignService(
   }
   async function journey(user: AuthenticatedUser, w: string, id: string) {
     const db = await mongo.database();
-    await access(db,user,w,'read');
-    await contactContextAccess(db,config,user,w,'read');
-    return readCampaignJourney(db,w,id);
+    await access(db, user, w, "read");
+    await contactContextAccess(db, config, user, w, "read");
+    return readCampaignJourney(db, w, id);
   }
-  async function recipientCandidates(user: AuthenticatedUser,w:string,id:string,raw:unknown) {
-    const input=z.object({search:z.string().trim().max(200).default(''),offset:z.coerce.number().int().min(0).default(0)}).parse(raw);
-    const db=await mongo.database();
-    await access(db,user,w,'read');
-    await contactContextAccess(db,config,user,w,'read');
-    const c=await latest(db,w,id);
-    const j=await latestJourney(db,w,id);
-    const literal=input.search.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
-    const rows=await db.collection('people').find({workspaceId:w,archived:{$ne:true},
-      ...(literal ? {$or:['name','firstName','lastName'].map(k=>({[k]:{$regex:literal,$options:'i'}}))}: {})})
-      .sort({name:1,id:1}).skip(input.offset).limit(26).toArray();
-    const items=[];
-    for(const person of rows.slice(0,25)) {
-      const ctx=await readContactContext(db,w,person.id);
-      const point=ctx.points.find(p=>p.type==='email');
-      items.push(await recipientEvidence(db,w,person.id,point?.id ?? '',j?.payload.excludedOrganisations ?? [],c.payload.setup.purpose ?? 'acquisition'));
+  async function recipientCandidates(
+    user: AuthenticatedUser,
+    w: string,
+    id: string,
+    raw: unknown,
+  ) {
+    const input = z
+      .object({
+        search: z.string().trim().max(200).default(""),
+        offset: z.coerce.number().int().min(0).default(0),
+      })
+      .parse(raw);
+    const db = await mongo.database();
+    await access(db, user, w, "read");
+    await contactContextAccess(db, config, user, w, "read");
+    const c = await latest(db, w, id);
+    const j = await latestJourney(db, w, id);
+    const literal = input.search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const rows = await db
+      .collection("people")
+      .find({
+        workspaceId: w,
+        archived: { $ne: true },
+        ...(literal
+          ? {
+              $or: ["name", "firstName", "lastName"].map((k) => ({
+                [k]: { $regex: literal, $options: "i" },
+              })),
+            }
+          : {}),
+      })
+      .sort({ name: 1, id: 1 })
+      .skip(input.offset)
+      .limit(26)
+      .toArray();
+    const items = [];
+    for (const person of rows.slice(0, 25)) {
+      const ctx = await readContactContext(db, w, person.id);
+      const point = ctx.points.find((p) => p.type === "email");
+      items.push(
+        await recipientEvidence(
+          db,
+          w,
+          person.id,
+          point?.id ?? "",
+          j?.payload.excludedOrganisations ?? [],
+          c.payload.setup.purpose ?? "acquisition",
+        ),
+      );
     }
-    return {items,offset:input.offset,more:rows.length>25};
+    return { items, offset: input.offset, more: rows.length > 25 };
   }
-  async function saveJourney(user:AuthenticatedUser,w:string,id:string,raw:unknown) {
-    const input=journeyMutation.parse(raw);
-    if(!mongo.withTransaction)throw new HiveConflict('Transactions required.');
-    await mongo.withTransaction(async(db,session)=>{
-      const actor=await access(db,user,w,input.action==='approve_launch'?'approve':'update',session);
-      await contactContextAccess(db,config,user,w,'update',session);
-      await lockIcpWorkspace(db,w,session);
-      const duplicate=await db.collection('events').findOne({workspaceId:w,campaignId:id,eventType:'campaign_journey','payload.requestKey':input.requestKey},{session});
-      if(duplicate){if(duplicate.payload.inputHash!==journeyHash(input))throw new HiveConflict('Request changed.');return;}
-      const campaign=await latest(db,w,id,session);
-      const prior=await latestJourney(db,w,id,session);
-      if(campaign.payload.version!==input.campaignVersion || (prior?.payload.version ?? 0)!==input.expectedVersion)
-        throw new HiveConflict('Campaign preparation changed. Reload before saving.');
-      if(['deleted','archived'].includes(campaign.payload.status))throw new HiveConflict('Reopen the campaign before preparing it.');
-      const before=await readCampaignJourney(db,w,id,session);
-      if(input.action==='approve_launch') {
-        if(input.confirmed!==true || input.reviewFingerprint!==before.reviewFingerprint)
-          throw new HiveConflict('Review the current launch summary and explicitly confirm approval.');
-        const gaps=[...before.blockers,...(await preparation(db,w,campaign.payload.setup,session)).flatMap(o=>o.gaps)];
-        if(gaps.length)throw new HiveConflict(gaps.join(' '));
-        await validate(db,user,w,campaign.payload.setup,session,true);
+  async function saveJourney(
+    user: AuthenticatedUser,
+    w: string,
+    id: string,
+    raw: unknown,
+  ) {
+    const input = journeyMutation.parse(raw);
+    if (!mongo.withTransaction)
+      throw new HiveConflict("Transactions required.");
+    await mongo.withTransaction(async (db, session) => {
+      const actor = await access(
+        db,
+        user,
+        w,
+        input.action === "approve_launch" ? "approve" : "update",
+        session,
+      );
+      await contactContextAccess(db, config, user, w, "update", session);
+      await lockIcpWorkspace(db, w, session);
+      const duplicate = await db.collection("events").findOne(
+        {
+          workspaceId: w,
+          campaignId: id,
+          eventType: "campaign_journey",
+          "payload.requestKey": input.requestKey,
+        },
+        { session },
+      );
+      if (duplicate) {
+        if (duplicate.payload.inputHash !== journeyHash(input))
+          throw new HiveConflict("Request changed.");
+        return;
       }
-      const recipients=input.action==='save' ? input.recipients ?? prior?.payload.recipients ?? [] : prior?.payload.recipients ?? [];
-      const exclusions=input.action==='save' ? input.excludedOrganisations ?? prior?.payload.excludedOrganisations ?? [] : prior?.payload.excludedOrganisations ?? [];
-      if(new Set(recipients.map((r:Document)=>r.personId)).size!==recipients.length)throw new HiveConflict('Review each recipient once.');
-      if(input.action==='save') for(const r of recipients) {
-        platformIdSchema('person').parse(r.personId);
-        const e=await recipientEvidence(db,w,r.personId,r.contactPointId,exclusions,campaign.payload.setup.purpose ?? 'acquisition',session);
-        if(r.decision==='include' && (e.contextRevision!==r.contextRevision || e.blockers.length))
-          throw new HiveConflict(`${e.name}: ${e.blockers.join('. ') || 'Contact changed; review again.'}`);
+      const campaign = await latest(db, w, id, session);
+      const prior = await latestJourney(db, w, id, session);
+      if (
+        campaign.payload.version !== input.campaignVersion ||
+        (prior?.payload.version ?? 0) !== input.expectedVersion
+      )
+        throw new HiveConflict(
+          "Campaign preparation changed. Reload before saving.",
+        );
+      if (["deleted", "archived"].includes(campaign.payload.status))
+        throw new HiveConflict("Reopen the campaign before preparing it.");
+      const before = await readCampaignJourney(db, w, id, session);
+      if (input.action === "approve_launch") {
+        if (
+          input.confirmed !== true ||
+          input.reviewFingerprint !== before.reviewFingerprint
+        )
+          throw new HiveConflict(
+            "Review the current launch summary and explicitly confirm approval.",
+          );
+        const gaps = [
+          ...before.blockers,
+          ...(
+            await preparation(db, w, campaign.payload.setup, session)
+          ).flatMap((o) => o.gaps),
+        ];
+        if (gaps.length) throw new HiveConflict(gaps.join(" "));
+        await validate(db, user, w, campaign.payload.setup, session, true);
       }
-      const ga=await db.collection('workspace_integrations').findOne({workspaceId:w,provider:'ga4',status:'connected',archived:{$ne:true}},{session});
-      const now=new Date();
-      await appendJourney(db,{id:generatePlatformId('event'),workspaceId:w,campaignId:id,eventType:'campaign_journey',occurredAt:now,createdAt:now,updatedAt:now,createdBy:actor,
-        payload:{version:input.expectedVersion+1,campaignVersion:input.campaignVersion,
-          status:input.action==='approve_launch'?'approved':input.action==='stop'?'stopped':'draft',
-          recipients,recipientCount:recipients.length,excludedOrganisations:exclusions,ga4Property:input.action==='save'?ga?.externalAccountId ?? null:prior?.payload.ga4Property ?? null,
-          reviewFingerprint:input.action==='approve_launch'?before.reviewFingerprint:null,
-          reason:input.reason,requestKey:input.requestKey,inputHash:journeyHash(input)}},session);
+      const recipients =
+        input.action === "save"
+          ? (input.recipients ?? prior?.payload.recipients ?? [])
+          : (prior?.payload.recipients ?? []);
+      const exclusions =
+        input.action === "save"
+          ? (input.excludedOrganisations ??
+            prior?.payload.excludedOrganisations ??
+            [])
+          : (prior?.payload.excludedOrganisations ?? []);
+      if (
+        new Set(recipients.map((r: Document) => r.personId)).size !==
+        recipients.length
+      )
+        throw new HiveConflict("Review each recipient once.");
+      if (input.action === "save")
+        for (const r of recipients) {
+          platformIdSchema("person").parse(r.personId);
+          const e = await recipientEvidence(
+            db,
+            w,
+            r.personId,
+            r.contactPointId,
+            exclusions,
+            campaign.payload.setup.purpose ?? "acquisition",
+            session,
+          );
+          if (
+            r.decision === "include" &&
+            (e.contextRevision !== r.contextRevision || e.blockers.length)
+          )
+            throw new HiveConflict(
+              `${e.name}: ${e.blockers.join(". ") || "Contact changed; review again."}`,
+            );
+        }
+      const ga = await db.collection("workspace_integrations").findOne(
+        {
+          workspaceId: w,
+          provider: "ga4",
+          status: "connected",
+          archived: { $ne: true },
+        },
+        { session },
+      );
+      const now = new Date();
+      await appendJourney(
+        db,
+        {
+          id: generatePlatformId("event"),
+          workspaceId: w,
+          campaignId: id,
+          eventType: "campaign_journey",
+          occurredAt: now,
+          createdAt: now,
+          updatedAt: now,
+          createdBy: actor,
+          payload: {
+            version: input.expectedVersion + 1,
+            campaignVersion: input.campaignVersion,
+            status:
+              input.action === "approve_launch"
+                ? "approved"
+                : input.action === "stop"
+                  ? "stopped"
+                  : "draft",
+            recipients,
+            recipientCount: recipients.length,
+            excludedOrganisations: exclusions,
+            ga4Property:
+              input.action === "save"
+                ? (ga?.externalAccountId ?? null)
+                : (prior?.payload.ga4Property ?? null),
+            reviewFingerprint:
+              input.action === "approve_launch"
+                ? before.reviewFingerprint
+                : null,
+            reason: input.reason,
+            requestKey: input.requestKey,
+            inputHash: journeyHash(input),
+          },
+        },
+        session,
+      );
     });
-    return journey(user,w,id);
+    return journey(user, w, id);
   }
 
-  return { list, change, read, start, savePolicy, audience, recordMeeting, journey, recipientCandidates, saveJourney };
+  return {
+    list,
+    change,
+    read,
+    start,
+    savePolicy,
+    audience,
+    recordMeeting,
+    journey,
+    recipientCandidates,
+    saveJourney,
+  };
 }

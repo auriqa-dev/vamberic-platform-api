@@ -12,7 +12,10 @@ try {
   await client.connect();
   console.log(JSON.stringify({ phase: "connected", mode }));
   const db = client.db(DATABASE_NAME),
-    setup = createDatabaseSetup({ ...releaseDatabaseTarget(30), changedRecordsOnly: true }),
+    setup = createDatabaseSetup({
+      ...releaseDatabaseTarget(30),
+      changedRecordsOnly: true,
+    }),
     plan = await setup.planDatabaseSetup(db);
   assert.ok([29, 30].includes(plan.existingSchemaVersion));
   assert.equal(plan.validatorConflicts.length, 0);
@@ -23,7 +26,14 @@ try {
   assert.ok(
     plan.validatorsToApply.every((name) => ["brand_kits"].includes(name)),
   );
-  console.log(JSON.stringify({ phase: "preflight-pass", mode, existingSchemaVersion: plan.existingSchemaVersion, validatorsToApply: plan.validatorsToApply }));
+  console.log(
+    JSON.stringify({
+      phase: "preflight-pass",
+      mode,
+      existingSchemaVersion: plan.existingSchemaVersion,
+      validatorsToApply: plan.validatorsToApply,
+    }),
+  );
   if (mode === "--apply") await setup.setupDatabase(db);
   const after = await setup.planDatabaseSetup(db);
   if (mode === "--apply") {

@@ -28,7 +28,9 @@ import {
 } from "../services/operating";
 export function createOperatingRouter(config: AppConfig, mongo: MongoService) {
   const router = Router();
-  router.post("/empress/lusha/register",async(req,res)=>res.json(await registerLusha(mongo,config,req.auth!)));
+  router.post("/empress/lusha/register", async (req, res) =>
+    res.json(await registerLusha(mongo, config, req.auth!)),
+  );
   router.get("/empress/offer-methodology-catalogue", async (req, res) =>
     res.json(await readMethodologyCatalogue(mongo, config, req.auth!)),
   );

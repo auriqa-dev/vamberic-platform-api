@@ -242,38 +242,128 @@ test("approved context changes during generation leave the reply recoverably fai
 });
 
 test("offer review reads only the selected brand's saved draft and fences changed decisions", async () => {
-  let observed: any;
+  let observed: {
+    approvedContext: {
+      currentOfferReview: {
+        work: { stages: { userInputs: { answer: string }[] }[] };
+        informationStatus: string;
+      };
+    };
+  };
   let changeDuringGeneration = false;
   const f = await setup(async (_task, value) => {
-    observed = value;
-    if (changeDuringGeneration) f.db.rows("offer_designs")[0]!.work.stages[0].userInputs[0].answer = "Changed by the user";
+    observed = value as typeof observed;
+    if (changeDuringGeneration)
+      f.db.rows("offer_designs")[0]!.work.stages[0].userInputs[0].answer =
+        "Changed by the user";
     return { result: { ...result, changes: [] }, usage };
   });
   const productId = generatePlatformId("offering");
   const offerId = generatePlatformId("offer");
   const designId = generatePlatformId("offerdesign");
-  f.db.rows("offerings").push({id: productId, workspaceId: f.w, brandId: f.brand});
-  f.db.rows("offers").push({id: offerId, workspaceId: f.w, offeringId: productId, offerDesignId: designId, definition: {name: "Selected offer"}});
-  f.db.rows("offer_designs").push({id: designId, workspaceId: f.w, offeringId: productId, work: {stages: [{stageKey: "pricing_terms", userInputs: [{question: "Terms?", answer: "No managed services"}]}]}});
-  const input = {...f.input, screen: {...f.input.screen, section: "offers", editor: {...f.input.screen.editor!, key: "offer-review:" + offerId}}};
+  f.db
+    .rows("offerings")
+    .push({ id: productId, workspaceId: f.w, brandId: f.brand });
+  f.db.rows("offers").push({
+    id: offerId,
+    workspaceId: f.w,
+    offeringId: productId,
+    offerDesignId: designId,
+    definition: { name: "Selected offer" },
+  });
+  f.db.rows("offer_designs").push({
+    id: designId,
+    workspaceId: f.w,
+    offeringId: productId,
+    work: {
+      stages: [
+        {
+          stageKey: "pricing_terms",
+          userInputs: [{ question: "Terms?", answer: "No managed services" }],
+        },
+      ],
+    },
+  });
+  const input = {
+    ...f.input,
+    screen: {
+      ...f.input.screen,
+      section: "offers",
+      editor: { ...f.input.screen.editor!, key: "offer-review:" + offerId },
+    },
+  };
   await f.service.ask(f.identity, f.w, input);
-  assert.equal(observed.approvedContext.currentOfferReview.work.stages[0].userInputs[0].answer, "No managed services");
-  assert.match(observed.approvedContext.currentOfferReview.informationStatus, /not approved facts/);
+  assert.equal(
+    observed.approvedContext.currentOfferReview.work.stages[0].userInputs[0]
+      .answer,
+    "No managed services",
+  );
+  assert.match(
+    observed.approvedContext.currentOfferReview.informationStatus,
+    /not approved facts/,
+  );
   changeDuringGeneration = true;
-  await assert.rejects(f.service.ask(f.identity, f.w, {...input, requestKey: randomUUID()}), /context or offer decisions changed/);
+  await assert.rejects(
+    f.service.ask(f.identity, f.w, { ...input, requestKey: randomUUID() }),
+    /context or offer decisions changed/,
+  );
   changeDuringGeneration = false;
   f.db.rows("offerings")[0]!.brandId = generatePlatformId("brand");
-  await assert.rejects(f.service.ask(f.identity, f.w, {...input, requestKey: randomUUID()}), /selected brand/);
+  await assert.rejects(
+    f.service.ask(f.identity, f.w, { ...input, requestKey: randomUUID() }),
+    /selected brand/,
+  );
 });
 test("Henry sees saved campaign drafts across functions, scoped to the current brand", async () => {
-  let observed: any;
-  const f = await setup(async (_task,value)=>{observed=value;return {result,usage};});
-  const id=generatePlatformId("campaign");
-  f.db.rows("events").push({id:generatePlatformId("event"),workspaceId:f.w,campaignId:id,eventType:"campaign_setup",createdAt:new Date(),payload:{version:1,status:"draft",setup:{brandId:f.brand,name:"QA campaign",objective:"Test only",goal:"Saved plan",products:[],offers:[],audiences:[]}}});
-  f.db.rows("events").push({id:generatePlatformId("event"),workspaceId:f.w,campaignId:generatePlatformId("campaign"),eventType:"campaign_setup",createdAt:new Date(),payload:{version:1,status:"draft",setup:{brandId:generatePlatformId("brand"),name:"Other brand"}}});
-  await f.service.ask(f.identity,f.w,f.input);
-  assert.equal(observed.approvedContext.campaigns.length,1);
-  assert.equal(observed.approvedContext.campaigns[0].id,id);
-  assert.equal(observed.approvedContext.campaigns[0].status,"draft");
-  assert.match(observed.approvedContext.campaignContextStatus,/not approved or executing/);
+  let observed: {
+    approvedContext: {
+      campaigns: { id: string; status: string }[];
+      campaignContextStatus: string;
+    };
+  };
+  const f = await setup(async (_task, value) => {
+    observed = value as typeof observed;
+    return { result, usage };
+  });
+  const id = generatePlatformId("campaign");
+  f.db.rows("events").push({
+    id: generatePlatformId("event"),
+    workspaceId: f.w,
+    campaignId: id,
+    eventType: "campaign_setup",
+    createdAt: new Date(),
+    payload: {
+      version: 1,
+      status: "draft",
+      setup: {
+        brandId: f.brand,
+        name: "QA campaign",
+        objective: "Test only",
+        goal: "Saved plan",
+        products: [],
+        offers: [],
+        audiences: [],
+      },
+    },
+  });
+  f.db.rows("events").push({
+    id: generatePlatformId("event"),
+    workspaceId: f.w,
+    campaignId: generatePlatformId("campaign"),
+    eventType: "campaign_setup",
+    createdAt: new Date(),
+    payload: {
+      version: 1,
+      status: "draft",
+      setup: { brandId: generatePlatformId("brand"), name: "Other brand" },
+    },
+  });
+  await f.service.ask(f.identity, f.w, f.input);
+  assert.equal(observed.approvedContext.campaigns.length, 1);
+  assert.equal(observed.approvedContext.campaigns[0].id, id);
+  assert.equal(observed.approvedContext.campaigns[0].status, "draft");
+  assert.match(
+    observed.approvedContext.campaignContextStatus,
+    /not approved or executing/,
+  );
 });

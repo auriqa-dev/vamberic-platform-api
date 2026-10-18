@@ -34,15 +34,38 @@ export function createLushaRouter(config: AppConfig, mongo: MongoService) {
   const errors: ErrorRequestHandler = (e, _req, res, next) => {
     if (res.headersSent) return next(e);
     const messages: Record<string, string> = {
-      invalid_credentials: "Lusha rejected this API key. Check the key in your Lusha account and try again.",
-      not_permitted: "Your Lusha account does not permit this API operation. Check your account’s API access.",
-      no_credits: "Lusha reports no available credits. Check your account balance.",
-      rate_limited: "Lusha is temporarily limiting requests. Wait a moment and try again.",
-      outcome_unknown: "HVM could not confirm the response from Lusha. Try again shortly.",
-      invalid_response: "Lusha returned an unexpected account response. The connection could not be confirmed.",
+      invalid_credentials:
+        "Lusha rejected this API key. Check the key in your Lusha account and try again.",
+      not_permitted:
+        "Your Lusha account does not permit this API operation. Check your account’s API access.",
+      no_credits:
+        "Lusha reports no available credits. Check your account balance.",
+      rate_limited:
+        "Lusha is temporarily limiting requests. Wait a moment and try again.",
+      outcome_unknown:
+        "HVM could not confirm the response from Lusha. Try again shortly.",
+      invalid_response:
+        "Lusha returned an unexpected account response. The connection could not be confirmed.",
     };
     const databaseFailure = e?.code === 121 || e?.code === 11000;
-    logger.warn({ requestId: _req.id, category: e instanceof LushaFailure ? e.code : e instanceof ZodError ? "validation" : e instanceof HiveConflict ? "conflict" : e instanceof AuthorizationDenied ? "denied" : databaseFailure ? "persistence" : "internal" }, "Lusha connection request failed");
+    logger.warn(
+      {
+        requestId: _req.id,
+        category:
+          e instanceof LushaFailure
+            ? e.code
+            : e instanceof ZodError
+              ? "validation"
+              : e instanceof HiveConflict
+                ? "conflict"
+                : e instanceof AuthorizationDenied
+                  ? "denied"
+                  : databaseFailure
+                    ? "persistence"
+                    : "internal",
+      },
+      "Lusha connection request failed",
+    );
     res
       .status(
         e instanceof AuthorizationDenied
@@ -55,7 +78,12 @@ export function createLushaRouter(config: AppConfig, mongo: MongoService) {
       )
       .json({
         error: {
-          code: e instanceof LushaFailure ? e.code : e instanceof HiveConflict ? "LUSHA_CONFLICT" : "LUSHA_UNAVAILABLE",
+          code:
+            e instanceof LushaFailure
+              ? e.code
+              : e instanceof HiveConflict
+                ? "LUSHA_CONFLICT"
+                : "LUSHA_UNAVAILABLE",
           message:
             e instanceof HiveConflict
               ? e.message

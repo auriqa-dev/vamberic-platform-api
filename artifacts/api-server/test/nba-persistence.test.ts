@@ -156,7 +156,9 @@ async function fixture(native: boolean | "research" = false) {
     input,
     calls: () => calls,
     generationInput: () => generationInput,
-    assess: (items: Document[]) => { policyAssessments = items; },
+    assess: (items: Document[]) => {
+      policyAssessments = items;
+    },
     authority,
     control: createAgentControlPlane(config, db.mongo, authority, {
       dependencies: async () => [],
@@ -339,24 +341,22 @@ test("native completion creates one research handoff; repeated reconciliation re
   const run = f.db.rows("agent_runs")[0]!;
   run.status = "completed";
   run.terminalReason = "success";
-  f.db
-    .rows("agent_results")
-    .push({
-      id: generatePlatformId("agentresult"),
-      workspaceId: f.w,
-      runId: run.id,
-      envelope: {
-        outcome: {
-          content: {
-            domainOutput: {
-              decisionId: saved.id,
-              decisionVersion: approved.version,
-              status: "re_evaluation_due",
-            },
+  f.db.rows("agent_results").push({
+    id: generatePlatformId("agentresult"),
+    workspaceId: f.w,
+    runId: run.id,
+    envelope: {
+      outcome: {
+        content: {
+          domainOutput: {
+            decisionId: saved.id,
+            decisionVersion: approved.version,
+            status: "re_evaluation_due",
           },
         },
       },
-    });
+    },
+  });
   await f.reconcile.reconcile(f.w, saved.id);
   assert.equal(
     (await f.service.history(f.user, f.w, saved.id)).history[0]!.state,
@@ -621,8 +621,14 @@ test("NBA explains available internal Research without treating preview as execu
   assert.ok(input.availableActions.includes("request_evidence"));
   assert.match(input.capabilities.research, /after explicit approval/);
   assert.match(input.capabilities.research, /existing Hive sources only/);
-  assert.match(input.capabilities.communications, /Human-approved Gmail delivery/);
-  assert.match(input.capabilities.communications, /Never infer sending authority/);
+  assert.match(
+    input.capabilities.communications,
+    /Human-approved Gmail delivery/,
+  );
+  assert.match(
+    input.capabilities.communications,
+    /Never infer sending authority/,
+  );
   assert.equal(saved.state, "proposed");
   assert.equal(f.db.rows("agent_runs").length, 0);
   assert.equal(
@@ -634,15 +640,13 @@ test("NBA explains available internal Research without treating preview as execu
 test("unknown organisation customer status permits internal evidence review but DNC still blocks it", async () => {
   const f = await fixture("research"),
     id = generatePlatformId("org");
-  f.db
-    .rows("organisations")
-    .push({
-      id,
-      workspaceId: f.w,
-      name: "Unknown customer fixture",
-      archived: false,
-      updatedAt: new Date(),
-    });
+  f.db.rows("organisations").push({
+    id,
+    workspaceId: f.w,
+    name: "Unknown customer fixture",
+    archived: false,
+    updatedAt: new Date(),
+  });
   const input = { ...f.input, subject: { type: "organisation", id } };
   const saved = await f.service.preview(f.user, f.w, input);
   assert.equal(saved.state, "proposed");
@@ -657,15 +661,13 @@ test("unknown organisation customer status permits internal evidence review but 
     expectedVersion: approved.version,
     action: "cancel",
   });
-  f.db
-    .rows("events")
-    .push({
-      id: generatePlatformId("event"),
-      workspaceId: f.w,
-      eventType: "contact_context_changed",
-      createdAt: new Date(),
-      payload: { subjectId: id, controls: { doNotContact: true } },
-    });
+  f.db.rows("events").push({
+    id: generatePlatformId("event"),
+    workspaceId: f.w,
+    eventType: "contact_context_changed",
+    createdAt: new Date(),
+    payload: { subjectId: id, controls: { doNotContact: true } },
+  });
   const blocked = await f.service.preview(f.user, f.w, {
     ...input,
     requestKey: randomUUID(),
@@ -677,47 +679,41 @@ test("unknown organisation customer status permits internal evidence review but 
 test("reconsideration receives completed research as scoped unapproved evidence", async () => {
   const f = await fixture();
   const job = generatePlatformId("event");
-  f.db
-    .rows("events")
-    .push({
-      id: generatePlatformId("event"),
-      workspaceId: f.w,
-      campaignId: f.input.campaignId,
-      eventType: "nba_decision",
-      payload: {
-        subject: { type: "campaign" },
-        researchId: job,
-        researchStatus: "completed",
-        researchSummary:
-          "Synthetic organisation has no demonstrated fit; do not contact.",
-      },
-    });
-  f.db
-    .rows("events")
-    .push({
-      id: generatePlatformId("event"),
-      workspaceId: generatePlatformId("workspace"),
-      campaignId: f.input.campaignId,
-      eventType: "nba_decision",
-      payload: {
-        subject: { type: "campaign" },
-        researchId: generatePlatformId("event"),
-        researchSummary: "OTHER TENANT",
-      },
-    });
-  f.db
-    .rows("events")
-    .push({
-      id: generatePlatformId("event"),
-      workspaceId: f.w,
-      campaignId: f.input.campaignId,
-      eventType: "nba_decision",
-      payload: {
-        subject: { type: "organisation", id: generatePlatformId("org") },
-        researchId: generatePlatformId("event"),
-        researchSummary: "OTHER SUBJECT",
-      },
-    });
+  f.db.rows("events").push({
+    id: generatePlatformId("event"),
+    workspaceId: f.w,
+    campaignId: f.input.campaignId,
+    eventType: "nba_decision",
+    payload: {
+      subject: { type: "campaign" },
+      researchId: job,
+      researchStatus: "completed",
+      researchSummary:
+        "Synthetic organisation has no demonstrated fit; do not contact.",
+    },
+  });
+  f.db.rows("events").push({
+    id: generatePlatformId("event"),
+    workspaceId: generatePlatformId("workspace"),
+    campaignId: f.input.campaignId,
+    eventType: "nba_decision",
+    payload: {
+      subject: { type: "campaign" },
+      researchId: generatePlatformId("event"),
+      researchSummary: "OTHER TENANT",
+    },
+  });
+  f.db.rows("events").push({
+    id: generatePlatformId("event"),
+    workspaceId: f.w,
+    campaignId: f.input.campaignId,
+    eventType: "nba_decision",
+    payload: {
+      subject: { type: "organisation", id: generatePlatformId("org") },
+      researchId: generatePlatformId("event"),
+      researchSummary: "OTHER SUBJECT",
+    },
+  });
   await f.service.preview(f.user, f.w, f.input);
   const input = f.generationInput();
   assert.equal(input.priorResearchResults.length, 1);
@@ -772,62 +768,54 @@ test("approved NBA content handoff registers one private draft and returns to re
     person = generatePlatformId("person"),
     org = generatePlatformId("org"),
     brand = f.db.rows("brands")[0]!.id;
-  f.db
-    .rows("people")
-    .push({
-      id: person,
-      workspaceId: f.w,
-      firstName: "Taylor",
-      archived: false,
-      updatedAt: new Date(),
-    });
+  f.db.rows("people").push({
+    id: person,
+    workspaceId: f.w,
+    firstName: "Taylor",
+    archived: false,
+    updatedAt: new Date(),
+  });
   f.db
     .rows("organisations")
     .push({ id: org, workspaceId: f.w, name: "Example", archived: false });
-  f.db
-    .rows("organisation_relationships")
-    .push({
-      id: randomUUID(),
-      workspaceId: f.w,
-      personId: person,
-      organisationId: org,
-      current: true,
-      archived: false,
-    });
-  f.db
-    .rows("events")
-    .push({
-      id: randomUUID(),
-      workspaceId: f.w,
-      eventType: "contact_context_changed",
-      createdAt: new Date(),
-      payload: { subjectId: person, controls: { lifecycle: "lead" } },
-    });
-  f.db
-    .rows("events")
-    .push({
-      id: randomUUID(),
-      workspaceId: f.w,
-      eventType: "content_strategy_record",
-      payload: {
-        record: {
-          id: "brief-email",
-          kind: "brief",
-          version: 1,
-          status: "approved",
-          updatedAt: new Date().toISOString(),
-          fingerprint: "brief",
-          sourceVersions: [],
-          data: {
-            title: "Ask a useful question",
-            channel: "email",
-            cta: "Reply to this email",
-            scope: { brandId: brand, products: [], offers: [], audiences: [] },
-            sourceAssetIds: [],
-          },
+  f.db.rows("organisation_relationships").push({
+    id: randomUUID(),
+    workspaceId: f.w,
+    personId: person,
+    organisationId: org,
+    current: true,
+    archived: false,
+  });
+  f.db.rows("events").push({
+    id: randomUUID(),
+    workspaceId: f.w,
+    eventType: "contact_context_changed",
+    createdAt: new Date(),
+    payload: { subjectId: person, controls: { lifecycle: "lead" } },
+  });
+  f.db.rows("events").push({
+    id: randomUUID(),
+    workspaceId: f.w,
+    eventType: "content_strategy_record",
+    payload: {
+      record: {
+        id: "brief-email",
+        kind: "brief",
+        version: 1,
+        status: "approved",
+        updatedAt: new Date().toISOString(),
+        fingerprint: "brief",
+        sourceVersions: [],
+        data: {
+          title: "Ask a useful question",
+          channel: "email",
+          cta: "Reply to this email",
+          scope: { brandId: brand, products: [], offers: [], audiences: [] },
+          sourceAssetIds: [],
         },
       },
-    });
+    },
+  });
   const preview = await f.service.preview(f.user, f.w, {
     ...f.input,
     subject: { type: "person", id: person },
@@ -850,48 +838,50 @@ test("approved NBA content handoff registers one private draft and returns to re
   });
   const native = f.db.rows("agent_runs").find((r) => r.id === approved.runId)!;
   native.status = "completed";
-  f.db
-    .rows("agent_results")
-    .push({
-      id: generatePlatformId("agentresult"),
-      workspaceId: f.w,
-      runId: approved.runId,
-      envelope: {
-        outcome: {
-          content: {
-            domainOutput: {
-              decisionId: approved.id,
-              decisionVersion: approved.version,
-              status: "re_evaluation_due",
-            },
+  f.db.rows("agent_results").push({
+    id: generatePlatformId("agentresult"),
+    workspaceId: f.w,
+    runId: approved.runId,
+    envelope: {
+      outcome: {
+        content: {
+          domainOutput: {
+            decisionId: approved.id,
+            decisionVersion: approved.version,
+            status: "re_evaluation_due",
           },
         },
       },
-    });
-  let calls = 0;
-  const reconcile = createNbaReconciler(config, f.db.mongo, async (task, input) => {
-    assert.equal(task, "email");
-    const payload = input as Document;
-    assert.ok(payload.approved);
-    assert.ok(payload.campaign.setup);
-    assert.equal(payload.campaign.approved, undefined);
-    assert.equal(payload.campaign.contact, undefined);
-    assert.equal(payload.campaign.capabilities, undefined);
-    assert.ok("engagementPolicy" in payload.campaign);
-    assert.ok("approvedResearch" in payload.campaign);
-    calls++;
-    return {
-      result: {
-        subject: "A practical question",
-        body: "Hello Taylor, what is your current priority?",
-        ctaAssetId: "",
-        ctaText: "Reply with your priority",
-        ctaRationale: "The brief requests a reply",
-        reviewIssues: [],
-      },
-      usage: { model: "test", inputTokens: 1, outputTokens: 1 },
-    };
+    },
   });
+  let calls = 0;
+  const reconcile = createNbaReconciler(
+    config,
+    f.db.mongo,
+    async (task, input) => {
+      assert.equal(task, "email");
+      const payload = input as Document;
+      assert.ok(payload.approved);
+      assert.ok(payload.campaign.setup);
+      assert.equal(payload.campaign.approved, undefined);
+      assert.equal(payload.campaign.contact, undefined);
+      assert.equal(payload.campaign.capabilities, undefined);
+      assert.ok("engagementPolicy" in payload.campaign);
+      assert.ok("approvedResearch" in payload.campaign);
+      calls++;
+      return {
+        result: {
+          subject: "A practical question",
+          body: "Hello Taylor, what is your current priority?",
+          ctaAssetId: "",
+          ctaText: "Reply with your priority",
+          ctaRationale: "The brief requests a reply",
+          reviewIssues: [],
+        },
+        usage: { model: "test", inputTokens: 1, outputTokens: 1 },
+      };
+    },
+  );
   await reconcile.reconcile(f.w, approved.id);
   await reconcile.reconcile(f.w, approved.id);
   await reconcile.reconcile(f.w, approved.id);
@@ -916,59 +906,188 @@ test("approved NBA content handoff registers one private draft and returns to re
   );
 });
 
-
 test("approved custom strategies gate NBA preview, approval and native recheck; drafts do not replace approval", async () => {
-  const { createContactStrategies } = await import("../src/services/contact-strategy/application");
+  const { createContactStrategies } =
+    await import("../src/services/contact-strategy/application");
   const { nbaContext } = await import("../src/services/nba/context");
   const { guardDecision } = await import("../src/services/nba/model");
   const f = await fixture("research");
   const policies = createContactStrategies(config, f.db.mongo);
   const key = `custom_${randomUUID().replaceAll("-", "")}`;
-  await policies.mutate(f.user, f.w, { key, name: "Research rule", statement: "Internal research may proceed only with recorded evidence.", operation: "save", expectedVersion: 0 });
-  const approved = await policies.mutate(f.user, f.w, { key, operation: "approve", expectedVersion: 1 });
+  await policies.mutate(f.user, f.w, {
+    key,
+    name: "Research rule",
+    statement: "Internal research may proceed only with recorded evidence.",
+    operation: "save",
+    expectedVersion: 0,
+  });
+  const approved = await policies.mutate(f.user, f.w, {
+    key,
+    operation: "approve",
+    expectedVersion: 1,
+  });
   const blocked = await f.service.preview(f.user, f.w, f.input);
   assert.equal(blocked.state, "blocked");
   assert.match(blocked.blockers.join(" "), /Current policy assessment/);
-  assert.deepEqual(f.generationInput().policies.map((p: { id: string }) => p.id), [approved.id]);
+  assert.deepEqual(
+    f.generationInput().policies.map((p: { id: string }) => p.id),
+    [approved.id],
+  );
   // Real approved campaign research evidence, scoped exactly as production reads it.
   const evidenceId = generatePlatformId("event");
-  f.db.rows("events").push({ id: evidenceId, workspaceId: f.w, eventType: "research_finding", payload: {
-    decision: "approved", destinations: [{ type: "campaign", id: f.input.campaignId }], summary: "Internal evidence exists" } });
-  const assessment = { policyId: approved.id, version: approved.version, action: "request_evidence", offerId: null,
-    applies: true, effect: "permitted", reason: "Recorded internal research evidence supports this internal action", evidenceIds: [evidenceId] };
+  f.db.rows("events").push({
+    id: evidenceId,
+    workspaceId: f.w,
+    eventType: "research_finding",
+    payload: {
+      decision: "approved",
+      destinations: [{ type: "campaign", id: f.input.campaignId }],
+      summary: "Internal evidence exists",
+    },
+  });
+  const assessment = {
+    policyId: approved.id,
+    version: approved.version,
+    action: "request_evidence",
+    offerId: null,
+    applies: true,
+    effect: "permitted",
+    reason: "Recorded internal research evidence supports this internal action",
+    evidenceIds: [evidenceId],
+  };
   f.assess([assessment]);
-  const allowed = await f.service.preview(f.user, f.w, { ...f.input, requestKey: randomUUID() });
+  const allowed = await f.service.preview(f.user, f.w, {
+    ...f.input,
+    requestKey: randomUUID(),
+  });
   assert.equal(allowed.state, "proposed");
   assert.equal(allowed.decision.policyAssessments[0].policyId, approved.id);
-  await policies.mutate(f.user, f.w, { key, operation: "save", expectedVersion: 2, statement: "Do not research." });
-  const ctx = await nbaContext(f.db as unknown as Db, config, f.user, f.w, f.input.campaignId, 1, { type: "campaign" });
-  assert.deepEqual(ctx.contactStrategies?.map(p => p.id), [approved.id]);
-  assert.equal(guardDecision(allowed.decision, ctx, new Date()).state, "proposed");
-  const queuedCandidate = await f.service.preview(f.user, f.w, { ...f.input, requestKey: randomUUID() });
-  const queued = await f.service.change(f.user, f.w, queuedCandidate.id, { requestKey: randomUUID(), expectedVersion: queuedCandidate.version, action: "approve" });
+  await policies.mutate(f.user, f.w, {
+    key,
+    operation: "save",
+    expectedVersion: 2,
+    statement: "Do not research.",
+  });
+  const ctx = await nbaContext(
+    f.db as unknown as Db,
+    config,
+    f.user,
+    f.w,
+    f.input.campaignId,
+    1,
+    { type: "campaign" },
+  );
+  assert.deepEqual(
+    ctx.contactStrategies?.map((p) => p.id),
+    [approved.id],
+  );
+  assert.equal(
+    guardDecision(allowed.decision, ctx, new Date()).state,
+    "proposed",
+  );
+  const queuedCandidate = await f.service.preview(f.user, f.w, {
+    ...f.input,
+    requestKey: randomUUID(),
+  });
+  const queued = await f.service.change(f.user, f.w, queuedCandidate.id, {
+    requestKey: randomUUID(),
+    expectedVersion: queuedCandidate.version,
+    action: "approve",
+  });
   assert.equal(queued.state, "scheduled");
   const run = f.db.rows("agent_runs").at(-1)!;
-  assert.equal(await nbaWorkAllowed(f.db as unknown as Db, f.w, run.frozen, undefined, config), true);
-  const { createAgentExecutionReadiness } = await import("../src/services/agent-execution-readiness");
-  const { NBA_FOUNDATION_MANIFEST } = await import("@workspace/agent-runtime-protocol");
-  const readiness = createAgentExecutionReadiness({
-    manifest: async () => NBA_FOUNDATION_MANIFEST,
-    available: async () => true,
-    reasoningOperations: () => ["reconsider"],
-    reasoningConfiguration: () => [],
-  }, {
-    allowInternal: false, dependencies: async () => [],
-    allowed: (db, workspace, work, session) => nbaWorkAllowed(db, workspace, work, session, config),
+  assert.equal(
+    await nbaWorkAllowed(
+      f.db as unknown as Db,
+      f.w,
+      run.frozen,
+      undefined,
+      config,
+    ),
+    true,
+  );
+  const { createAgentExecutionReadiness } =
+    await import("../src/services/agent-execution-readiness");
+  const { NBA_FOUNDATION_MANIFEST } =
+    await import("@workspace/agent-runtime-protocol");
+  const readiness = createAgentExecutionReadiness(
+    {
+      manifest: async () => NBA_FOUNDATION_MANIFEST,
+      available: async () => true,
+      reasoningOperations: () => ["reconsider"],
+      reasoningConfiguration: () => [],
+    },
+    {
+      allowInternal: false,
+      dependencies: async () => [],
+      allowed: (db, workspace, work, session) =>
+        nbaWorkAllowed(db, workspace, work, session, config),
+    },
+  );
+  assert.equal(
+    await readiness.policy.current(
+      f.db as unknown as Db,
+      run as unknown as Parameters<typeof readiness.policy.current>[1],
+      undefined,
+    ),
+    true,
+  );
+  await policies.mutate(f.user, f.w, {
+    key,
+    operation: "approve",
+    expectedVersion: 3,
   });
-  assert.equal(await readiness.policy.current(f.db as unknown as Db, run as unknown as Parameters<typeof readiness.policy.current>[1], undefined), true);
-  await policies.mutate(f.user, f.w, { key, operation: "approve", expectedVersion: 3 });
-  assert.equal(await nbaWorkAllowed(f.db as unknown as Db, f.w, run.frozen, undefined, config), false);
+  assert.equal(
+    await nbaWorkAllowed(
+      f.db as unknown as Db,
+      f.w,
+      run.frozen,
+      undefined,
+      config,
+    ),
+    false,
+  );
 
-  const changed = await nbaContext(f.db as unknown as Db, config, f.user, f.w, f.input.campaignId, 1, { type: "campaign" });
-  assert.equal(guardDecision(allowed.decision, changed, new Date()).state, "blocked");
-  await assert.rejects(() => f.service.change(f.user, f.w, allowed.id, { requestKey: randomUUID(), expectedVersion: allowed.version, action: "approve" }), /changed/);
-  await policies.mutate(f.user, f.w, { key, operation: "deactivate", expectedVersion: 4 });
-  const withdrawn = await nbaContext(f.db as unknown as Db, config, f.user, f.w, f.input.campaignId, 1, { type: "campaign" });
+  const changed = await nbaContext(
+    f.db as unknown as Db,
+    config,
+    f.user,
+    f.w,
+    f.input.campaignId,
+    1,
+    { type: "campaign" },
+  );
+  assert.equal(
+    guardDecision(allowed.decision, changed, new Date()).state,
+    "blocked",
+  );
+  await assert.rejects(
+    () =>
+      f.service.change(f.user, f.w, allowed.id, {
+        requestKey: randomUUID(),
+        expectedVersion: allowed.version,
+        action: "approve",
+      }),
+    /changed/,
+  );
+  await policies.mutate(f.user, f.w, {
+    key,
+    operation: "deactivate",
+    expectedVersion: 4,
+  });
+  const withdrawn = await nbaContext(
+    f.db as unknown as Db,
+    config,
+    f.user,
+    f.w,
+    f.input.campaignId,
+    1,
+    { type: "campaign" },
+  );
   assert.deepEqual(withdrawn.contactStrategies, []);
-  assert.equal(f.db.rows("events").filter(e => e.eventType === "communication_delivery").length, 0);
+  assert.equal(
+    f.db.rows("events").filter((e) => e.eventType === "communication_delivery")
+      .length,
+    0,
+  );
 });

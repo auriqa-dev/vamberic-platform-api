@@ -1,4 +1,4 @@
-import {reviewedResearchContext} from "../research/evidence-context";
+import { reviewedResearchContext } from "../research/evidence-context";
 import type { Db, ClientSession, Document } from "mongodb";
 import type { AppConfig } from "../../config";
 import type { AuthenticatedUser } from "../../middlewares/auth";
@@ -160,7 +160,14 @@ export async function contentContext(
     selected.brandId,
     format,
   );
-  const research = await reviewedResearchContext(db,w,selected.brandId,[...selected.products,...selected.offers,...selected.audiences].map(r=>r.id));
+  const research = await reviewedResearchContext(
+    db,
+    w,
+    selected.brandId,
+    [...selected.products, ...selected.offers, ...selected.audiences].map(
+      (r) => r.id,
+    ),
+  );
   const context = {
     research,
     scope: selected,

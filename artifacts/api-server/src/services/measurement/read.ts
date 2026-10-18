@@ -46,7 +46,11 @@ export async function readMeasurement(
         e.replyId,
         Math.max(latestReply.get(e.replyId) || 0, e.sourceVersion),
       );
-  const events = parsed.filter((e) => Date.parse(e.occurredAt) >= since && (!filter.until || Date.parse(e.occurredAt) < Date.parse(filter.until)));
+  const events = parsed.filter(
+    (e) =>
+      Date.parse(e.occurredAt) >= since &&
+      (!filter.until || Date.parse(e.occurredAt) < Date.parse(filter.until)),
+  );
   const current = events.filter(
     (e) => !e.replyId || latestReply.get(e.replyId) === e.sourceVersion,
   );
@@ -86,18 +90,16 @@ export async function readMeasurement(
       [p.firstName, p.lastName].filter(Boolean).join(" ") || "Contact",
     ]),
   );
-  const configuredWebsite = await db
-    .collection("events")
-    .findOne(
-      {
-        workspaceId: w,
-        eventType: "website_tracking_site",
-        "payload.enabled": true,
-        "payload.revoked": false,
-        "payload.testOnly": false,
-      },
-      { session },
-    );
+  const configuredWebsite = await db.collection("events").findOne(
+    {
+      workspaceId: w,
+      eventType: "website_tracking_site",
+      "payload.enabled": true,
+      "payload.revoked": false,
+      "payload.testOnly": false,
+    },
+    { session },
+  );
   const hasWebsiteEvidence = current.some((e) => e.provider === "website");
   const metrics = summarise(current).map((m) =>
     !configuredWebsite &&

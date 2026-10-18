@@ -68,14 +68,12 @@ export function publicOutcomesRouter(config: AppConfig, mongo: MongoService) {
       req.headers.origin ||
       !/^Bearer [A-Za-z0-9_-]{43}$/.test(req.headers.authorization ?? "")
     ) {
-      res
-        .status(401)
-        .json({
-          error: {
-            code: "OUTCOME_AUTH",
-            message: "A server connection key is required.",
-          },
-        });
+      res.status(401).json({
+        error: {
+          code: "OUTCOME_AUTH",
+          message: "A server connection key is required.",
+        },
+      });
       return;
     }
     next();
@@ -84,15 +82,12 @@ export function publicOutcomesRouter(config: AppConfig, mongo: MongoService) {
   r.post("/:workspaceId/:outcomeId", async (req, res) => {
     const mode = req.header("X-HVM-Test");
     if (mode && mode !== "true") {
-      res
-        .status(400)
-        .json({
-          error: {
-            code: "OUTCOME_TEST",
-            message:
-              "Use X-HVM-Test: true for tests; omit it for live evidence.",
-          },
-        });
+      res.status(400).json({
+        error: {
+          code: "OUTCOME_TEST",
+          message: "Use X-HVM-Test: true for tests; omit it for live evidence.",
+        },
+      });
       return;
     }
     res.json(

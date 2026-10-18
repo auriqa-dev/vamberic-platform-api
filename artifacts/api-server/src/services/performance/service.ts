@@ -158,11 +158,18 @@ export function createPerformanceService(
       const m = await latest(db, w, "performance_attribution", {
         campaignId: input.campaignId,
       });
-      const guided = await latestJourney(db,w,input.campaignId);
-      mapping = guided?.payload.ga4Property ? {
-        id: null, automatic: true, removed: false, property: guided.payload.ga4Property,
-        filter: { field: "sessionCampaignId", value: input.campaignId },
-      } : m ? {id:m.id,...m.payload} : null;
+      const guided = await latestJourney(db, w, input.campaignId);
+      mapping = guided?.payload.ga4Property
+        ? {
+            id: null,
+            automatic: true,
+            removed: false,
+            property: guided.payload.ga4Property,
+            filter: { field: "sessionCampaignId", value: input.campaignId },
+          }
+        : m
+          ? { id: m.id, ...m.payload }
+          : null;
     }
     const connection = await ga4.read(user, w);
     let campaignTags: {
@@ -244,7 +251,11 @@ export function createPerformanceService(
       analytics,
       analyticsError,
       measurement,
-      businessOutcomes: await readBusinessOutcomes(db, w, { campaignId: input.campaignId, since: `${input.window.startDate}T00:00:00.000Z`, until }),
+      businessOutcomes: await readBusinessOutcomes(db, w, {
+        campaignId: input.campaignId,
+        since: `${input.window.startDate}T00:00:00.000Z`,
+        until,
+      }),
       fetchedAt: new Date().toISOString(),
     };
   }

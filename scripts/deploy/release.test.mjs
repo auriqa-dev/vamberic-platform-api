@@ -158,20 +158,26 @@ test("full SHA and explicit no-migration release policy required", () => {
   for (const policy of [{}, { databaseMigrationRequired: true }])
     assert.throws(() => validatePolicy(policy));
 });
-test("workflow gates frontend on healthy API and uses only existing OIDC environments", () => {
+test("automatic API workflow requires validation, main, existing OIDC and live health without deploying Vapp", () => {
   const workflow = readFileSync(
     new URL("../../.github/workflows/deploy-dev.yml", import.meta.url),
     "utf8",
   );
   assert.match(workflow, /deploy-api:\n\s+needs: validate/);
-  assert.match(workflow, /deploy-vapp:\n\s+needs: deploy-api/);
+  assert.match(workflow, /release.mjs deploy[\s\S]*release.mjs health/);
+  assert.match(workflow, /push:\n\s+branches: \[main\]/);
+  assert.match(workflow, /environment: dev/);
+  assert.match(workflow, /id-token: write/);
   assert.match(
     workflow,
-    /release.mjs deploy[\s\S]*release.mjs health[\s\S]*deploy-vapp:/,
+    /role-to-assume: arn:aws:iam::755905325223:role\/VambericGitHubApiDeployRole/,
   );
-  assert.match(workflow, /if: vars\.HVM_API_AUTOMATION_ENABLED == 'true'/);
-  assert.match(workflow, /environment: dev/);
-  assert.match(workflow, /environment: vapp/);
+  assert.match(workflow, /git ls-remote origin refs\/heads\/main/);
+  assert.match(workflow, /test "\$VALIDATION\/\$API" = success\/success/);
+  assert.doesNotMatch(
+    workflow,
+    /deploy-vapp:|environment: vapp|HVM_API_AUTOMATION_ENABLED|continue-on-error:/,
+  );
   assert.match(workflow, /cancel-in-progress: false/);
   assert.doesNotMatch(
     workflow,

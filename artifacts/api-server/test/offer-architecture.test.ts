@@ -1789,43 +1789,121 @@ test("brief overview links only active same-workspace, same-product generated of
   );
 });
 
-test("offer output is idempotent, versioned, scoped and not distribution-approved", async()=>{
- const f=await setup(async()=>({draft:draft(f.i.id),sources:[],usage:{model:"fixture",inputTokens:1,outputTokens:1},limitations:[]}));
- const job=await f.app.start(identity,f.w,{offeringId:f.p.id,targetIcpIds:[f.i.id],instructions:"",requestKey:randomUUID()});
- const j=await finished(f.app,f.w,job.id);f.db.rows("schema_versions")[0]!.version=28;let b=await f.app.bundle(identity,f.w,j.offerId);
- const register=()=>f.app.registerOutput(identity,f.w,{id:b.offer.id,expectedUpdatedAt:b.offer.updatedAt.toISOString(),expectedDesignUpdatedAt:(b.design as Document).updatedAt.toISOString()});
- b=await register();const id=b.output.assetId;assert.ok(id);assert.match(b.output.text,/Understand the options/);
- await register();assert.equal(f.db.rows("events").filter(e=>e.payload?.record?.id===id).length,1);
- const d=b.design as Document;
- b=await f.app.save(identity,f.w,{id:b.offer.id,expectedUpdatedAt:b.offer.updatedAt.toISOString(),designId:d.id,expectedDesignUpdatedAt:d.updatedAt.toISOString(),definition:{...b.offer.definition,valueProposition:"Revised value"},work:d.work});
- const versions=f.db.rows("events").filter(e=>e.payload?.record?.id===id).map(e=>e.payload.record);
- assert.equal(versions.length,2);assert.equal(versions[0].data.offerOutput.offerStatus,"draft");assert.equal(versions[1].status,"draft");assert.equal(versions[1].data.usageRights,"restricted");assert.equal(versions[1].data.visibility,"private");
- const latest=f.db.rows("events").filter(e=>e.payload?.record?.id===id).at(-1)!;
- latest.payload.record.status="removed";
- const nextDesign=b.design as Document;
- b=await f.app.save(identity,f.w,{id:b.offer.id,expectedUpdatedAt:b.offer.updatedAt.toISOString(),designId:nextDesign.id,expectedDesignUpdatedAt:nextDesign.updatedAt.toISOString(),definition:{...b.offer.definition,valueProposition:"Another revision"},work:nextDesign.work});
- assert.equal(b.output.assetId,null);
- assert.equal(f.db.rows("events").filter(e=>e.payload?.record?.id===id).length,2);
- await assert.rejects(f.app.registerOutput(identity,generatePlatformId("workspace"),{id:b.offer.id,expectedUpdatedAt:b.offer.updatedAt.toISOString(),expectedDesignUpdatedAt:(b.design as Document).updatedAt.toISOString()}));
+test("offer output is idempotent, versioned, scoped and not distribution-approved", async () => {
+  const f = await setup(async () => ({
+    draft: draft(f.i.id),
+    sources: [],
+    usage: { model: "fixture", inputTokens: 1, outputTokens: 1 },
+    limitations: [],
+  }));
+  const job = await f.app.start(identity, f.w, {
+    offeringId: f.p.id,
+    targetIcpIds: [f.i.id],
+    instructions: "",
+    requestKey: randomUUID(),
+  });
+  const j = await finished(f.app, f.w, job.id);
+  f.db.rows("schema_versions")[0]!.version = 28;
+  let b = await f.app.bundle(identity, f.w, j.offerId);
+  const register = () =>
+    f.app.registerOutput(identity, f.w, {
+      id: b.offer.id,
+      expectedUpdatedAt: b.offer.updatedAt.toISOString(),
+      expectedDesignUpdatedAt: (b.design as Document).updatedAt.toISOString(),
+    });
+  b = await register();
+  const id = b.output.assetId;
+  assert.ok(id);
+  assert.match(b.output.text, /Understand the options/);
+  await register();
+  assert.equal(
+    f.db.rows("events").filter((e) => e.payload?.record?.id === id).length,
+    1,
+  );
+  const d = b.design as Document;
+  b = await f.app.save(identity, f.w, {
+    id: b.offer.id,
+    expectedUpdatedAt: b.offer.updatedAt.toISOString(),
+    designId: d.id,
+    expectedDesignUpdatedAt: d.updatedAt.toISOString(),
+    definition: { ...b.offer.definition, valueProposition: "Revised value" },
+    work: d.work,
+  });
+  const versions = f.db
+    .rows("events")
+    .filter((e) => e.payload?.record?.id === id)
+    .map((e) => e.payload.record);
+  assert.equal(versions.length, 2);
+  assert.equal(versions[0].data.offerOutput.offerStatus, "draft");
+  assert.equal(versions[1].status, "draft");
+  assert.equal(versions[1].data.usageRights, "restricted");
+  assert.equal(versions[1].data.visibility, "private");
+  const latest = f.db
+    .rows("events")
+    .filter((e) => e.payload?.record?.id === id)
+    .at(-1)!;
+  latest.payload.record.status = "removed";
+  const nextDesign = b.design as Document;
+  b = await f.app.save(identity, f.w, {
+    id: b.offer.id,
+    expectedUpdatedAt: b.offer.updatedAt.toISOString(),
+    designId: nextDesign.id,
+    expectedDesignUpdatedAt: nextDesign.updatedAt.toISOString(),
+    definition: { ...b.offer.definition, valueProposition: "Another revision" },
+    work: nextDesign.work,
+  });
+  assert.equal(b.output.assetId, null);
+  assert.equal(
+    f.db.rows("events").filter((e) => e.payload?.record?.id === id).length,
+    2,
+  );
+  await assert.rejects(
+    f.app.registerOutput(identity, generatePlatformId("workspace"), {
+      id: b.offer.id,
+      expectedUpdatedAt: b.offer.updatedAt.toISOString(),
+      expectedDesignUpdatedAt: (b.design as Document).updatedAt.toISOString(),
+    }),
+  );
 });
 
-
 test("public discovery preserves incomplete reason and provider usage", async () => {
-  const { createOfferResearch } = await import("../src/services/offer-architecture/research");
-  const { OfferIncompleteError, safeOfferFailure } = await import("../src/services/offer-architecture/diagnostics");
-  for (const [reason, expected] of [["max_output_tokens", "output_limit"], ["content_filter", "content_filter"], ["other", "incomplete"]]) {
-    const search = createOfferResearch({ apiKey: "fake", project: "proj_fixture" }, async (_url, init) => {
-      const request = JSON.parse(String(init?.body));
-      assert.match(request.input[0].content, /at most six links/);
-      return Response.json({ status: "incomplete", incomplete_details: { reason }, model: "fixture",
-        usage: { input_tokens: 50, output_tokens: 1200 }, output: [{ type: "web_search_call" }] });
-    });
-    await assert.rejects(search({}, new AbortController().signal), (error: unknown) => {
-      assert.ok(error instanceof OfferIncompleteError);
-      assert.equal(error.reason, expected);
-      assert.deepEqual(error.usage, { model: "fixture", inputTokens: 50, outputTokens: 1200, searchCalls: 1 });
-      assert.equal(safeOfferFailure(error).code, `provider_${expected}`);
-      return true;
-    });
+  const { createOfferResearch } =
+    await import("../src/services/offer-architecture/research");
+  const { OfferIncompleteError, safeOfferFailure } =
+    await import("../src/services/offer-architecture/diagnostics");
+  for (const [reason, expected] of [
+    ["max_output_tokens", "output_limit"],
+    ["content_filter", "content_filter"],
+    ["other", "incomplete"],
+  ]) {
+    const search = createOfferResearch(
+      { apiKey: "fake", project: "proj_fixture" },
+      async (_url, init) => {
+        const request = JSON.parse(String(init?.body));
+        assert.match(request.input[0].content, /at most six links/);
+        return Response.json({
+          status: "incomplete",
+          incomplete_details: { reason },
+          model: "fixture",
+          usage: { input_tokens: 50, output_tokens: 1200 },
+          output: [{ type: "web_search_call" }],
+        });
+      },
+    );
+    await assert.rejects(
+      search({}, new AbortController().signal),
+      (error: unknown) => {
+        assert.ok(error instanceof OfferIncompleteError);
+        assert.equal(error.reason, expected);
+        assert.deepEqual(error.usage, {
+          model: "fixture",
+          inputTokens: 50,
+          outputTokens: 1200,
+          searchCalls: 1,
+        });
+        assert.equal(safeOfferFailure(error).code, `provider_${expected}`);
+        return true;
+      },
+    );
   }
 });

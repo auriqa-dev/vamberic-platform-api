@@ -219,11 +219,24 @@ export function createResearchService(
     await readResearchContext(db, w, input.documents);
     const context = await contentContext(db, config, identity, w, input.scope);
     if (input.campaignVersion) {
-      const consumer = context.snapshots.some(r => r.entityType === "ideal_customer_profiles" && ["b2c","d2c"].includes(r.snapshot.definition?.profileType ?? r.snapshot.profileType));
-      if ((consumer || input.destinations.some(d => d.type === "people")) && (input.sourceMode !== "existing" || input.type !== "market_buyer"))
-        throw new HiveConflict("Consumer campaign research uses existing records only; private-person discovery is unavailable.");
-      if (!consumer && input.destinations.some(d => d.type === "people"))
-        throw new HiveConflict("Select a consumer ICP to assess existing consumer contacts.");
+      const consumer = context.snapshots.some(
+        (r) =>
+          r.entityType === "ideal_customer_profiles" &&
+          ["b2c", "d2c"].includes(
+            r.snapshot.definition?.profileType ?? r.snapshot.profileType,
+          ),
+      );
+      if (
+        (consumer || input.destinations.some((d) => d.type === "people")) &&
+        (input.sourceMode !== "existing" || input.type !== "market_buyer")
+      )
+        throw new HiveConflict(
+          "Consumer campaign research uses existing records only; private-person discovery is unavailable.",
+        );
+      if (!consumer && input.destinations.some((d) => d.type === "people"))
+        throw new HiveConflict(
+          "Select a consumer ICP to assess existing consumer contacts.",
+        );
     }
     if (!mongo.withTransaction) throw new Error("Transactions required");
     return mongo.withTransaction(async (db, session) => {
@@ -231,16 +244,61 @@ export function createResearchService(
       await lockIcpWorkspace(db, w, session);
       await admission?.(db, session);
       // Campaign start and setup changes share the workspace transaction fence.
-      for (const destination of input.destinations.filter(d => d.type === "campaign")) {
-        const campaign = await db.collection("events").findOne({ workspaceId: w, campaignId: destination.id, eventType: "campaign_setup" }, {sort: {"payload.version": -1}, session});
-        if (campaign && (campaign.payload.status !== "ready" || campaign.payload.version !== input.campaignVersion || hash(input.scope)!==hash({brandId:campaign.payload.setup.brandId,products:campaign.payload.setup.products,offers:campaign.payload.setup.offers,audiences:campaign.payload.setup.audiences})))
-          throw new HiveConflict("The campaign setup changed or is not approved. Review it before starting research.");
+      for (const destination of input.destinations.filter(
+        (d) => d.type === "campaign",
+      )) {
+        const campaign = await db.collection("events").findOne(
+          {
+            workspaceId: w,
+            campaignId: destination.id,
+            eventType: "campaign_setup",
+          },
+          { sort: { "payload.version": -1 }, session },
+        );
+        if (
+          campaign &&
+          (campaign.payload.status !== "ready" ||
+            campaign.payload.version !== input.campaignVersion ||
+            hash(input.scope) !==
+              hash({
+                brandId: campaign.payload.setup.brandId,
+                products: campaign.payload.setup.products,
+                offers: campaign.payload.setup.offers,
+                audiences: campaign.payload.setup.audiences,
+              }))
+        )
+          throw new HiveConflict(
+            "The campaign setup changed or is not approved. Review it before starting research.",
+          );
       }
-      if(input.campaignVersion) {
-        const ids=input.destinations.filter(d=>["organisations","people"].includes(d.type)).map(d=>d.id);
-        if(ids.length) {
-          const active=await db.collection("events").find({workspaceId:w,eventType:"research_job","payload.status":{$in:["queued","running"]},"payload.request.requestKey":{$ne:input.requestKey},"payload.request.destinations":{$elemMatch:{type:{$in:["organisations","people"]},id:{$in:ids}}}},{session}).limit(1).toArray();
-          if(active.length)throw new HiveConflict("An organisation or contact is already being researched. Reuse its current research before requesting another investigation.");
+      if (input.campaignVersion) {
+        const ids = input.destinations
+          .filter((d) => ["organisations", "people"].includes(d.type))
+          .map((d) => d.id);
+        if (ids.length) {
+          const active = await db
+            .collection("events")
+            .find(
+              {
+                workspaceId: w,
+                eventType: "research_job",
+                "payload.status": { $in: ["queued", "running"] },
+                "payload.request.requestKey": { $ne: input.requestKey },
+                "payload.request.destinations": {
+                  $elemMatch: {
+                    type: { $in: ["organisations", "people"] },
+                    id: { $in: ids },
+                  },
+                },
+              },
+              { session },
+            )
+            .limit(1)
+            .toArray();
+          if (active.length)
+            throw new HiveConflict(
+              "An organisation or contact is already being researched. Reuse its current research before requesting another investigation.",
+            );
         }
       }
       const previous = await db.collection("events").findOne(
@@ -324,7 +382,22 @@ export function createResearchService(
           "payload.jobId": id,
         })
         .toArray()
-    ).map((r) => r.payload.expiresAt && r.payload.expiresAt<=new Date().toISOString() && r.payload.result.status!=="promoted" ? {candidateId:r.id,kind:r.payload.result.kind,type:r.payload.result.type,status:"expired",name:"Expired candidate",details:{},evidenceIds:[],reason:"Working candidate data has expired"} : r.payload.result);
+    ).map((r) =>
+      r.payload.expiresAt &&
+      r.payload.expiresAt <= new Date().toISOString() &&
+      r.payload.result.status !== "promoted"
+        ? {
+            candidateId: r.id,
+            kind: r.payload.result.kind,
+            type: r.payload.result.type,
+            status: "expired",
+            name: "Expired candidate",
+            details: {},
+            evidenceIds: [],
+            reason: "Working candidate data has expired",
+          }
+        : r.payload.result,
+    );
     const recordWrites = await db
       .collection("events")
       .find({
@@ -405,7 +478,10 @@ export function createResearchService(
         id: r.id,
         revision: r.approvedRevision,
         name: r.definition?.name ?? r.name ?? r.id,
-        brandId: r.brandId ?? choices.offerings?.find(p => p.id === r.offeringId)?.brandId ?? null,
+        brandId:
+          r.brandId ??
+          choices.offerings?.find((p) => p.id === r.offeringId)?.brandId ??
+          null,
       }));
     }
     const assets = currentRecords(
@@ -521,8 +597,20 @@ export function createResearchService(
         w,
         request.scope,
       );
-      if (request.campaignVersion && context.snapshots.some(r => r.entityType === "ideal_customer_profiles" && ["b2c","d2c"].includes(r.snapshot.definition?.profileType ?? r.snapshot.profileType)) && (request.sourceMode !== "existing" || request.type !== "market_buyer"))
-        throw new HiveConflict("Consumer campaign research requires existing records. Review the campaign before retrying.");
+      if (
+        request.campaignVersion &&
+        context.snapshots.some(
+          (r) =>
+            r.entityType === "ideal_customer_profiles" &&
+            ["b2c", "d2c"].includes(
+              r.snapshot.definition?.profileType ?? r.snapshot.profileType,
+            ),
+        ) &&
+        (request.sourceMode !== "existing" || request.type !== "market_buyer")
+      )
+        throw new HiveConflict(
+          "Consumer campaign research requires existing records. Review the campaign before retrying.",
+        );
       const destinationContext = await targets(
         db,
         w,
@@ -531,21 +619,35 @@ export function createResearchService(
         identity,
       );
       if (request.campaignVersion) {
-        const campaignId = request.destinations.find(d => d.type === "campaign")?.id;
+        const campaignId = request.destinations.find(
+          (d) => d.type === "campaign",
+        )?.id;
         const approved = await db.collection("events").findOne({
-          workspaceId: w, campaignId, eventType: "campaign_setup",
-          "payload.version": request.campaignVersion, "payload.status": "ready",
+          workspaceId: w,
+          campaignId,
+          eventType: "campaign_setup",
+          "payload.version": request.campaignVersion,
+          "payload.status": "ready",
         });
-        if (!approved || approved.payload.setup.brandId !== request.scope.brandId)
+        if (
+          !approved ||
+          approved.payload.setup.brandId !== request.scope.brandId
+        )
           throw new HiveConflict("Approved campaign context is unavailable.");
         // Full, version-bound business instructions stay in authorised model context,
         // rather than being truncated or included in a public search query.
         const setup = approved.payload.setup;
-        destinationContext.push({ type: "campaign_setup", id: campaignId,
-          version: request.campaignVersion, objective: setup.objective,
-          researchPriority: setup.researchPriority, source: setup.source,
-          goal: setup.goal, overlapProposal: setup.overlapPolicy,
-          instruction: "Assess each approved ICP independently. Preserve overlaps and unknowns. Reuse Hive evidence. The overlap proposal is not execution authority.",
+        destinationContext.push({
+          type: "campaign_setup",
+          id: campaignId,
+          version: request.campaignVersion,
+          objective: setup.objective,
+          researchPriority: setup.researchPriority,
+          source: setup.source,
+          goal: setup.goal,
+          overlapProposal: setup.overlapPolicy,
+          instruction:
+            "Assess each approved ICP independently. Preserve overlaps and unknowns. Reuse Hive evidence. The overlap proposal is not execution authority.",
         });
       }
       let sources: Document[] = await db
@@ -591,8 +693,22 @@ export function createResearchService(
         publicUrls = result.urls;
         searchUsage.push(result.usage);
       }
-      if(request.campaignVersion && publicUrls.length) {
-        const reusable=await db.collection("events").find({workspaceId:w,eventType:"research_evidence","payload.brandId":request.scope.brandId,"payload.access":"public","payload.url":{$in:publicUrls},"payload.retrievedAt":{$gte:new Date(Date.now()-request.freshnessDays*86400000).toISOString()}}).toArray();
+      if (request.campaignVersion && publicUrls.length) {
+        const reusable = await db
+          .collection("events")
+          .find({
+            workspaceId: w,
+            eventType: "research_evidence",
+            "payload.brandId": request.scope.brandId,
+            "payload.access": "public",
+            "payload.url": { $in: publicUrls },
+            "payload.retrievedAt": {
+              $gte: new Date(
+                Date.now() - request.freshnessDays * 86400000,
+              ).toISOString(),
+            },
+          })
+          .toArray();
         sources.push(...reusable);
       }
       if (request.sourceMode === "web" && publicUrls.length) {
@@ -707,10 +823,26 @@ export function createResearchService(
         await db.collection("events").insertOne(row);
         sources.push(row);
       }
-      if(request.campaignVersion) {
-        for(const target of destinationContext.filter(t=>t.type==="organisations" || t.type==="people")) {
-          const row=event(w,"research_evidence",{brandId:request.scope.brandId,url:"",title:`Existing Hive record: ${target.name??target.id}`,extract:JSON.stringify(target),retrievedAt:new Date().toISOString(),recordId:target.id,recordUpdatedAt:target.updatedAt,digest:hash(target),access:"workspace",restrictions:["Existing record is not proof of current qualification or permission to contact."]});
-          await db.collection("events").insertOne(row);sources.push(row);
+      if (request.campaignVersion) {
+        for (const target of destinationContext.filter(
+          (t) => t.type === "organisations" || t.type === "people",
+        )) {
+          const row = event(w, "research_evidence", {
+            brandId: request.scope.brandId,
+            url: "",
+            title: `Existing Hive record: ${target.name ?? target.id}`,
+            extract: JSON.stringify(target),
+            retrievedAt: new Date().toISOString(),
+            recordId: target.id,
+            recordUpdatedAt: target.updatedAt,
+            digest: hash(target),
+            access: "workspace",
+            restrictions: [
+              "Existing record is not proof of current qualification or permission to contact.",
+            ],
+          });
+          await db.collection("events").insertOne(row);
+          sources.push(row);
         }
       }
       sources = [...new Map(sources.map((s) => [s.id, s])).values()];
@@ -756,20 +888,104 @@ export function createResearchService(
         evidenceIds: f.evidenceIds.filter((id) => allowed.has(id)),
       }));
       const discoveryResults: Document[] = [];
-      if (["account_discovery", "contact_discovery", "enrichment"].includes(request.type)) {
-        await update({phase:"Preparing candidates for review"});
-        for(const candidate of parsed.organisations) {
-          const cited=sources.filter(s=>candidate.evidenceIds.includes(s.id));
-          let domain="";try{domain=new URL(candidate.website).hostname.toLowerCase().replace(/^www\./,"");}catch{continue;}
-          if(!cited.some(s=>{try{return new URL(s.payload.url).hostname.toLowerCase().replace(/^www\./,"")===domain && s.payload.extract.toLowerCase().includes(candidate.name.trim().toLowerCase());}catch{return false;}}))continue;
-          const matches=await db.collection("organisations").find({workspaceId:w,archived:{$ne:true},$or:[{domain},{normalizedDomain:domain}]}).limit(2).toArray();
-          discoveryResults.push({candidateId:generatePlatformId("event"),kind:"organisation",name:candidate.name,type:"organisations",status:matches.length===1?"matched":"candidate",...(matches.length===1?{id:matches[0]!.id}:{}),reason:matches.length>1?"Multiple existing organisations need review":"Review and select before researching people",details:{...candidate,domain},evidenceIds:cited.map(s=>s.id)});
+      if (
+        ["account_discovery", "contact_discovery", "enrichment"].includes(
+          request.type,
+        )
+      ) {
+        await update({ phase: "Preparing candidates for review" });
+        for (const candidate of parsed.organisations) {
+          const cited = sources.filter((s) =>
+            candidate.evidenceIds.includes(s.id),
+          );
+          let domain = "";
+          try {
+            domain = new URL(candidate.website).hostname
+              .toLowerCase()
+              .replace(/^www\./, "");
+          } catch {
+            continue;
+          }
+          if (
+            !cited.some((s) => {
+              try {
+                return (
+                  new URL(s.payload.url).hostname
+                    .toLowerCase()
+                    .replace(/^www\./, "") === domain &&
+                  s.payload.extract
+                    .toLowerCase()
+                    .includes(candidate.name.trim().toLowerCase())
+                );
+              } catch {
+                return false;
+              }
+            })
+          )
+            continue;
+          const matches = await db
+            .collection("organisations")
+            .find({
+              workspaceId: w,
+              archived: { $ne: true },
+              $or: [{ domain }, { normalizedDomain: domain }],
+            })
+            .limit(2)
+            .toArray();
+          discoveryResults.push({
+            candidateId: generatePlatformId("event"),
+            kind: "organisation",
+            name: candidate.name,
+            type: "organisations",
+            status: matches.length === 1 ? "matched" : "candidate",
+            ...(matches.length === 1 ? { id: matches[0]!.id } : {}),
+            reason:
+              matches.length > 1
+                ? "Multiple existing organisations need review"
+                : "Review and select before researching people",
+            details: { ...candidate, domain },
+            evidenceIds: cited.map((s) => s.id),
+          });
         }
-        for(const candidate of parsed.contacts) {
-          const cited=sources.filter(s=>candidate.evidenceIds.includes(s.id));
-          if(!candidate.firstName || !candidate.lastName || !cited.some(s=>[candidate.firstName,candidate.lastName].every(n=>s.payload.extract.toLowerCase().includes(n.toLowerCase()))))continue;
-          let domain="";try{domain=new URL(candidate.companyWebsite).hostname.toLowerCase().replace(/^www\./,"");}catch{continue;}
-          discoveryResults.push({candidateId:generatePlatformId("event"),kind:"person",name:[candidate.firstName,candidate.lastName].join(" "),type:"people",status:"candidate",reason:"Check current employment and role before requesting an A+ email",details:{firstName:candidate.firstName,lastName:candidate.lastName,title:candidate.title,companyWebsite:candidate.companyWebsite,domain},evidenceIds:cited.map(s=>s.id)});
+        for (const candidate of parsed.contacts) {
+          const cited = sources.filter((s) =>
+            candidate.evidenceIds.includes(s.id),
+          );
+          if (
+            !candidate.firstName ||
+            !candidate.lastName ||
+            !cited.some((s) =>
+              [candidate.firstName, candidate.lastName].every((n) =>
+                s.payload.extract.toLowerCase().includes(n.toLowerCase()),
+              ),
+            )
+          )
+            continue;
+          let domain = "";
+          try {
+            domain = new URL(candidate.companyWebsite).hostname
+              .toLowerCase()
+              .replace(/^www\./, "");
+          } catch {
+            continue;
+          }
+          discoveryResults.push({
+            candidateId: generatePlatformId("event"),
+            kind: "person",
+            name: [candidate.firstName, candidate.lastName].join(" "),
+            type: "people",
+            status: "candidate",
+            reason:
+              "Check current employment and role before requesting an A+ email",
+            details: {
+              firstName: candidate.firstName,
+              lastName: candidate.lastName,
+              title: candidate.title,
+              companyWebsite: candidate.companyWebsite,
+              domain,
+            },
+            evidenceIds: cited.map((s) => s.id),
+          });
         }
       }
       if (!mongo.withTransaction) throw new Error("Transactions required");
@@ -785,46 +1001,170 @@ export function createResearchService(
               session,
             });
         for (const result of discoveryResults)
-          await db
-            .collection("events")
-            .insertOne({...event(w, "research_discovery", { jobId: id, result, scope:request.scope, expiresAt:new Date(Date.now()+30*86400000).toISOString() }),...(result.candidateId?{id:result.candidateId}:{})}, {
+          await db.collection("events").insertOne(
+            {
+              ...event(w, "research_discovery", {
+                jobId: id,
+                result,
+                scope: request.scope,
+                expiresAt: new Date(Date.now() + 30 * 86400000).toISOString(),
+              }),
+              ...(result.candidateId ? { id: result.candidateId } : {}),
+            },
+            {
               session,
-            });
-        if(request.campaignVersion) for(const assessment of parsed.assessments) {
-          if(!request.scope.offers.some(o=>o.id===assessment.offerId) || !request.scope.audiences.some(a=>a.id===assessment.icpId))continue;
-          const profile=await db.collection("ideal_customer_profiles").findOne({workspaceId:w,id:assessment.icpId},{session});
-          if(profile?.offer?.id!==assessment.offerId)continue;
-          const snapshot=context.snapshots.find(r=>r.entityType==="ideal_customer_profiles" && r.id===assessment.icpId)?.snapshot;
-          const consumer=["b2c","d2c"].includes(snapshot?.definition?.profileType ?? snapshot?.profileType);
-          if (assessment.personId) {
-            if (!consumer || request.sourceMode !== "existing" || !request.destinations.some(d=>d.type==="people" && d.id===assessment.personId)) continue;
-            const personEvidence=sources.filter(s=>s.payload.recordId===assessment.personId).map(s=>s.id);
-            const evidenceIds=assessment.evidenceIds.filter(e=>allowed.has(e));
-            await db.collection("events").insertOne(event(w,"campaign_audience_assessment",{...assessment,organisationId:"",website:"",evidenceIds,fit:evidenceIds.some(e=>personEvidence.includes(e))?assessment.fit:"needs_research",decision:"proposed",jobId:id,campaignId:request.destinations.find(d=>d.type==="campaign")?.id,campaignVersion:request.campaignVersion,scope:request.scope}),{session});
-            continue;
-          }
-          if (consumer) continue;
-          let organisationId=assessment.organisationId;
-          const allowedOrganisations=[...request.destinations.filter(d=>d.type==="organisations").map(d=>d.id),...discoveryResults.filter(d=>d.type==="organisations").map(d=>d.id)];
-          if(!allowedOrganisations.includes(organisationId) && assessment.website) {
-            let domain="";try{domain=new URL(assessment.website).hostname.toLowerCase().replace(/^www\./,"");}catch{continue;}
-            const matches=await db.collection("organisations").find({workspaceId:w,id:{$in:allowedOrganisations},$or:[{domain},{normalizedDomain:domain}]},{session}).limit(2).toArray();
-            if(matches.length!==1){
-              const candidates=discoveryResults.filter(d=>d.kind==="organisation" && d.details?.domain===domain);
-              if(candidates.length===1){
-                const saved=await db.collection("events").findOne({workspaceId:w,id:candidates[0]!.candidateId},{session});
-                await db.collection("events").updateOne({workspaceId:w,id:candidates[0]!.candidateId,eventType:"research_discovery"},{$set:{"payload.result.assessments":[...(saved?.payload.result.assessments??[]),{...assessment,evidenceIds:assessment.evidenceIds.filter(e=>allowed.has(e)),decision:"proposed",campaignVersion:request.campaignVersion}]}},{session});
-              }
+            },
+          );
+        if (request.campaignVersion)
+          for (const assessment of parsed.assessments) {
+            if (
+              !request.scope.offers.some((o) => o.id === assessment.offerId) ||
+              !request.scope.audiences.some((a) => a.id === assessment.icpId)
+            )
               continue;
-            }organisationId=matches[0].id;
+            const profile = await db
+              .collection("ideal_customer_profiles")
+              .findOne({ workspaceId: w, id: assessment.icpId }, { session });
+            if (profile?.offer?.id !== assessment.offerId) continue;
+            const snapshot = context.snapshots.find(
+              (r) =>
+                r.entityType === "ideal_customer_profiles" &&
+                r.id === assessment.icpId,
+            )?.snapshot;
+            const consumer = ["b2c", "d2c"].includes(
+              snapshot?.definition?.profileType ?? snapshot?.profileType,
+            );
+            if (assessment.personId) {
+              if (
+                !consumer ||
+                request.sourceMode !== "existing" ||
+                !request.destinations.some(
+                  (d) => d.type === "people" && d.id === assessment.personId,
+                )
+              )
+                continue;
+              const personEvidence = sources
+                .filter((s) => s.payload.recordId === assessment.personId)
+                .map((s) => s.id);
+              const evidenceIds = assessment.evidenceIds.filter((e) =>
+                allowed.has(e),
+              );
+              await db.collection("events").insertOne(
+                event(w, "campaign_audience_assessment", {
+                  ...assessment,
+                  organisationId: "",
+                  website: "",
+                  evidenceIds,
+                  fit: evidenceIds.some((e) => personEvidence.includes(e))
+                    ? assessment.fit
+                    : "needs_research",
+                  decision: "proposed",
+                  jobId: id,
+                  campaignId: request.destinations.find(
+                    (d) => d.type === "campaign",
+                  )?.id,
+                  campaignVersion: request.campaignVersion,
+                  scope: request.scope,
+                }),
+                { session },
+              );
+              continue;
+            }
+            if (consumer) continue;
+            let organisationId = assessment.organisationId;
+            const allowedOrganisations = [
+              ...request.destinations
+                .filter((d) => d.type === "organisations")
+                .map((d) => d.id),
+              ...discoveryResults
+                .filter((d) => d.type === "organisations")
+                .map((d) => d.id),
+            ];
+            if (
+              !allowedOrganisations.includes(organisationId) &&
+              assessment.website
+            ) {
+              let domain = "";
+              try {
+                domain = new URL(assessment.website).hostname
+                  .toLowerCase()
+                  .replace(/^www\./, "");
+              } catch {
+                continue;
+              }
+              const matches = await db
+                .collection("organisations")
+                .find(
+                  {
+                    workspaceId: w,
+                    id: { $in: allowedOrganisations },
+                    $or: [{ domain }, { normalizedDomain: domain }],
+                  },
+                  { session },
+                )
+                .limit(2)
+                .toArray();
+              if (matches.length !== 1) {
+                const candidates = discoveryResults.filter(
+                  (d) =>
+                    d.kind === "organisation" && d.details?.domain === domain,
+                );
+                if (candidates.length === 1) {
+                  const saved = await db
+                    .collection("events")
+                    .findOne(
+                      { workspaceId: w, id: candidates[0]!.candidateId },
+                      { session },
+                    );
+                  await db.collection("events").updateOne(
+                    {
+                      workspaceId: w,
+                      id: candidates[0]!.candidateId,
+                      eventType: "research_discovery",
+                    },
+                    {
+                      $set: {
+                        "payload.result.assessments": [
+                          ...(saved?.payload.result.assessments ?? []),
+                          {
+                            ...assessment,
+                            evidenceIds: assessment.evidenceIds.filter((e) =>
+                              allowed.has(e),
+                            ),
+                            decision: "proposed",
+                            campaignVersion: request.campaignVersion,
+                          },
+                        ],
+                      },
+                    },
+                    { session },
+                  );
+                }
+                continue;
+              }
+              organisationId = matches[0].id;
+            }
+            if (!allowedOrganisations.includes(organisationId)) continue;
+            const evidenceIds = assessment.evidenceIds.filter((e) =>
+              allowed.has(e),
+            );
+            await db.collection("events").insertOne(
+              event(w, "campaign_audience_assessment", {
+                ...assessment,
+                organisationId,
+                evidenceIds,
+                fit: evidenceIds.length ? assessment.fit : "needs_research",
+                decision: "proposed",
+                jobId: id,
+                campaignId: request.destinations.find(
+                  (d) => d.type === "campaign",
+                )?.id,
+                campaignVersion: request.campaignVersion,
+                scope: request.scope,
+              }),
+              { session },
+            );
           }
-          if(!allowedOrganisations.includes(organisationId))continue;
-          const evidenceIds=assessment.evidenceIds.filter(e=>allowed.has(e));
-          await db.collection("events").insertOne(event(w,"campaign_audience_assessment",{
-            ...assessment,organisationId,evidenceIds,fit:evidenceIds.length?assessment.fit:"needs_research",decision:"proposed",jobId:id,
-            campaignId:request.destinations.find(d=>d.type==="campaign")?.id,campaignVersion:request.campaignVersion,scope:request.scope,
-          }),{session});
-        }
         for (const f of findings) {
           const unsupported = f.kind === "fact" && !f.evidenceIds.length;
           await db.collection("events").insertOne(
@@ -1141,8 +1481,34 @@ export function createResearchService(
   async function tick() {
     const db = await mongo.database();
     // Remove working personal data after the finite candidate retention window; keep counts and billing history.
-    await db.collection("events").updateMany({eventType:"research_discovery","payload.expiresAt":{$lte:new Date().toISOString()},"payload.result.status":{$nin:["promoted","expired"]}},{$set:{"payload.result.status":"expired","payload.result.name":"Expired candidate","payload.result.details":{},"payload.result.evidenceIds":[],updatedAt:new Date()},$unset:{"payload.result.verifiedEmail":"","payload.result.employmentReview":"","payload.result.reviewedBy":""}});
-    await db.collection("events").updateMany({eventType:"lusha_lookup","payload.expiresAt":{$lte:new Date().toISOString()}},{$unset:{"payload.lookupKey":""}});
+    await db.collection("events").updateMany(
+      {
+        eventType: "research_discovery",
+        "payload.expiresAt": { $lte: new Date().toISOString() },
+        "payload.result.status": { $nin: ["promoted", "expired"] },
+      },
+      {
+        $set: {
+          "payload.result.status": "expired",
+          "payload.result.name": "Expired candidate",
+          "payload.result.details": {},
+          "payload.result.evidenceIds": [],
+          updatedAt: new Date(),
+        },
+        $unset: {
+          "payload.result.verifiedEmail": "",
+          "payload.result.employmentReview": "",
+          "payload.result.reviewedBy": "",
+        },
+      },
+    );
+    await db.collection("events").updateMany(
+      {
+        eventType: "lusha_lookup",
+        "payload.expiresAt": { $lte: new Date().toISOString() },
+      },
+      { $unset: { "payload.lookupKey": "" } },
+    );
     const jobs = await db
       .collection("events")
       .find({

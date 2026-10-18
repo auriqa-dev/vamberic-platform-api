@@ -19,13 +19,13 @@ import { createAgentExecutionReadiness } from "../src/services/agent-execution-r
 import { createAgentProposalReview } from "../src/services/agent-proposals";
 import { mutateHiveDefinition } from "../src/services/hive-definitions";
 import { approvedProductContext } from "../src/services/product-service-understanding/context";
-import { createProductAgent } from "../../../../vamberic-agent-runtime/dist/src/agents/product-service-understanding/index.js";
-import { FakeClock } from "../../../../vamberic-agent-runtime/dist/src/runtime/clock.js";
-import { FakeModel } from "../../../../vamberic-agent-runtime/dist/src/models/fake.js";
-import { FakePlatformContext } from "../../../../vamberic-agent-runtime/dist/src/platform/context.js";
-import { ImplementationRegistry } from "../../../../vamberic-agent-runtime/dist/src/registry/registry.js";
-import { MemoryDiagnostics } from "../../../../vamberic-agent-runtime/dist/src/telemetry/diagnostics.js";
-import { executeAttempt } from "../../../../vamberic-agent-runtime/dist/src/runtime/executor.js";
+import { createProductAgent } from "../../../.integration/vamberic-agent-runtime/dist/src/agents/product-service-understanding/index.js";
+import { FakeClock } from "../../../.integration/vamberic-agent-runtime/dist/src/runtime/clock.js";
+import { FakeModel } from "../../../.integration/vamberic-agent-runtime/dist/src/models/fake.js";
+import { FakePlatformContext } from "../../../.integration/vamberic-agent-runtime/dist/src/platform/context.js";
+import { ImplementationRegistry } from "../../../.integration/vamberic-agent-runtime/dist/src/registry/registry.js";
+import { MemoryDiagnostics } from "../../../.integration/vamberic-agent-runtime/dist/src/telemetry/diagnostics.js";
+import { executeAttempt } from "../../../.integration/vamberic-agent-runtime/dist/src/runtime/executor.js";
 
 function domain(scope: unknown, statements: unknown[] = [], complete = false) {
   return {

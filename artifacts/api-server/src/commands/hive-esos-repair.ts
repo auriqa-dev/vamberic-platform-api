@@ -12,8 +12,14 @@ if (!["--dry-run", "--apply", "--rollback"].includes(mode ?? ""))
 const uri = process.env.MONGODB_URI;
 if (!uri || new URL(uri).hostname !== "vamberic-studio-dev.xzauunm.mongodb.net")
   throw Error("Unexpected database target");
-const client = new MongoClient(uri, { serverSelectionTimeoutMS: 10000, socketTimeoutMS: 30000 });
-const deadline = setTimeout(() => { console.error("ESOS_REPAIR_TIMEOUT"); process.exit(1); }, 300000);
+const client = new MongoClient(uri, {
+  serverSelectionTimeoutMS: 10000,
+  socketTimeoutMS: 30000,
+});
+const deadline = setTimeout(() => {
+  console.error("ESOS_REPAIR_TIMEOUT");
+  process.exit(1);
+}, 300000);
 try {
   await client.connect();
   const db = client.db("vamberic_studio"),

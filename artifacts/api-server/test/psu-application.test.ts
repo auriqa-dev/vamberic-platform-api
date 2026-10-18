@@ -1442,14 +1442,12 @@ test("generation reads fresh approved client brand context and never another bra
     approvedBy: f.input.human,
     descriptions: { short: "First approved description" },
   });
-  f.db
-    .rows("brand_kits")
-    .push(kit, {
-      ...kit,
-      id: generatePlatformId("brandkit"),
-      brandId: generatePlatformId("brand"),
-      descriptions: { short: "OTHER CLIENT" },
-    });
+  f.db.rows("brand_kits").push(kit, {
+    ...kit,
+    id: generatePlatformId("brandkit"),
+    brandId: generatePlatformId("brand"),
+    descriptions: { short: "OTHER CLIENT" },
+  });
   assert.equal(
     (await f.request(f.root + "/psu", input(f.input.brandId))).status,
     202,
@@ -1470,78 +1468,185 @@ test("generation reads fresh approved client brand context and never another bra
     (seen[1] as { revision: string }).revision,
   );
 });
-test("progress and early drafts survive reconnect; saving waits for completion and failed refinement retains usable draft",async t=>{
- let release!:()=>void;
- const gate=new Promise<void>(r=>{release=r;});
- const f=await fixture(t,async (input,signal,update)=>{
-   const early=await generator(input,signal);
-   await update!({phase:"reading",pagesRead:6,pagesAttempted:6,maximumPages:100},early);
-   await gate;
-   throw Error("refinement offline");
- });
- const started=await f.request(f.root+"/psu",input(f.input.brandId));
- let job;
- for(let i=0;i<40;i++) {
-   job=(await f.request(f.root+"/psu/"+started.body.id)).body;
-   if(job.draft)break;
-   await new Promise(r=>setTimeout(r,5));
- }
- assert.equal(job.status,"generating");assert.equal(job.progress.pagesRead,6);assert.equal(job.draft.fields[0].binding.value,"Energy optimisation");
- const review={draftDigest:job.draft.digest,fields:[{field:"name",value:"Reviewed service"},{field:"description",value:"Reviewed description"}]};
- assert.equal((await f.request(f.root+"/psu/"+job.id+"/save",review)).status,409);
- release();const completed=await ready(f);
- assert.equal(completed.status,"review");assert.equal(completed.researchIncomplete,true);
- const failure=f.db.rows("events").find(e=>e.payload?.jobId===job.id && e.payload?.researchIncomplete);
- assert.deepEqual(failure!.payload.preliminaryUsage,{model:"test-model",inputTokens:100,outputTokens:50,status:"recorded"});
- assert.deepEqual(failure!.payload.usage,{status:"unknown"});
- assert.equal((await f.request(f.root+"/psu/"+job.id+"/save",review)).status,200);
+test("progress and early drafts survive reconnect; saving waits for completion and failed refinement retains usable draft", async (t) => {
+  let release!: () => void;
+  const gate = new Promise<void>((r) => {
+    release = r;
+  });
+  const f = await fixture(t, async (input, signal, update) => {
+    const early = await generator(input, signal);
+    await update!(
+      { phase: "reading", pagesRead: 6, pagesAttempted: 6, maximumPages: 100 },
+      early,
+    );
+    await gate;
+    throw Error("refinement offline");
+  });
+  const started = await f.request(f.root + "/psu", input(f.input.brandId));
+  let job;
+  for (let i = 0; i < 40; i++) {
+    job = (await f.request(f.root + "/psu/" + started.body.id)).body;
+    if (job.draft) break;
+    await new Promise((r) => setTimeout(r, 5));
+  }
+  assert.equal(job.status, "generating");
+  assert.equal(job.progress.pagesRead, 6);
+  assert.equal(job.draft.fields[0].binding.value, "Energy optimisation");
+  const review = {
+    draftDigest: job.draft.digest,
+    fields: [
+      { field: "name", value: "Reviewed service" },
+      { field: "description", value: "Reviewed description" },
+    ],
+  };
+  assert.equal(
+    (await f.request(f.root + "/psu/" + job.id + "/save", review)).status,
+    409,
+  );
+  release();
+  const completed = await ready(f);
+  assert.equal(completed.status, "review");
+  assert.equal(completed.researchIncomplete, true);
+  const failure = f.db
+    .rows("events")
+    .find((e) => e.payload?.jobId === job.id && e.payload?.researchIncomplete);
+  assert.deepEqual(failure!.payload.preliminaryUsage, {
+    model: "test-model",
+    inputTokens: 100,
+    outputTokens: 50,
+    status: "recorded",
+  });
+  assert.deepEqual(failure!.payload.usage, { status: "unknown" });
+  assert.equal(
+    (await f.request(f.root + "/psu/" + job.id + "/save", review)).status,
+    200,
+  );
 });
 
 test("unsaved product deletion uses existing authority and deletes only its own history", async (t) => {
-  const f = await fixture(t), w = f.input.workspaceId;
-  const id = generatePlatformId("event"), finished = generatePlatformId("event");
+  const f = await fixture(t),
+    w = f.input.workspaceId;
+  const id = generatePlatformId("event"),
+    finished = generatePlatformId("event");
   f.db.rows("events").push(
-    {id,workspaceId:w,eventType:"psu_generation_requested",createdAt:new Date(),payload:{input:{kind:"product",brandId:f.input.brandId,workingLabel:"Test draft"}}},
-    {id:finished,workspaceId:w,eventType:"psu_generation_finished",createdAt:new Date(),payload:{jobId:id}},
+    {
+      id,
+      workspaceId: w,
+      eventType: "psu_generation_requested",
+      createdAt: new Date(),
+      payload: {
+        input: {
+          kind: "product",
+          brandId: f.input.brandId,
+          workingLabel: "Test draft",
+        },
+      },
+    },
+    {
+      id: finished,
+      workspaceId: w,
+      eventType: "psu_generation_finished",
+      createdAt: new Date(),
+      payload: { jobId: id },
+    },
   );
-  const target={kind:"product-draft",id};
-  assert.equal((await f.request(f.root+"/psu/deletion-preview",target,f.vapp)).status,404);
-  const preview=await f.request(f.root+"/psu/deletion-preview",target);
-  assert.equal(preview.status,200,JSON.stringify(preview.body));
-  assert.deepEqual(preview.body.blockers,[]);
-  const result=await f.request(f.root+"/psu/delete",{...target,token:preview.body.token,name:preview.body.name,confirmation:"DELETE"});
-  assert.equal(result.status,200,JSON.stringify(result.body));
-  assert.ok(!f.db.rows("events").some(r=>[id,finished].includes(r.id)));
-  assert.ok(f.db.rows("brands").some(r=>r.id===f.input.brandId));
+  const target = { kind: "product-draft", id };
+  assert.equal(
+    (await f.request(f.root + "/psu/deletion-preview", target, f.vapp)).status,
+    404,
+  );
+  const preview = await f.request(f.root + "/psu/deletion-preview", target);
+  assert.equal(preview.status, 200, JSON.stringify(preview.body));
+  assert.deepEqual(preview.body.blockers, []);
+  const result = await f.request(f.root + "/psu/delete", {
+    ...target,
+    token: preview.body.token,
+    name: preview.body.name,
+    confirmation: "DELETE",
+  });
+  assert.equal(result.status, 200, JSON.stringify(result.body));
+  assert.ok(!f.db.rows("events").some((r) => [id, finished].includes(r.id)));
+  assert.ok(f.db.rows("brands").some((r) => r.id === f.input.brandId));
 });
 
 test("company cascade deletion removes all historical attempts and saved children in one operation", async (t) => {
- const f=await fixture(t,async (i,s)=>({...await generator(i,s),companyDraft:companyDraft(),offeringCount:"single" as const}));
- for(let n=0;n<2;n++) { await f.request(f.root+"/psu",{...input(f.input.brandId),kind:"company",requestKey:crypto.randomUUID()}); await ready(f); }
- await f.create();
- const target={kind:"company",id:f.input.brandId};
- const preview=await f.request(f.root+"/psu/deletion-preview",target);
- assert.equal(preview.status,200,JSON.stringify(preview));assert.deepEqual(preview.body.blockers,[]);
- const deleted=await f.request(f.root+"/psu/delete",{...target,token:preview.body.token,name:preview.body.name,confirmation:preview.body.name});
- assert.equal(deleted.status,200,JSON.stringify(deleted));
- assert.equal((await f.request(f.root+"/psu")).body.items.length,0);
- assert.equal(f.db.rows("offerings").length,0);
- assert.equal((await f.request(f.root+"/psu/company/"+f.input.brandId)).body.current,null);
+  const f = await fixture(t, async (i, s) => ({
+    ...(await generator(i, s)),
+    companyDraft: companyDraft(),
+    offeringCount: "single" as const,
+  }));
+  for (let n = 0; n < 2; n++) {
+    await f.request(f.root + "/psu", {
+      ...input(f.input.brandId),
+      kind: "company",
+      requestKey: crypto.randomUUID(),
+    });
+    await ready(f);
+  }
+  await f.create();
+  const target = { kind: "company", id: f.input.brandId };
+  const preview = await f.request(f.root + "/psu/deletion-preview", target);
+  assert.equal(preview.status, 200, JSON.stringify(preview));
+  assert.deepEqual(preview.body.blockers, []);
+  const deleted = await f.request(f.root + "/psu/delete", {
+    ...target,
+    token: preview.body.token,
+    name: preview.body.name,
+    confirmation: preview.body.name,
+  });
+  assert.equal(deleted.status, 200, JSON.stringify(deleted));
+  assert.equal((await f.request(f.root + "/psu")).body.items.length, 0);
+  assert.equal(f.db.rows("offerings").length, 0);
+  assert.equal(
+    (await f.request(f.root + "/psu/company/" + f.input.brandId)).body.current,
+    null,
+  );
 });
 test("product cascade deletion retains readable company and cannot restore a product through old review", async (t) => {
- const f=await fixture(t,async (i,s)=>({...await generator(i,s),companyDraft:companyDraft(),offeringCount:"single" as const}));
- await f.request(f.root+"/psu",{...input(f.input.brandId),kind:"company"});
- const job=await ready(f);
- const saved=await f.request(f.root+"/psu/"+job.id+"/save",{draftDigest:job.draft.digest,fields:[{field:"name",value:"Product"},{field:"description",value:"Service"}]});
- assert.equal(saved.status,200,JSON.stringify(saved));
- const target={kind:"product",id:saved.body.offeringId};
- const preview=await f.request(f.root+"/psu/deletion-preview",target);
- assert.equal(preview.status,200,JSON.stringify(preview));assert.deepEqual(preview.body.blockers,[]);
- const result=await f.request(f.root+"/psu/delete",{...target,token:preview.body.token,name:preview.body.name,confirmation:"DELETE"});
- assert.equal(result.status,200,JSON.stringify(result));
- const remaining=(await f.request(f.root+"/psu/"+job.id)).body;
- assert.deepEqual(remaining.companyDraft,job.companyDraft);
- assert.equal(remaining.draft,undefined);assert.equal(remaining.productDeleted,true);
- assert.equal(f.db.rows("offerings").length,0);
- assert.equal((await f.request(f.root+"/psu/"+job.id+"/save",{draftDigest:job.draft.digest,fields:[{field:"name",value:"Product"},{field:"description",value:"Service"}]})).status,409);
+  const f = await fixture(t, async (i, s) => ({
+    ...(await generator(i, s)),
+    companyDraft: companyDraft(),
+    offeringCount: "single" as const,
+  }));
+  await f.request(f.root + "/psu", {
+    ...input(f.input.brandId),
+    kind: "company",
+  });
+  const job = await ready(f);
+  const saved = await f.request(f.root + "/psu/" + job.id + "/save", {
+    draftDigest: job.draft.digest,
+    fields: [
+      { field: "name", value: "Product" },
+      { field: "description", value: "Service" },
+    ],
+  });
+  assert.equal(saved.status, 200, JSON.stringify(saved));
+  const target = { kind: "product", id: saved.body.offeringId };
+  const preview = await f.request(f.root + "/psu/deletion-preview", target);
+  assert.equal(preview.status, 200, JSON.stringify(preview));
+  assert.deepEqual(preview.body.blockers, []);
+  const result = await f.request(f.root + "/psu/delete", {
+    ...target,
+    token: preview.body.token,
+    name: preview.body.name,
+    confirmation: "DELETE",
+  });
+  assert.equal(result.status, 200, JSON.stringify(result));
+  const remaining = (await f.request(f.root + "/psu/" + job.id)).body;
+  assert.deepEqual(remaining.companyDraft, job.companyDraft);
+  assert.equal(remaining.draft, undefined);
+  assert.equal(remaining.productDeleted, true);
+  assert.equal(f.db.rows("offerings").length, 0);
+  assert.equal(
+    (
+      await f.request(f.root + "/psu/" + job.id + "/save", {
+        draftDigest: job.draft.digest,
+        fields: [
+          { field: "name", value: "Product" },
+          { field: "description", value: "Service" },
+        ],
+      })
+    ).status,
+    409,
+  );
 });

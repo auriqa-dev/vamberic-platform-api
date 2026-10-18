@@ -9,14 +9,14 @@ import {
 } from "@workspace/agent-runtime-protocol";
 import { workspaceAgentFixture } from "./helpers/workspace-agent-v16";
 import { mutateHiveDefinition } from "../src/services/hive-definitions";
-import { createProductAgent } from "../../../../vamberic-agent-runtime/dist/src/agents/product-service-understanding/index.js";
-import { admitHumanFacts } from "../../../../vamberic-agent-runtime/dist/src/agents/product-service-understanding/fact-admission.js";
-import { FakeClock } from "../../../../vamberic-agent-runtime/dist/src/runtime/clock.js";
-import { FakeModel } from "../../../../vamberic-agent-runtime/dist/src/models/fake.js";
-import { FakePlatformContext } from "../../../../vamberic-agent-runtime/dist/src/platform/context.js";
-import { ImplementationRegistry } from "../../../../vamberic-agent-runtime/dist/src/registry/registry.js";
-import { MemoryDiagnostics } from "../../../../vamberic-agent-runtime/dist/src/telemetry/diagnostics.js";
-import { executeAttempt } from "../../../../vamberic-agent-runtime/dist/src/runtime/executor.js";
+import { createProductAgent } from "../../../.integration/vamberic-agent-runtime/dist/src/agents/product-service-understanding/index.js";
+import { admitHumanFacts } from "../../../.integration/vamberic-agent-runtime/dist/src/agents/product-service-understanding/fact-admission.js";
+import { FakeClock } from "../../../.integration/vamberic-agent-runtime/dist/src/runtime/clock.js";
+import { FakeModel } from "../../../.integration/vamberic-agent-runtime/dist/src/models/fake.js";
+import { FakePlatformContext } from "../../../.integration/vamberic-agent-runtime/dist/src/platform/context.js";
+import { ImplementationRegistry } from "../../../.integration/vamberic-agent-runtime/dist/src/registry/registry.js";
+import { MemoryDiagnostics } from "../../../.integration/vamberic-agent-runtime/dist/src/telemetry/diagnostics.js";
+import { executeAttempt } from "../../../.integration/vamberic-agent-runtime/dist/src/runtime/executor.js";
 
 for (const schemaVersion of [16, 21, 22])
   for (const scenario of [

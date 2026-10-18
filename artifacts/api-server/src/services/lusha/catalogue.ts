@@ -39,13 +39,11 @@ export async function registerLusha(
   r.authority.scopeFilter(r.context, "create", {
     type: "integration_providers",
   });
-  const other = await db
-    .collection("integration_providers")
-    .findOne({
-      "data.name": { $regex: "^lusha$", $options: "i" },
-      key: { $ne: "lusha" },
-      archived: { $ne: true },
-    });
+  const other = await db.collection("integration_providers").findOne({
+    "data.name": { $regex: "^lusha$", $options: "i" },
+    key: { $ne: "lusha" },
+    archived: { $ne: true },
+  });
   if (other)
     throw new HiveConflict(
       "A Lusha definition already exists under another key. Reconcile it in Empress before registering another.",

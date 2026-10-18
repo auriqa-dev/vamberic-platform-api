@@ -28,17 +28,39 @@ export const contextBrief = z
     questions: list(),
   })
   .strict();
-export const assetAssociation = z.object({
-  offerId: text(100), offerRevision: z.number().int().positive(),
-  audienceIds: list(100).default([]), buyerIds: list(100).default([]),
-  campaignIds: list(100).default([]), requirement: text(1000),
-  relevance: z.number().min(0).max(1), reason: text(),
-  decision: z.enum(["suggested", "accepted", "excluded"]).default("suggested"),
-  contextHash: text(100).default(""), contentHash: text(100).default(""),
-}).strict();
+export const assetAssociation = z
+  .object({
+    offerId: text(100),
+    offerRevision: z.number().int().positive(),
+    audienceIds: list(100).default([]),
+    buyerIds: list(100).default([]),
+    campaignIds: list(100).default([]),
+    requirement: text(1000),
+    relevance: z.number().min(0).max(1),
+    reason: text(),
+    decision: z
+      .enum(["suggested", "accepted", "excluded"])
+      .default("suggested"),
+    contextHash: text(100).default(""),
+    contentHash: text(100).default(""),
+  })
+  .strict();
 export const assetData = z
   .object({
-    offerOutput: z.object({offerId:z.string(),offerRevision:z.number().int().positive(),offerStatus:z.string(),designId:z.string(),designUpdatedAt:z.string(),methodologyId:z.string(),methodologyVersion:z.number().int().positive(),fingerprint:z.string()}).strict().nullable().default(null),
+    offerOutput: z
+      .object({
+        offerId: z.string(),
+        offerRevision: z.number().int().positive(),
+        offerStatus: z.string(),
+        designId: z.string(),
+        designUpdatedAt: z.string(),
+        methodologyId: z.string(),
+        methodologyVersion: z.number().int().positive(),
+        fingerprint: z.string(),
+      })
+      .strict()
+      .nullable()
+      .default(null),
     title: text(200).min(1),
     classification: z.enum(["core", "channel", "unclassified"]),
     assetType: text(100).min(1),
@@ -96,7 +118,9 @@ export const assetData = z
       .default("unknown"),
     allowedUses: list(300).default([]),
     rightsNotes: text(2000).default(""),
-    visibility: z.enum(["private", "published", "external_reference"]).default("private"),
+    visibility: z
+      .enum(["private", "published", "external_reference"])
+      .default("private"),
     originalFilename: text(200).default(""),
     fileHash: text(100).default(""),
     uploadedAt: text(100).default(""),
@@ -414,7 +438,14 @@ export const generateRequest = z
     requestKey: z.string().uuid(),
   })
   .strict();
-export const writtenContent = z.object({title: text(200).min(1), text: text(24000).min(1), description: text(1200), evidenceGaps: list(40)}).strict();
+export const writtenContent = z
+  .object({
+    title: text(200).min(1),
+    text: text(24000).min(1),
+    description: text(1200),
+    evidenceGaps: list(40),
+  })
+  .strict();
 export const resultSchemas = {
   write: writtenContent,
   interaction: interactionReply,

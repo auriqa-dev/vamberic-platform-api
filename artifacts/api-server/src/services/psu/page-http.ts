@@ -42,12 +42,17 @@ export function extractPublicPage(body: string, contentType: string) {
     const linkStack: Node[] = [root];
     while (linkStack.length && links.length < 1000) {
       const node = linkStack.pop()!;
-      if ("tagName" in node && ["script", "style", "template", "noscript"].includes(node.tagName)) continue;
+      if (
+        "tagName" in node &&
+        ["script", "style", "template", "noscript"].includes(node.tagName)
+      )
+        continue;
       if ("tagName" in node && ["a", "link"].includes(node.tagName)) {
-        const href = node.attrs.find(a => a.name === "href")?.value;
+        const href = node.attrs.find((a) => a.name === "href")?.value;
         if (href && href.length <= 2048) links.push(href);
       }
-      if ("childNodes" in node) linkStack.push(...node.childNodes.slice().reverse());
+      if ("childNodes" in node)
+        linkStack.push(...node.childNodes.slice().reverse());
     }
     const parts: string[] = [];
     const stack: { node: Node; inTitle: boolean }[] = [
@@ -119,7 +124,10 @@ export function pinnedPageOptions(
  * DNS is validated by the reader; this transport also validates its pinned IP. */
 export function publicPageHttp(
   http: typeof request = request,
-  extract: (body: string, contentType: string) => { text: string; title: string; links?: string[] } = extractPublicPage,
+  extract: (
+    body: string,
+    contentType: string,
+  ) => { text: string; title: string; links?: string[] } = extractPublicPage,
   allowNotFound = false,
 ): WebsiteTransport {
   return {
@@ -158,7 +166,8 @@ export function publicPageHttp(
               return;
             }
             if (
-              (res.statusCode !== 200 && !(allowNotFound && res.statusCode === 404)) ||
+              (res.statusCode !== 200 &&
+                !(allowNotFound && res.statusCode === 404)) ||
               (res.headers["content-encoding"] &&
                 res.headers["content-encoding"] !== "identity") ||
               res.headers["content-disposition"]

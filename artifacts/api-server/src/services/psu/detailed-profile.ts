@@ -10,7 +10,10 @@ export const DetailSchema = z.strictObject({
   unknowns: z.array(z.string().min(1).max(500)).max(20),
 });
 export function detailSources(pages: z.infer<typeof WebsitePageSchema>[]) {
-  return sourceExcerpts(pages, Math.min(128000, Math.max(48000, pages.length * 3000)));
+  return sourceExcerpts(
+    pages,
+    Math.min(128000, Math.max(48000, pages.length * 3000)),
+  );
 }
 export function validateDetail(
   raw: unknown,

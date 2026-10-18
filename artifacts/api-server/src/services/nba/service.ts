@@ -11,7 +11,14 @@ import type { ContentGenerator } from "../content-strategy/generate";
 import type { NbaExecution } from "./native";
 import { claimKeys, claimEngagement, releaseEngagement } from "./coordination";
 import { nbaAccess, nbaContext } from "./context";
-import { guardDecision, nbaDecision, policyDecisionHash, nbaHash, nbaRequest, nbaMutation } from "./model";
+import {
+  guardDecision,
+  nbaDecision,
+  policyDecisionHash,
+  nbaHash,
+  nbaRequest,
+  nbaMutation,
+} from "./model";
 
 /** Append-only decision history. Preview never enrols a contact, acquires an
  * engagement claim or dispatches a capability. Review is not campaign activation. */
@@ -170,7 +177,10 @@ export function createNbaService(
         instruction: input.instruction,
       });
       const decision = nbaDecision.parse(generated.result);
-      generated.result = { ...decision, policyContextHash: policyDecisionHash(decision, context) };
+      generated.result = {
+        ...decision,
+        policyContextHash: policyDecisionHash(decision, context),
+      };
       guardDecision(generated.result, context, new Date());
     } catch {
       failure = true;
@@ -220,26 +230,24 @@ export function createNbaService(
         !checked.blockers.length &&
         input.subject.type === "person"
       )
-        await db
-          .collection("events")
-          .updateMany(
-            {
-              workspaceId: w,
-              eventType: "nba_measurement_feedback",
-              "payload.campaignId": input.campaignId,
-              "payload.contactId": input.subject.id,
-              "payload.state": "review_required",
-              "payload.evidenceId": { $in: context.evidenceIds },
+        await db.collection("events").updateMany(
+          {
+            workspaceId: w,
+            eventType: "nba_measurement_feedback",
+            "payload.campaignId": input.campaignId,
+            "payload.contactId": input.subject.id,
+            "payload.state": "review_required",
+            "payload.evidenceId": { $in: context.evidenceIds },
+          },
+          {
+            $set: {
+              "payload.state": "recommendation_prepared",
+              "payload.decisionId": decisionId,
+              updatedAt: new Date(),
             },
-            {
-              $set: {
-                "payload.state": "recommendation_prepared",
-                "payload.decisionId": decisionId,
-                updatedAt: new Date(),
-              },
-            },
-            { session },
-          );
+          },
+          { session },
+        );
       return append(db, session, w, input.campaignId, actor, {
         ...old.payload,
         version: 2,

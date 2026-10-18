@@ -89,7 +89,10 @@ export async function nbaContext(
   let contact: Awaited<ReturnType<typeof readContactContext>> | null = null;
   let organisationId: string | undefined;
   const blockers: string[] = policyState.missingApproval.length
-    ? ["Contact strategy approval evidence is missing. Review the affected strategies."] : [];
+    ? [
+        "Contact strategy approval evidence is missing. Review the affected strategies.",
+      ]
+    : [];
   if (subject.type !== "campaign") {
     platformIdSchema(subject.type === "person" ? "person" : "org").parse(
       subject.id,
@@ -126,7 +129,10 @@ export async function nbaContext(
     blockers.push(
       "The approved response or absence window has not elapsed. Wait unless new evidence justifies a reviewed change.",
     );
-  const interactionEvidence = subject.type === "person" ? await readInteractionEvidence(db,w,setup.brandId,subject.id,session) : [];
+  const interactionEvidence =
+    subject.type === "person"
+      ? await readInteractionEvidence(db, w, setup.brandId, subject.id, session)
+      : [];
   const communicationEvents =
     subject.type === "person"
       ? await db
@@ -334,7 +340,7 @@ export async function nbaContext(
   const evidenceIds = [
     campaignId,
     ...(contact && subject.type !== "campaign" ? [subject.id] : []),
-    ...interactionEvidence.map(e=>e.id),
+    ...interactionEvidence.map((e) => e.id),
     ...measurement.timeline.slice(0, 20).map((e) => e.id),
     ...research.map((r) => r.id),
     ...priorResearchResults.map((r) => r.researchId),

@@ -1,6 +1,15 @@
+import { HIVE_IMPORT_INDEXES } from "./hive-import-indexes";
+import { WEBSITE_TRACKING_INDEXES } from "../services/website-tracking/indexes";
 import { extendInteractionValidators } from "./interaction-v30";
-import { extendNbaPreparationValidators, withApprovedIcpRecovery } from "./nba-preparation-v29";
-import { LIBRARY_MIGRATION_ID, LIBRARY_COLLECTIONS, LIBRARY_VALIDATORS } from "./library-v28";
+import {
+  extendNbaPreparationValidators,
+  withApprovedIcpRecovery,
+} from "./nba-preparation-v29";
+import {
+  LIBRARY_MIGRATION_ID,
+  LIBRARY_COLLECTIONS,
+  LIBRARY_VALIDATORS,
+} from "./library-v28";
 import {
   OFFER_SEQUENCE_MIGRATION_ID,
   extendOfferSequenceValidators,
@@ -101,7 +110,6 @@ import type {
   MongoServerError,
 } from "mongodb";
 import {
-  COLLECTION_DEFINITIONS,
   DATABASE_SCHEMA_VERSION_ID,
   DATABASE_MIGRATION_ID,
   CRM_FOUNDATION_MIGRATION_ID,
@@ -336,9 +344,18 @@ export function createDatabaseSetup(target: DatabaseSetupTarget) {
   const DATABASE_SCHEMA_VERSION = target.version;
   let predecessorValidators: Record<string, Document> | undefined;
   let recoveryValidators: Record<string, Document> | undefined;
-  const matchesPredecessor = (name:string,current:unknown) => {
-    const prior = predecessorValidators ??= releaseDatabaseTarget((DATABASE_SCHEMA_VERSION - 1) as 25).validators;
-    return isDeepStrictEqual(current,prior[name]) || (DATABASE_SCHEMA_VERSION===29 && isDeepStrictEqual(current,(recoveryValidators ??= withApprovedIcpRecovery(prior))[name]));
+  const matchesPredecessor = (name: string, current: unknown) => {
+    const prior = (predecessorValidators ??= releaseDatabaseTarget(
+      (DATABASE_SCHEMA_VERSION - 1) as 25,
+    ).validators);
+    return (
+      isDeepStrictEqual(current, prior[name]) ||
+      (DATABASE_SCHEMA_VERSION === 29 &&
+        isDeepStrictEqual(
+          current,
+          (recoveryValidators ??= withApprovedIcpRecovery(prior))[name],
+        ))
+    );
   };
   const MONGO_VALIDATORS = target.validators;
   const COLLECTION_DEFINITIONS = target.collections;
@@ -527,8 +544,8 @@ export function createDatabaseSetup(target: DatabaseSetupTarget) {
       if (
         [25, 26, 27, 28, 29, 30].includes(DATABASE_SCHEMA_VERSION) &&
         (!(existingSchemaVersion === DATABASE_SCHEMA_VERSION - 1
-          ? matchesPredecessor(name,current)
-          : isDeepStrictEqual(current,validator)) ||
+          ? matchesPredecessor(name, current)
+          : isDeepStrictEqual(current, validator)) ||
           (options?.validationLevel ?? "strict") !== "strict" ||
           (options?.validationAction ?? "error") !== "error")
       )
@@ -565,7 +582,7 @@ export function createDatabaseSetup(target: DatabaseSetupTarget) {
         !(
           [25, 26, 27, 28, 29, 30].includes(DATABASE_SCHEMA_VERSION) &&
           existingSchemaVersion === DATABASE_SCHEMA_VERSION - 1 &&
-          matchesPredecessor(name,current) &&
+          matchesPredecessor(name, current) &&
           (options?.validationLevel ?? "strict") === "strict" &&
           (options?.validationAction ?? "error") === "error"
         ) &&
@@ -697,11 +714,15 @@ export function createDatabaseSetup(target: DatabaseSetupTarget) {
         (options?.validationAction ?? "error") !== "error"
       )
         validatorsToApply.push(name);
-      if (target.changedRecordsOnly && !validatorsToApply.includes(name)) continue;
+      if (target.changedRecordsOnly && !validatorsToApply.includes(name))
+        continue;
       try {
         const invalid = await db
           .collection(name)
-          .countDocuments({ $nor: [validator] }, target.changedRecordsOnly ? { maxTimeMS: 60000 } : {});
+          .countDocuments(
+            { $nor: [validator] },
+            target.changedRecordsOnly ? { maxTimeMS: 60000 } : {},
+          );
         if (invalid)
           validatorConflicts.push(
             `${name}: ${invalid} documents incompatible with target validator`,
@@ -753,7 +774,11 @@ export function createDatabaseSetup(target: DatabaseSetupTarget) {
       const countDocuments = (
         collection as unknown as { countDocuments?: () => Promise<number> }
       ).countDocuments;
-      if (countDocuments && (!target.changedRecordsOnly || inspection.missing.some((index) => index.unique)))
+      if (
+        countDocuments &&
+        (!target.changedRecordsOnly ||
+          inspection.missing.some((index) => index.unique))
+      )
         documentCounts[definition.name] = await countDocuments.call(collection);
       for (const index of inspection.missing) {
         if (index.unique && (documentCounts[definition.name] ?? 0) > 0) {
@@ -1042,20 +1067,44 @@ export function releaseDatabaseTarget(
     19: {
       version: 19,
       validators: V19_MONGO_VALIDATORS,
-      collections: COLLECTION_DEFINITIONS,
+      collections:
+        frozenV19Target.collections as readonly CollectionDefinition[],
     },
   };
   if (version === 30) {
-    const previous=releaseDatabaseTarget(29);
-    return {...previous,version:30,validators:extendInteractionValidators(previous.validators)};
+    const previous = releaseDatabaseTarget(29);
+    previous.collections = previous.collections.map((definition) => ({
+      ...definition,
+      indexes: [
+        ...definition.indexes,
+        ...HIVE_IMPORT_INDEXES.filter(
+          (item) => item.collection === definition.name,
+        ).map((item) => item.index),
+        ...(definition.name === "events" ? WEBSITE_TRACKING_INDEXES : []),
+      ],
+    }));
+    return {
+      ...previous,
+      version: 30,
+      validators: extendInteractionValidators(previous.validators),
+    };
   }
   if (version === 29) {
-    const previous=releaseDatabaseTarget(28);
-    return {...previous, version:29, validators:extendNbaPreparationValidators(previous.validators)};
+    const previous = releaseDatabaseTarget(28);
+    return {
+      ...previous,
+      version: 29,
+      validators: extendNbaPreparationValidators(previous.validators),
+    };
   }
   if (version === 28) {
-    const previous=releaseDatabaseTarget(27);
-    return {...previous, version:28, validators:{...previous.validators,...LIBRARY_VALIDATORS},collections:[...previous.collections,...LIBRARY_COLLECTIONS]};
+    const previous = releaseDatabaseTarget(27);
+    return {
+      ...previous,
+      version: 28,
+      validators: { ...previous.validators, ...LIBRARY_VALIDATORS },
+      collections: [...previous.collections, ...LIBRARY_COLLECTIONS],
+    };
   }
   if (version === 27) {
     const previous = releaseDatabaseTarget(26);
@@ -1109,7 +1158,25 @@ export function releaseDatabaseTarget(
   return { ...target, ordered: true };
 }
 declare const __MIGRATION_RELEASE_TARGET__:
-  12 | 13 | 14 | 15 | 16 | 17 | 18 | 19 | 20 | 21 | 22 | 23 | 24 | 25 | 26 | 27 | 28 | 29 | 30;
+  | 12
+  | 13
+  | 14
+  | 15
+  | 16
+  | 17
+  | 18
+  | 19
+  | 20
+  | 21
+  | 22
+  | 23
+  | 24
+  | 25
+  | 26
+  | 27
+  | 28
+  | 29
+  | 30;
 export const { planDatabaseSetup, setupDatabase } = createDatabaseSetup(
   releaseDatabaseTarget(
     typeof __MIGRATION_RELEASE_TARGET__ === "undefined"

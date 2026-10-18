@@ -29,17 +29,39 @@ const mutation = z
 const customKey = z.string().regex(/^custom_[0-9a-f]{32}$/);
 function customDefinition(key: string, name: string) {
   customKey.parse(key);
-  return { id: key, key, version: 1, name, category: "Your strategies",
-    description: "", type: "contact", configuration: ["Applicability, exceptions and intended outcome"],
-    activationRecommendation: "review" as const, approvalRequired: true };
+  return {
+    id: key,
+    key,
+    version: 1,
+    name,
+    category: "Your strategies",
+    description: "",
+    type: "contact",
+    configuration: ["Applicability, exceptions and intended outcome"],
+    activationRecommendation: "review" as const,
+    approvalRequired: true,
+  };
 }
-async function resolveTemplate(db: Db, w: string, key: string, name?: string, session?: ClientSession) {
+async function resolveTemplate(
+  db: Db,
+  w: string,
+  key: string,
+  name?: string,
+  session?: ClientSession,
+) {
   if (!key.startsWith("custom_")) return strategyTemplate(key);
   customKey.parse(key);
-  const saved = await db.collection("events").findOne({workspaceId:w,
-    eventType:"contact_strategy_definition", "payload.key":key}, {session});
+  const saved = await db.collection("events").findOne(
+    {
+      workspaceId: w,
+      eventType: "contact_strategy_definition",
+      "payload.key": key,
+    },
+    { session },
+  );
   if (saved) return customDefinition(key, saved.payload.name);
-  if (!name) throw new HiveConflict("Enter a name and save the new strategy first");
+  if (!name)
+    throw new HiveConflict("Enter a name and save the new strategy first");
   return customDefinition(key, name);
 }
 export function createContactStrategies(
@@ -91,9 +113,18 @@ export function createContactStrategies(
           createdAt: e.createdAt,
           proposal: e.payload.result,
         })),
-        templates: [...CONTACT_STRATEGY_TEMPLATES, ...(await db.collection("events")
-          .find({workspaceId:w,eventType:"contact_strategy_definition"}).toArray())
-          .map(e => customDefinition(e.payload.key, e.payload.name))],
+        templates: [
+          ...CONTACT_STRATEGY_TEMPLATES,
+          ...(
+            await db
+              .collection("events")
+              .find({
+                workspaceId: w,
+                eventType: "contact_strategy_definition",
+              })
+              .toArray()
+          ).map((e) => customDefinition(e.payload.key, e.payload.name)),
+        ],
         policies,
         interpretationAvailable: Boolean(interpret),
       };
@@ -178,19 +209,17 @@ export function createContactStrategies(
         });
       } catch (error) {
         const db = await mongo.database();
-        await db
-          .collection("events")
-          .updateOne(
-            { id: reservation.event.id, workspaceId: w },
-            {
-              $set: {
-                "payload.status": "failed",
-                ...(error instanceof InterpretationFailure
-                  ? { "payload.usage": error.usage }
-                  : {}),
-              },
+        await db.collection("events").updateOne(
+          { id: reservation.event.id, workspaceId: w },
+          {
+            $set: {
+              "payload.status": "failed",
+              ...(error instanceof InterpretationFailure
+                ? { "payload.usage": error.usage }
+                : {}),
             },
-          );
+          },
+        );
         throw new Error("Interpretation failed; saved strategy unchanged");
       }
       await db.collection("events").updateOne(
@@ -222,8 +251,13 @@ export function createContactStrategies(
           .filter((r) => r.key === input.key)
           .sort((a, b) => b.version - a.version);
         const previous = history[0];
-        const template = await resolveTemplate(db, w, input.key,
-          input.operation === "save" ? input.name : undefined, session);
+        const template = await resolveTemplate(
+          db,
+          w,
+          input.key,
+          input.operation === "save" ? input.name : undefined,
+          session,
+        );
         if (!previous && input.key.startsWith("custom_") && !input.statement)
           throw new HiveConflict("Describe the new strategy before saving");
         if ((previous?.version ?? 0) !== input.expectedVersion)
@@ -291,11 +325,21 @@ export function createContactStrategies(
               : previous!.clauses,
         });
         if (!previous && input.key.startsWith("custom_")) {
-          await db.collection("events").insertOne(EventSchema.parse({
-            id:generatePlatformId("event"),workspaceId:w,eventType:"contact_strategy_definition",
-            occurredAt:now,createdAt:now,updatedAt:now,createdBy:actor,updatedBy:actor,
-            source:{system:"contact_strategy"},payload:{key:input.key,name:template.name},
-          }),{session});
+          await db.collection("events").insertOne(
+            EventSchema.parse({
+              id: generatePlatformId("event"),
+              workspaceId: w,
+              eventType: "contact_strategy_definition",
+              occurredAt: now,
+              createdAt: now,
+              updatedAt: now,
+              createdBy: actor,
+              updatedBy: actor,
+              source: { system: "contact_strategy" },
+              payload: { key: input.key, name: template.name },
+            }),
+            { session },
+          );
         }
         await db
           .collection("contact_strategy_policies")

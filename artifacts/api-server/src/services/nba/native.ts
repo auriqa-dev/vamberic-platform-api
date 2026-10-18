@@ -39,7 +39,13 @@ export async function nbaWorkAllowed(
   config: AppConfig,
 ) {
   const deny = (reason: string) => {
-    console.warn(JSON.stringify({ event: "nba_execution_denied", runId: work.runId, reason }));
+    console.warn(
+      JSON.stringify({
+        event: "nba_execution_denied",
+        runId: work.runId,
+        reason,
+      }),
+    );
     return false;
   };
   if (
@@ -101,14 +107,29 @@ export async function nbaWorkAllowed(
       context,
       new Date(),
     );
-    if (nbaHash(context.versions) !== p.contextHash) return deny("context_changed");
+    if (nbaHash(context.versions) !== p.contextHash)
+      return deny("context_changed");
     if (checked.blockers.length) return deny("decision_guard");
-    if ((await engagementConflicts(db, session, workspaceId,
-      claimKeys(p.subject, p.organisationId), p.decisionId)).length)
+    if (
+      (
+        await engagementConflicts(
+          db,
+          session,
+          workspaceId,
+          claimKeys(p.subject, p.organisationId),
+          p.decisionId,
+        )
+      ).length
+    )
       return deny("engagement_conflict");
-    if (work.context.references.length || work.context.snapshots.length || work.grant.resources.length)
+    if (
+      work.context.references.length ||
+      work.context.snapshots.length ||
+      work.grant.resources.length
+    )
       return deny("context_or_resource_grant");
-    if (input.dueAt !== (p.decision.dueAt ?? p.approvedAt)) return deny("schedule_changed");
+    if (input.dueAt !== (p.decision.dueAt ?? p.approvedAt))
+      return deny("schedule_changed");
     return true;
   } catch {
     return deny("context_or_authority_unavailable");
@@ -135,19 +156,17 @@ export function createNbaNativeExecution(
         throw new HiveConflict(
           "NBA worker is not ready. Your decision is saved; retry approval when it is available.",
         );
-      const definition = await db
-        .collection("agent_definitions")
-        .findOne(
-          {
-            key: "next_best_action",
-            version: 1,
-            status: "active",
-            archived: false,
-            "data.executionImplementation.manifestDigest":
-              manifest.manifestDigest,
-          },
-          { session },
-        );
+      const definition = await db.collection("agent_definitions").findOne(
+        {
+          key: "next_best_action",
+          version: 1,
+          status: "active",
+          archived: false,
+          "data.executionImplementation.manifestDigest":
+            manifest.manifestDigest,
+        },
+        { session },
+      );
       const workspace = await db
         .collection("crm_workspaces")
         .findOne({ id: w }, { session });

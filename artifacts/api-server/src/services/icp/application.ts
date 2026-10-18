@@ -1,4 +1,4 @@
-import {reviewedResearchContext} from "../research/evidence-context";
+import { reviewedResearchContext } from "../research/evidence-context";
 import { researchSelection, readResearchContext } from "../research/context";
 import { readOfferFoundation } from "../offers";
 import type { Document } from "mongodb";
@@ -80,16 +80,25 @@ export function createIcpApplication(
           eventType: "icp_generation_result",
         })
       : undefined;
-    const recoveredInput=structuredClone(row.payload.input);
-    if(recoveredInput?.examples) for(const example of recoveredInput.examples) {
-      const record=await db.collection(example.type === "company" ? "organisations" : "people").findOne({id:example.id,workspaceId:w,archived:{$ne:true}});
-      example.name=record ? (example.type === "company" ? record.name : [record.firstName,record.lastName].filter(Boolean).join(" ")) || "Selected example" : "Unavailable example — remove or replace";
-    }
+    const recoveredInput = structuredClone(row.payload.input);
+    if (recoveredInput?.examples)
+      for (const example of recoveredInput.examples) {
+        const record = await db
+          .collection(example.type === "company" ? "organisations" : "people")
+          .findOne({ id: example.id, workspaceId: w, archived: { $ne: true } });
+        example.name = record
+          ? (example.type === "company"
+              ? record.name
+              : [record.firstName, record.lastName]
+                  .filter(Boolean)
+                  .join(" ")) || "Selected example"
+          : "Unavailable example — remove or replace";
+      }
     return {
       ...(result?.payload ?? {}),
       id: row.id,
       ...row.payload,
-      input:recoveredInput,
+      input: recoveredInput,
       status:
         row.payload.status === "generating" &&
         Date.now() - row.createdAt.getTime() > 180000
@@ -97,32 +106,96 @@ export function createIcpApplication(
           : row.payload.status,
     };
   }
-  const setupScope = z.object({offeringId: platformIdSchema("offering"), offerId: platformIdSchema("offer")});
-  const setupInput = inputSchema.omit({requestKey:true}).extend({
+  const setupScope = z.object({
+    offeringId: platformIdSchema("offering"),
+    offerId: platformIdSchema("offer"),
+  });
+  const setupInput = inputSchema.omit({ requestKey: true }).extend({
     profileType: z.enum(["b2b", "b2c", "d2c"]).nullable(),
-    examples: z.array(z.object({id:z.string().max(100),type:z.enum(["company","contact"]),reason:z.string().max(500),name:z.string().max(300)}).strict()).max(10),
+    examples: z
+      .array(
+        z
+          .object({
+            id: z.string().max(100),
+            type: z.enum(["company", "contact"]),
+            reason: z.string().max(500),
+            name: z.string().max(300),
+          })
+          .strict(),
+      )
+      .max(10),
   });
   return {
     read,
     async readSetup(identity: AuthenticatedUser, w: string, raw: unknown) {
-      const scope=setupScope.parse(raw), db=await mongo.database();
-      await icpAccess(db,config,identity,w,"read");
-      const row=await db.collection("events").findOne({workspaceId:w,eventType:"icp_setup","payload.input.offeringId":scope.offeringId,"payload.input.offer.id":scope.offerId});
-      return row ? {input:row.payload.input, revision:row.payload.revision} : null;
+      const scope = setupScope.parse(raw),
+        db = await mongo.database();
+      await icpAccess(db, config, identity, w, "read");
+      const row = await db.collection("events").findOne({
+        workspaceId: w,
+        eventType: "icp_setup",
+        "payload.input.offeringId": scope.offeringId,
+        "payload.input.offer.id": scope.offerId,
+      });
+      return row
+        ? { input: row.payload.input, revision: row.payload.revision }
+        : null;
     },
-    async saveSetup(identity: AuthenticatedUser,w:string,raw:unknown) {
-      const value=z.object({input:setupInput,revision:z.number().int().nonnegative()}).strict().parse(raw);
-      if(!value.input.offer) throw new HiveConflict("Select an offer before saving setup");
-      if(!mongo.withTransaction) throw new Error("Transactions required");
-      return mongo.withTransaction(async(db,session)=>{
-        const actor=await icpAccess(db,config,identity,w,"create",session);
-        const now=await lockIcpWorkspace(db,w,session);
-        const filter={workspaceId:w,eventType:"icp_setup","payload.input.offeringId":value.input.offeringId,"payload.input.offer.id":value.input.offer!.id};
-        const previous=await db.collection("events").findOne(filter,{session});
-        if((previous?.payload.revision ?? 0)!==value.revision) throw new HiveConflict("Setup changed in another session. Reload before saving.");
-        const payload={input:value.input,revision:value.revision+1};
-        if(previous) await db.collection("events").updateOne({id:previous.id,workspaceId:w},{$set:{payload,updatedAt:now,updatedBy:actor}},{session});
-        else await db.collection("events").insertOne(EventSchema.parse({id:generatePlatformId("event"),workspaceId:w,eventType:"icp_setup",payload,createdAt:now,updatedAt:now,occurredAt:now,createdBy:actor,updatedBy:actor}),{session});
+    async saveSetup(identity: AuthenticatedUser, w: string, raw: unknown) {
+      const value = z
+        .object({ input: setupInput, revision: z.number().int().nonnegative() })
+        .strict()
+        .parse(raw);
+      if (!value.input.offer)
+        throw new HiveConflict("Select an offer before saving setup");
+      if (!mongo.withTransaction) throw new Error("Transactions required");
+      return mongo.withTransaction(async (db, session) => {
+        const actor = await icpAccess(
+          db,
+          config,
+          identity,
+          w,
+          "create",
+          session,
+        );
+        const now = await lockIcpWorkspace(db, w, session);
+        const filter = {
+          workspaceId: w,
+          eventType: "icp_setup",
+          "payload.input.offeringId": value.input.offeringId,
+          "payload.input.offer.id": value.input.offer!.id,
+        };
+        const previous = await db
+          .collection("events")
+          .findOne(filter, { session });
+        if ((previous?.payload.revision ?? 0) !== value.revision)
+          throw new HiveConflict(
+            "Setup changed in another session. Reload before saving.",
+          );
+        const payload = { input: value.input, revision: value.revision + 1 };
+        if (previous)
+          await db
+            .collection("events")
+            .updateOne(
+              { id: previous.id, workspaceId: w },
+              { $set: { payload, updatedAt: now, updatedBy: actor } },
+              { session },
+            );
+        else
+          await db.collection("events").insertOne(
+            EventSchema.parse({
+              id: generatePlatformId("event"),
+              workspaceId: w,
+              eventType: "icp_setup",
+              payload,
+              createdAt: now,
+              updatedAt: now,
+              occurredAt: now,
+              createdBy: actor,
+              updatedBy: actor,
+            }),
+            { session },
+          );
         return payload;
       });
     },
@@ -200,18 +273,16 @@ export function createIcpApplication(
         const offer = event.payload.input.offer;
         if (
           offer &&
-          !(await db
-            .collection("offers")
-            .findOne(
-              {
-                workspaceId: w,
-                id: offer.id,
-                offeringId: product.id,
-                archived: { $ne: true },
-                approvedRevision: offer.revision,
-              },
-              { session },
-            ))
+          !(await db.collection("offers").findOne(
+            {
+              workspaceId: w,
+              id: offer.id,
+              offeringId: product.id,
+              archived: { $ne: true },
+              approvedRevision: offer.revision,
+            },
+            { session },
+          ))
         )
           throw new HiveConflict(
             "Approved offer changed; generate a new profile",
@@ -391,18 +462,16 @@ export function createIcpApplication(
           throw new HiveConflict("Choose an approved offer for this profile");
         if (
           input.offer &&
-          !(await db
-            .collection("offers")
-            .findOne(
-              {
-                workspaceId: w,
-                id: input.offer.id,
-                offeringId: input.offeringId,
-                archived: { $ne: true },
-                approvedRevision: input.offer.revision,
-              },
-              { session },
-            ))
+          !(await db.collection("offers").findOne(
+            {
+              workspaceId: w,
+              id: input.offer.id,
+              offeringId: input.offeringId,
+              archived: { $ne: true },
+              approvedRevision: input.offer.revision,
+            },
+            { session },
+          ))
         )
           throw new HiveConflict("Approved offer changed");
         const previous = await db.collection("events").findOne(
@@ -464,8 +533,16 @@ export function createIcpApplication(
           else {
             if (input.profileType !== "b2b") {
               examples.push({
-                id: row.id, reason: example.reason,
-                importedContactObservations: await importedFacts(db, w, row.id, session, Math.floor(6000 / Math.max(1, input.examples.length)), "contact"),
+                id: row.id,
+                reason: example.reason,
+                importedContactObservations: await importedFacts(
+                  db,
+                  w,
+                  row.id,
+                  session,
+                  Math.floor(6000 / Math.max(1, input.examples.length)),
+                  "contact",
+                ),
               });
               continue;
             }
@@ -544,7 +621,7 @@ export function createIcpApplication(
       if (prepared.fresh)
         void (async () => {
           const db = await mongo.database();
-          let stage="context";
+          let stage = "context";
           try {
             const psu = createPsuApplication(config, mongo);
             const company =
@@ -552,8 +629,12 @@ export function createIcpApplication(
                 ? await psu.company(identity, w, current.brandId)
                 : undefined;
             const references = await psu.referenceData(identity, w);
-            const researchDocuments = await readResearchContext(db, w, input.researchDocuments);
-            stage="generation";
+            const researchDocuments = await readResearchContext(
+              db,
+              w,
+              input.researchDocuments,
+            );
+            stage = "generation";
             const result = await generate(
               {
                 approvedBrandBrief:
@@ -585,11 +666,16 @@ export function createIcpApplication(
                 offerResearch: offerRevision?.designSnapshot?.work.stages ?? [],
                 examples: prepared.examples,
                 researchDocuments,
-                sharedResearch:await reviewedResearchContext(db,w,String("brandId" in current?current.brandId:""),[current.id,...(input.offer?[input.offer.id]:[])]),
+                sharedResearch: await reviewedResearchContext(
+                  db,
+                  w,
+                  String("brandId" in current ? current.brandId : ""),
+                  [current.id, ...(input.offer ? [input.offer.id] : [])],
+                ),
               },
               AbortSignal.timeout(120000),
             );
-            stage="persistence";
+            stage = "persistence";
             if (!mongo.withTransaction)
               throw new Error("Transactions required");
             await mongo.withTransaction(async (db, session) => {
@@ -633,15 +719,40 @@ export function createIcpApplication(
               );
             });
           } catch (error) {
-            const allowed=["Context too large","Generation unavailable","Invalid generated result","Customer website unavailable","Invalid profile type"];
-            const code=error instanceof Error && allowed.includes(error.message) ? error.message : error instanceof z.ZodError ? "Invalid response structure" : error instanceof Error && /timeout|abort/i.test(error.name) ? "Generation timed out" : "Generation failed";
+            const allowed = [
+              "Context too large",
+              "Generation unavailable",
+              "Invalid generated result",
+              "Customer website unavailable",
+              "Invalid profile type",
+            ];
+            const code =
+              error instanceof Error && allowed.includes(error.message)
+                ? error.message
+                : error instanceof z.ZodError
+                  ? "Invalid response structure"
+                  : error instanceof Error && /timeout|abort/i.test(error.name)
+                    ? "Generation timed out"
+                    : "Generation failed";
             await db.collection("events").updateOne(
               {
                 id: prepared.row.id,
                 workspaceId: w,
                 "payload.status": "generating",
               },
-              { $set: { "payload.status": "failed", "payload.failure": {stage:error instanceof IcpGenerationError?error.stage:stage,code:error instanceof IcpGenerationError?error.code:code,correlationId:prepared.row.id}, updatedAt: new Date() } },
+              {
+                $set: {
+                  "payload.status": "failed",
+                  "payload.failure": {
+                    stage:
+                      error instanceof IcpGenerationError ? error.stage : stage,
+                    code:
+                      error instanceof IcpGenerationError ? error.code : code,
+                    correlationId: prepared.row.id,
+                  },
+                  updatedAt: new Date(),
+                },
+              },
             );
           }
         })().catch(() => {

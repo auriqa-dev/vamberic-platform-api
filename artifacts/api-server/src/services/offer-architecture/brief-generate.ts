@@ -59,11 +59,13 @@ export function createOfferBriefInterpreter(
         ],
         text: {
           format: {
-                type: "json_schema",
-                name: recommendationOnly ? "offer_methodology_recommendation" : "offer_brief",
-                strict: true,
-                schema: offerResponseSchema(structure),
-              },
+            type: "json_schema",
+            name: recommendationOnly
+              ? "offer_methodology_recommendation"
+              : "offer_brief",
+            strict: true,
+            schema: offerResponseSchema(structure),
+          },
         },
       });
       if (Buffer.byteLength(body) > 120000)
@@ -123,7 +125,10 @@ export function createOfferBriefInterpreter(
         .filter((x) => x.type === "output_text");
       if (texts.length !== 1 || !texts[0]?.text)
         throw new Error("Invalid brief response");
-      const parsed = omitOfferNulls(parseProviderJson(texts[0].text), structure);
+      const parsed = omitOfferNulls(
+        parseProviderJson(texts[0].text),
+        structure,
+      );
       return {
         interpretation: recommendationOnly
           ? {

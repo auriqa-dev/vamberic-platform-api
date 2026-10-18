@@ -128,7 +128,10 @@ test("NBA uses the existing closed structured output path", () => {
 });
 test("uncertain capability outcome retains reconciliation requirement", () => {
   assert.equal(
-    capabilityResult.parse({ workspaceId: "workspace", decisionId: "decision", decisionVersion: 1,
+    capabilityResult.parse({
+      workspaceId: "workspace",
+      decisionId: "decision",
+      decisionVersion: 1,
       schemaVersion: 1,
       correlationId: "d",
       idempotencyKey: "k",
@@ -148,25 +151,66 @@ test("uncertain capability outcome retains reconciliation requirement", () => {
   );
 });
 
-test("policy timestamp changes invalidate context fingerprints",()=>{assert.notEqual(nbaHash({updatedAt:new Date("2026-10-16T12:00:00.000Z")}),nbaHash({updatedAt:new Date("2026-10-16T12:01:00.000Z")}));});
+test("policy timestamp changes invalidate context fingerprints", () => {
+  assert.notEqual(
+    nbaHash({ updatedAt: new Date("2026-10-16T12:00:00.000Z") }),
+    nbaHash({ updatedAt: new Date("2026-10-16T12:01:00.000Z") }),
+  );
+});
 
-test("public event insertion cannot forge NBA decisions, claims, frontier or receipts",async()=>{
-  const {EventInsertSchema}=await import("../src/domain/schemas");
-  for(const eventType of ["nba_decision","nba_claim","nba_frontier","nba_capability_result"])
-    assert.equal(EventInsertSchema.safeParse({eventType,occurredAt:new Date(),payload:{}}).success,false);
+test("public event insertion cannot forge NBA decisions, claims, frontier or receipts", async () => {
+  const { EventInsertSchema } = await import("../src/domain/schemas");
+  for (const eventType of [
+    "nba_decision",
+    "nba_claim",
+    "nba_frontier",
+    "nba_capability_result",
+  ])
+    assert.equal(
+      EventInsertSchema.safeParse({
+        eventType,
+        occurredAt: new Date(),
+        payload: {},
+      }).success,
+      false,
+    );
 });
 
 test("internal evidence exception cannot enable discovery or outreach or override another engagement", () => {
-  const internal = {...context,subject:{type:"organisation" as const,id:"org"},suppressed:true,internalResearchAllowed:true,availableActions:["request_evidence","discover_organisations","communicate"] as const};
-  assert.equal(guardDecision({...decision,action:"request_evidence"},internal,now).state,"proposed");
-  for(const action of ["discover_organisations","communicate"] as const)
-    assert.equal(guardDecision({...decision,action},internal,now).state,"blocked");
-  assert.equal(guardDecision({...decision,action:"request_evidence"},{...internal,competingClaims:["other"]},now).state,"blocked");
+  const internal = {
+    ...context,
+    subject: { type: "organisation" as const, id: "org" },
+    suppressed: true,
+    internalResearchAllowed: true,
+    availableActions: [
+      "request_evidence",
+      "discover_organisations",
+      "communicate",
+    ] as const,
+  };
+  assert.equal(
+    guardDecision({ ...decision, action: "request_evidence" }, internal, now)
+      .state,
+    "proposed",
+  );
+  for (const action of ["discover_organisations", "communicate"] as const)
+    assert.equal(
+      guardDecision({ ...decision, action }, internal, now).state,
+      "blocked",
+    );
+  assert.equal(
+    guardDecision(
+      { ...decision, action: "request_evidence" },
+      { ...internal, competingClaims: ["other"] },
+      now,
+    ).state,
+    "blocked",
+  );
 });
 
-
 test("policy enforcement rejects restrictive, unsupported, stale and mismatched custom assessments", async () => {
-  const { planStrategyTemplates, templateSource } = await import("../src/services/contact-strategy/provision");
+  const { planStrategyTemplates, templateSource } =
+    await import("../src/services/contact-strategy/provision");
   const { generatePlatformId } = await import("../src/domain");
   const { policyDecisionHash } = await import("../src/services/nba/model");
   const w = generatePlatformId("workspace");
@@ -174,19 +218,64 @@ test("policy enforcement rejects restrictive, unsupported, stale and mismatched 
   policy.status = "recorded";
   policy.key = "custom_" + "a".repeat(32);
   policy.source.reference = templateSource(policy.key, 1);
-  const ctx = { ...context, workspaceId: w, contactStrategies: [policy], availableActions: ["request_evidence" as const] };
+  const ctx = {
+    ...context,
+    workspaceId: w,
+    contactStrategies: [policy],
+    availableActions: ["request_evidence" as const],
+  };
   const base = { ...decision, action: "request_evidence" as const };
-  const assessment = { policyId: policy.id, version: policy.version, action: base.action, offerId: base.offerId,
-    applies: true, effect: "permitted", reason: "Known evidence supports internal review", evidenceIds: ["known"] };
-  const evaluated = (patch: any = {}, change: any = {}) => guardDecision({ ...base,
-    policyContextHash: policyDecisionHash(base, ctx), policyAssessments: [{ ...assessment, ...patch }], ...change }, ctx, now);
+  const assessment = {
+    policyId: policy.id,
+    version: policy.version,
+    action: base.action,
+    offerId: base.offerId,
+    applies: true,
+    effect: "permitted",
+    reason: "Known evidence supports internal review",
+    evidenceIds: ["known"],
+  };
+  const evaluated = (
+    patch: Record<string, unknown> = {},
+    change: Record<string, unknown> = {},
+  ) =>
+    guardDecision(
+      {
+        ...base,
+        policyContextHash: policyDecisionHash(base, ctx),
+        policyAssessments: [{ ...assessment, ...patch }],
+        ...change,
+      },
+      ctx,
+      now,
+    );
   assert.equal(evaluated().state, "proposed");
-  for (const effect of ["prohibited", "deferred", "escalated"]) assert.equal(evaluated({effect}).state, "blocked");
-  for (const patch of [{version: 999}, {evidenceIds: []}, {evidenceIds: ["foreign"]}, {action: "communicate"}, {offerId: null}])
+  for (const effect of ["prohibited", "deferred", "escalated"])
+    assert.equal(evaluated({ effect }).state, "blocked");
+  for (const patch of [
+    { version: 999 },
+    { evidenceIds: [] },
+    { evidenceIds: ["foreign"] },
+    { action: "communicate" },
+    { offerId: null },
+  ])
     assert.equal(evaluated(patch).state, "blocked");
-  assert.equal(evaluated({}, { instruction: "Different action instructions" }).state, "blocked");
-  assert.equal(evaluated({}, { policyAssessments: [assessment, assessment] }).state, "blocked");
+  assert.equal(
+    evaluated({}, { instruction: "Different action instructions" }).state,
+    "blocked",
+  );
+  assert.equal(
+    evaluated({}, { policyAssessments: [assessment, assessment] }).state,
+    "blocked",
+  );
   assert.equal(evaluated({ applies: false, evidenceIds: [] }).state, "blocked");
   assert.equal(evaluated({ applies: false }).state, "proposed");
-  assert.equal(guardDecision({ ...decision, action: "human_review" }, { ...ctx, availableActions: ["human_review"] }, now).state, "review_required");
+  assert.equal(
+    guardDecision(
+      { ...decision, action: "human_review" },
+      { ...ctx, availableActions: ["human_review"] },
+      now,
+    ).state,
+    "review_required",
+  );
 });

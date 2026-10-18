@@ -468,15 +468,13 @@ test("consumer campaign approval requires existing records; contact assessments 
     action: "approve",
   });
   const person = generatePlatformId("person");
-  f.db
-    .rows("people")
-    .push({
-      id: person,
-      workspaceId: f.w,
-      firstName: "Existing",
-      lastName: "Customer",
-      updatedAt: new Date(),
-    });
+  f.db.rows("people").push({
+    id: person,
+    workspaceId: f.w,
+    firstName: "Existing",
+    lastName: "Customer",
+    updatedAt: new Date(),
+  });
   const listed = await f.service.audience(f.identity, f.w, saved.id, {
     entity: "people",
   });
@@ -558,16 +556,14 @@ test("manual meetings are isolated, versioned observations and never qualificati
   const f = await withApprovedContext();
   const person = generatePlatformId("person"),
     foreign = generatePlatformId("person");
-  f.db
-    .rows("people")
-    .push(
-      { id: person, workspaceId: f.w, name: "Test buyer" },
-      {
-        id: foreign,
-        workspaceId: generatePlatformId("workspace"),
-        name: "Other workspace",
-      },
-    );
+  f.db.rows("people").push(
+    { id: person, workspaceId: f.w, name: "Test buyer" },
+    {
+      id: foreign,
+      workspaceId: generatePlatformId("workspace"),
+      name: "Other workspace",
+    },
+  );
   const campaign = await f.service.change(f.identity, f.w, undefined, {
     requestKey: randomUUID(),
     expectedVersion: 0,

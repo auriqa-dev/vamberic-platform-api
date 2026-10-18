@@ -1,4 +1,7 @@
-import { createResearchCandidates, ResearchActionConflict } from "../services/research/candidates";
+import {
+  createResearchCandidates,
+  ResearchActionConflict,
+} from "../services/research/candidates";
 import { Router, type ErrorRequestHandler } from "express";
 import { ZodError } from "zod";
 import type { AppConfig } from "../config";
@@ -15,13 +18,64 @@ export function createResearchRouter(config: AppConfig, mongo: MongoService) {
       contentGeneratorFromEnvironment(),
     );
   const root = "/workspaces/:workspaceId/research";
-  const candidates=createResearchCandidates(config,mongo);
-  router.post(root+"/candidates/:id/people",async(req,res)=>{const w=String(req.params.workspaceId);const request=await candidates.peopleRequest(req.auth!,w,String(req.params.id));const job=await app.start(req.auth!,w,request);res.status(202).json(job);void app.run(req.auth!,w,job.id).catch(()=>{});});
-  router.post(root+"/candidates/:id/supplement",async(req,res)=>res.json(await candidates.supplement(req.auth!,String(req.params.workspaceId),String(req.params.id))));
-  router.get(root+"/candidates/:id/dossier",async(req,res)=>res.json(await candidates.dossier(req.auth!,String(req.params.workspaceId),String(req.params.id))));
-  router.post(root+"/candidates/:id/review",async(req,res)=>res.json(await candidates.review(req.auth!,String(req.params.workspaceId),String(req.params.id),req.body)));
-  router.post(root+"/candidates/:id/enrich",async(req,res)=>res.json(await candidates.enrich(req.auth!,String(req.params.workspaceId),String(req.params.id))));
-  router.post(root+"/candidates/:id/promote",async(req,res)=>res.json(await candidates.promote(req.auth!,String(req.params.workspaceId),String(req.params.id))));
+  const candidates = createResearchCandidates(config, mongo);
+  router.post(root + "/candidates/:id/people", async (req, res) => {
+    const w = String(req.params.workspaceId);
+    const request = await candidates.peopleRequest(
+      req.auth!,
+      w,
+      String(req.params.id),
+    );
+    const job = await app.start(req.auth!, w, request);
+    res.status(202).json(job);
+    void app.run(req.auth!, w, job.id).catch(() => {});
+  });
+  router.post(root + "/candidates/:id/supplement", async (req, res) =>
+    res.json(
+      await candidates.supplement(
+        req.auth!,
+        String(req.params.workspaceId),
+        String(req.params.id),
+      ),
+    ),
+  );
+  router.get(root + "/candidates/:id/dossier", async (req, res) =>
+    res.json(
+      await candidates.dossier(
+        req.auth!,
+        String(req.params.workspaceId),
+        String(req.params.id),
+      ),
+    ),
+  );
+  router.post(root + "/candidates/:id/review", async (req, res) =>
+    res.json(
+      await candidates.review(
+        req.auth!,
+        String(req.params.workspaceId),
+        String(req.params.id),
+        req.body,
+      ),
+    ),
+  );
+  router.post(root + "/candidates/:id/enrich", async (req, res) =>
+    res.json(
+      await candidates.enrich(
+        req.auth!,
+        String(req.params.workspaceId),
+        String(req.params.id),
+      ),
+    ),
+  );
+  router.post(root + "/candidates/:id/promote", async (req, res) =>
+    res.json(
+      await candidates.promote(
+        req.auth!,
+        String(req.params.workspaceId),
+        String(req.params.id),
+      ),
+    ),
+  );
 
   router.get(root, async (req, res) =>
     res.json(await app.list(req.auth!, String(req.params.workspaceId))),
@@ -112,8 +166,16 @@ export function createResearchRouter(config: AppConfig, mongo: MongoService) {
       )
       .json({
         error: {
-          code: e instanceof ResearchActionConflict ? "RESEARCH_ACTION_REVIEW" : e instanceof HiveConflict ? "CONFLICT" : "RESEARCH_UNAVAILABLE",
-          message: e instanceof ResearchActionConflict ? e.message : "Research could not complete this request.",
+          code:
+            e instanceof ResearchActionConflict
+              ? "RESEARCH_ACTION_REVIEW"
+              : e instanceof HiveConflict
+                ? "CONFLICT"
+                : "RESEARCH_UNAVAILABLE",
+          message:
+            e instanceof ResearchActionConflict
+              ? e.message
+              : "Research could not complete this request.",
         },
       });
   };

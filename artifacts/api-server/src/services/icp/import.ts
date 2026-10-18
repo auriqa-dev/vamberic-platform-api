@@ -1,4 +1,8 @@
-import { countryCode, registrationIdentity, registrationReference } from "./registration";
+import {
+  countryCode,
+  registrationIdentity,
+  registrationReference,
+} from "./registration";
 import { contactContextAccess } from "../contact-context";
 import {
   hubspotOptions,
@@ -172,12 +176,23 @@ function normalized(row: Row) {
   if (values.country && !/^[A-Z]{2}$/.test(String(values.country)))
     throw new Error("Use a two-letter country code.");
   if (row.registration?.trim()) {
-    const registration=registrationIdentity(row.registration,row.registrationJurisdiction ?? "",row.registrationType ?? (countryCode(row.registrationJurisdiction ?? "") === "GB" ? "company_number" : "unspecified"));
-    values.registration=registration.value;
-    values.registrationIdentity=registration;
-    values.registrationReference=registrationReference(registration);
+    const registration = registrationIdentity(
+      row.registration,
+      row.registrationJurisdiction ?? "",
+      row.registrationType ??
+        (countryCode(row.registrationJurisdiction ?? "") === "GB"
+          ? "company_number"
+          : "unspecified"),
+    );
+    values.registration = registration.value;
+    values.registrationIdentity = registration;
+    values.registrationReference = registrationReference(registration);
     // Only the legacy supported UK scheme is an automatic matching key.
-    if(registration.jurisdiction==="GB" && registration.type==="company_number") values.registrationMatch=values.registrationReference;
+    if (
+      registration.jurisdiction === "GB" &&
+      registration.type === "company_number"
+    )
+      values.registrationMatch = values.registrationReference;
   }
   if (!row.sourceOnly && !values.company && !values.firstName)
     throw new Error("Enter a company name or a contact’s first name.");
@@ -734,16 +749,35 @@ export function createHiveImporter(config: AppConfig, mongo: MongoService) {
           results.push(result);
           // Source lifecycle is evidence, never a replacement for manually saved controls.
           // Existing records retain their current source context on generic re-import.
-          const lifecycleSubject = v.firstName ? (!row.personId && personId ? {personId} : undefined)
-            : (!row.companyId && companyId ? {companyId} : undefined);
-          if (v.originalLifecycle && lifecycleSubject && row.status === "create") {
-            await insertVerified("events", EventSchema.parse({
-              ...base("event"), occurredAt: now, actor,
-              eventType: "hive_import_contact_context",
-              payload: {importId, ...lifecycleSubject, values: {
-                lifecycle: v.lifecycle, originalLifecycle: v.originalLifecycle,
-              }},
-            }));
+          const lifecycleSubject = v.firstName
+            ? !row.personId && personId
+              ? { personId }
+              : undefined
+            : !row.companyId && companyId
+              ? { companyId }
+              : undefined;
+          if (
+            v.originalLifecycle &&
+            lifecycleSubject &&
+            row.status === "create"
+          ) {
+            await insertVerified(
+              "events",
+              EventSchema.parse({
+                ...base("event"),
+                occurredAt: now,
+                actor,
+                eventType: "hive_import_contact_context",
+                payload: {
+                  importId,
+                  ...lifecycleSubject,
+                  values: {
+                    lifecycle: v.lifecycle,
+                    originalLifecycle: v.originalLifecycle,
+                  },
+                },
+              }),
+            );
           }
           const originalBytes = Buffer.byteLength(
             JSON.stringify(original.original),

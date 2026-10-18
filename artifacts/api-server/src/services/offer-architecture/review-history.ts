@@ -56,35 +56,31 @@ export async function recordReviewChanges(
       actor,
       source: { system: "hvm_offer_review" },
     };
-    await db
-      .collection("events")
-      .insertOne(
+    await db.collection("events").insertOne(
+      EventSchema.parse({
+        ...base,
+        id,
+        eventType: "offer_review_changed",
+        payload: {
+          offerId,
+          designId,
+          stageKey: stage.stageKey,
+          parts: parts.length,
+          hash: hash(text),
+        },
+      }),
+      { session },
+    );
+    for (let part = 0; part < parts.length; part++)
+      await db.collection("events").insertOne(
         EventSchema.parse({
           ...base,
-          id,
-          eventType: "offer_review_changed",
-          payload: {
-            offerId,
-            designId,
-            stageKey: stage.stageKey,
-            parts: parts.length,
-            hash: hash(text),
-          },
+          id: generatePlatformId("event"),
+          eventType: "offer_review_change_part",
+          payload: { reviewId: id, offerId, part, text: parts[part] },
         }),
         { session },
       );
-    for (let part = 0; part < parts.length; part++)
-      await db
-        .collection("events")
-        .insertOne(
-          EventSchema.parse({
-            ...base,
-            id: generatePlatformId("event"),
-            eventType: "offer_review_change_part",
-            payload: { reviewId: id, offerId, part, text: parts[part] },
-          }),
-          { session },
-        );
   }
 }
 export async function readReviewHistory(db: Db, w: string, offerId: string) {

@@ -25,3 +25,4 @@ scripts
 coverage
 *.md
 !artifacts/api-server/README.md
+.integration

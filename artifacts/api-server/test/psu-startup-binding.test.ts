@@ -15,7 +15,7 @@ import { PSU_RECONCILIATION_POLICY_DIGEST } from "../src/services/product-servic
 import {
   parsePsuStartupBinding as runtimeParse,
   PsuStartupBindingSchema as runtimeSchema,
-} from "../../../../vamberic-agent-runtime/dist/src/worker/psu-startup-binding.js";
+} from "../../../.integration/vamberic-agent-runtime/dist/src/worker/psu-startup-binding.js";
 const prefix = "arn:aws:ecs:eu-west-2:123456789012:";
 const release = {
   environment: "dev",

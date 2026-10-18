@@ -68,7 +68,7 @@ function authority(
   };
 }
 for (const role of ["admin", "viewer"] as const) {
-  test(`${role}: no automatic Run authority; explicit grant permits only own Run control`, () => {
+  test(`${role}: client admins have Queen parity; viewers require an explicit own-Run grant`, () => {
     for (const granted of [false, true]) {
       const { a, c, g } = authority(role, granted);
       for (const action of ["request", "read", "respond", "cancel"] as const) {
@@ -83,9 +83,17 @@ for (const role of ["admin", "viewer"] as const) {
         };
         assert.equal(
           Boolean(a.authorizeAgentOperation(c, request, now)),
-          granted,
+          role === "admin" || granted,
         );
-        if (action !== "request")
+        assert.equal(
+          a.authorizeAgentOperation(
+            c,
+            { ...request, workspaceId: generatePlatformId("workspace") },
+            now,
+          ),
+          undefined,
+        );
+        if (role === "viewer" && action !== "request")
           assert.equal(
             a.authorizeAgentOperation(
               c,
@@ -102,15 +110,15 @@ for (const role of ["admin", "viewer"] as const) {
           ),
           undefined,
         );
-        assert.equal(
+        assert.deepEqual(
           a.authorizeAgentOperation(
             c,
             { ...request, target: { ...target, revision: 2 } },
             now,
           ),
-          undefined,
+          role === "admin" ? { basis: "partner" } : undefined,
         );
-        assert.equal(
+        assert.deepEqual(
           a.authorizeAgentOperation(
             c,
             {
@@ -119,15 +127,15 @@ for (const role of ["admin", "viewer"] as const) {
             },
             now,
           ),
-          undefined,
+          role === "admin" ? { basis: "partner" } : undefined,
         );
-        assert.equal(
+        assert.deepEqual(
           a.authorizeAgentOperation(
             c,
             { ...request, operation: "unregistered" },
             now,
           ),
-          undefined,
+          role === "admin" ? { basis: "partner" } : undefined,
         );
       }
       assert.equal(
@@ -135,14 +143,21 @@ for (const role of ["admin", "viewer"] as const) {
           type: "agent_operator_assignments",
           workspaceId,
         }),
-        false,
+        role === "admin",
       );
       for (const type of [
         "client_agents",
         "client_swarms",
         "swarm_agreements",
       ] as const)
-        assert.equal(a.authorize(c, "update", { type, workspaceId }), false);
+        assert.equal(
+          a.authorize(c, "update", { type, workspaceId }),
+          role === "admin",
+        );
+      assert.equal(
+        a.authorize(c, "approve", { type: "agent_definitions" }),
+        false,
+      );
       assert.equal(
         a.authorize(c, "approve", { type: "agent_runs", workspaceId }),
         false,

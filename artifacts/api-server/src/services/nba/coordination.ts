@@ -220,16 +220,14 @@ export async function recordFrontier(
   )
     throw new HiveConflict("The next research review must be in the future.");
   const hash = nbaHash(input);
-  const duplicate = await db
-    .collection("events")
-    .findOne(
-      {
-        workspaceId,
-        eventType: "nba_frontier",
-        "payload.requestKey": input.requestKey,
-      },
-      { session },
-    );
+  const duplicate = await db.collection("events").findOne(
+    {
+      workspaceId,
+      eventType: "nba_frontier",
+      "payload.requestKey": input.requestKey,
+    },
+    { session },
+  );
   if (duplicate) {
     if (
       duplicate.payload.inputHash !== hash ||

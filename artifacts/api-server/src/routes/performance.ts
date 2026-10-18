@@ -31,7 +31,15 @@ export function createPerformanceRouter(
     if (!/\/performance(?:\/|$)/.test(req.path) || res.headersSent)
       return next(e);
     if (e instanceof ZodError)
-      logger.warn({ issues: e.issues.map((issue) => ({ code: issue.code, path: issue.path })) }, "Performance validation failed");
+      logger.warn(
+        {
+          issues: e.issues.map((issue) => ({
+            code: issue.code,
+            path: issue.path,
+          })),
+        },
+        "Performance validation failed",
+      );
     res
       .status(
         e instanceof AuthorizationDenied

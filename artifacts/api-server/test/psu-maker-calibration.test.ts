@@ -15,15 +15,12 @@ import { prepareOfflineMakerCalibration } from "./helpers/psu-maker-calibration"
 import {
   verifyCalibration,
   SYNTHETIC_CONFIG,
-} from "../../../../vamberic-agent-runtime/scripts/psu/general-maker-calibration.ts";
+} from "../../../.integration/vamberic-agent-runtime/dist/scripts/psu/general-maker-calibration.js";
 
 test("reviewed current manifest/profile/policy/criteria pins have no drift", () => {
   const pins = JSON.parse(
     readFileSync(
-      new URL(
-        "../../../../release-reviews/psu-release-readiness/calibration-pins.json",
-        import.meta.url,
-      ),
+      new URL("./fixtures/calibration-pins.json", import.meta.url),
       "utf8",
     ),
   );

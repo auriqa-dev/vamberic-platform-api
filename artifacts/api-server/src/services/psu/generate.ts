@@ -122,7 +122,9 @@ export function safePsuValidationReason(error: unknown): string {
     "Invalid AI output": "invalid_envelope",
   };
   if (error instanceof z.ZodError) return "schema_contract";
-  return error instanceof Error ? reasons[error.message] ?? "validation_failed" : "validation_failed";
+  return error instanceof Error
+    ? (reasons[error.message] ?? "validation_failed")
+    : "validation_failed";
 }
 export class PsuGenerationFailure extends Error {
   constructor(
@@ -222,7 +224,11 @@ export function createPsuGenerator(
         });
         try {
           const found = await createOfferResearch(
-            { apiKey: config.apiKey, project: config.project, purpose: "company-mentions" },
+            {
+              apiKey: config.apiKey,
+              project: config.project,
+              purpose: "company-mentions",
+            },
             send,
           )(
             {
@@ -233,7 +239,11 @@ export function createPsuGenerator(
             signal,
           );
           research = {
-            researchSources: independentSources(found.urls, policy.urls, input.workingLabel),
+            researchSources: independentSources(
+              found.urls,
+              policy.urls,
+              input.workingLabel,
+            ),
             researchUsage: found.usage,
           };
         } catch {
@@ -331,7 +341,9 @@ export function createPsuGenerator(
         background: false,
         stream: false,
         service_tier: "default",
-        ...(quick || detailed ? lunaRequestOptions(model) : { reasoning: { effort: "medium" } }),
+        ...(quick || detailed
+          ? lunaRequestOptions(model)
+          : { reasoning: { effort: "medium" } }),
         max_output_tokens: quick
           ? SUMMARY_OUTPUT_TOKENS
           : detailed

@@ -19,7 +19,10 @@ import {
   robotsAllowed,
   pageMetadata,
 } from "../src/services/content-strategy/discovery";
-import { outputSchema, omitOptionalNulls } from "../src/services/content-strategy/generate";
+import {
+  outputSchema,
+  omitOptionalNulls,
+} from "../src/services/content-strategy/generate";
 import { generatePlatformId, EventInsertSchema } from "../src/domain";
 import { EnquiryMemoryDb } from "./helpers/enquiry-db";
 import { parseConfig } from "../src/config";
@@ -1262,28 +1265,70 @@ test("all generation contracts compile including optional research fields and li
   for (const [task, schema] of Object.entries(resultSchemas)) {
     const wire = outputSchema(schema);
     assert.equal(wire.additionalProperties, false, task);
-    assert.ok(!JSON.stringify(wire).includes('"type":"object","enum":[null]'), task);
+    assert.ok(
+      !JSON.stringify(wire).includes('"type":"object","enum":[null]'),
+      task,
+    );
   }
   const schema = resultSchemas.research;
-  const value = {summary:"Example", assessments:[{organisationId:"org",personId:null,website:"",offerId:"offer",icpId:"icp",fit:"needs_research",rationale:"Unknown",evidenceIds:[],unknowns:[]}],organisations:[],contacts:[],findings:[],gaps:[]};
-  const parsed = schema.parse(omitOptionalNulls(value,schema));
-  assert.equal(parsed.assessments[0].personId,undefined);
-  assert.throws(()=>schema.parse(omitOptionalNulls({...value,extra:"not allowed"},schema)));
-  const henry = outputSchema(resultSchemas.workspace_henry) as any;
+  const value = {
+    summary: "Example",
+    assessments: [
+      {
+        organisationId: "org",
+        personId: null,
+        website: "",
+        offerId: "offer",
+        icpId: "icp",
+        fit: "needs_research",
+        rationale: "Unknown",
+        evidenceIds: [],
+        unknowns: [],
+      },
+    ],
+    organisations: [],
+    contacts: [],
+    findings: [],
+    gaps: [],
+  };
+  const parsed = schema.parse(omitOptionalNulls(value, schema));
+  assert.equal(parsed.assessments[0].personId, undefined);
+  assert.throws(() =>
+    schema.parse(omitOptionalNulls({ ...value, extra: "not allowed" }, schema)),
+  );
+  const henry = outputSchema(resultSchemas.workspace_henry) as {
+    properties: {
+      objective: { maxLength: number };
+      reply: { minLength: number };
+      changes: {
+        maxItems: number;
+        items: { properties: { reason: { maxLength: number } } };
+      };
+    };
+  };
   assert.equal(henry.properties.objective.maxLength, 2000);
   assert.equal(henry.properties.reply.minLength, 1);
   assert.equal(henry.properties.changes.maxItems, 160);
-  assert.equal(henry.properties.changes.items.properties.reason.maxLength, 1000);
+  assert.equal(
+    henry.properties.changes.items.properties.reason.maxLength,
+    1000,
+  );
 });
 
 test("generated briefs do not confuse strategy recommendation keys with saved actions", async () => {
-  const { normaliseBriefRecommendation } = await import("../src/services/content-strategy/application");
+  const { normaliseBriefRecommendation } =
+    await import("../src/services/content-strategy/application");
   const supplied = [
     { id: "strategy-1", kind: "strategy", status: "approved" },
     { id: "action-1", kind: "action", status: "draft" },
     { id: "removed-action", kind: "action", status: "removed" },
   ] as const;
-  for (const actionId of ["strategy-1", "invented-recommendation-key", "removed-action", "other-workspace-action"]) {
+  for (const actionId of [
+    "strategy-1",
+    "invented-recommendation-key",
+    "removed-action",
+    "other-workspace-action",
+  ]) {
     const brief = { actionId, dependencies: ["Retain evidence requirement"] };
     normaliseBriefRecommendation(brief, [...supplied]);
     assert.equal(brief.actionId, "");
@@ -1295,7 +1340,10 @@ test("generated briefs do not confuse strategy recommendation keys with saved ac
     normaliseBriefRecommendation(brief, [...supplied]);
     assert.deepEqual(brief, { actionId, dependencies: ["Keep"] });
   }
-  const full = { actionId: "invented", dependencies: Array.from({ length: 40 }, (_, i) => `Requirement ${i}`) };
+  const full = {
+    actionId: "invented",
+    dependencies: Array.from({ length: 40 }, (_, i) => `Requirement ${i}`),
+  };
   const original = [...full.dependencies];
   normaliseBriefRecommendation(full, [...supplied]);
   assert.equal(full.actionId, "");
@@ -1303,35 +1351,127 @@ test("generated briefs do not confuse strategy recommendation keys with saved ac
 });
 
 test("association-only updates preserve approved content and reject injected edits", async () => {
-  const {w,identity,service,asset}=await setup();
-  const saved=await service.mutate(identity,w,{kind:"asset",operation:"save",expectedVersion:0,data:asset,requestKey:randomUUID()});
-  const approved=await service.mutate(identity,w,{kind:"asset",operation:"approve",id:saved.id,expectedVersion:saved.version,requestKey:randomUUID()});
-  const input={kind:"asset",operation:"associate",id:saved.id,expectedVersion:approved.version,data:{associations:[]},requestKey:randomUUID()};
-  const associated=await service.mutate(identity,w,input);
-  assert.equal(associated.status,"approved");
-  assert.equal(associated.data.text,asset.text);
-  assert.deepEqual(await service.mutate(identity,w,input),associated);
-  await assert.rejects(()=>service.mutate(identity,w,{...input,expectedVersion:associated.version,requestKey:randomUUID(),data:{associations:[],text:"overwrite"}}));
-  await assert.rejects(()=>service.mutate({...identity,subject:"foreign"},w,{...input,expectedVersion:associated.version,requestKey:randomUUID()}));
+  const { w, identity, service, asset } = await setup();
+  const saved = await service.mutate(identity, w, {
+    kind: "asset",
+    operation: "save",
+    expectedVersion: 0,
+    data: asset,
+    requestKey: randomUUID(),
+  });
+  const approved = await service.mutate(identity, w, {
+    kind: "asset",
+    operation: "approve",
+    id: saved.id,
+    expectedVersion: saved.version,
+    requestKey: randomUUID(),
+  });
+  const input = {
+    kind: "asset",
+    operation: "associate",
+    id: saved.id,
+    expectedVersion: approved.version,
+    data: { associations: [] },
+    requestKey: randomUUID(),
+  };
+  const associated = await service.mutate(identity, w, input);
+  assert.equal(associated.status, "approved");
+  assert.equal(associated.data.text, asset.text);
+  assert.deepEqual(await service.mutate(identity, w, input), associated);
+  await assert.rejects(() =>
+    service.mutate(identity, w, {
+      ...input,
+      expectedVersion: associated.version,
+      requestKey: randomUUID(),
+      data: { associations: [], text: "overwrite" },
+    }),
+  );
+  await assert.rejects(() =>
+    service.mutate({ ...identity, subject: "foreign" }, w, {
+      ...input,
+      expectedVersion: associated.version,
+      requestKey: randomUUID(),
+    }),
+  );
 });
 
 test("written production uses approved brief evidence and remains a recoverable draft", async () => {
-  const {db,w,identity,service,asset}=await setup();
-  const source=await service.mutate(identity,w,saveInput("asset",asset));
-  const draft=await service.mutate(identity,w,saveInput("brief",brief(asset.scope,[source.id])));
-  let calls=0;
-  const generated=createContentStrategy(config,db.mongo,async (_task,input)=>{
-    calls++;
-    assert.ok((input as {records:{id:string}[]}).records.some(r=>r.id===source.id));
-    return {result:{title:"Evidence guide",text:"The supported methodology.",description:"A useful guide",evidenceGaps:[]},usage:{model:"fixture",inputTokens:10,outputTokens:10}};
+  const { db, w, identity, service, asset } = await setup();
+  const source = await service.mutate(identity, w, saveInput("asset", asset));
+  const draft = await service.mutate(
+    identity,
+    w,
+    saveInput("brief", brief(asset.scope, [source.id])),
+  );
+  let calls = 0;
+  const generated = createContentStrategy(
+    config,
+    db.mongo,
+    async (_task, input) => {
+      calls++;
+      assert.ok(
+        (input as { records: { id: string }[] }).records.some(
+          (r) => r.id === source.id,
+        ),
+      );
+      return {
+        result: {
+          title: "Evidence guide",
+          text: "The supported methodology.",
+          description: "A useful guide",
+          evidenceGaps: [],
+        },
+        usage: { model: "fixture", inputTokens: 10, outputTokens: 10 },
+      };
+    },
+  );
+  const input = {
+    task: "write",
+    scope: asset.scope,
+    instruction: "Write",
+    recordIds: [draft.id],
+    requestKey: randomUUID(),
+  };
+  await assert.rejects(
+    () => generated.propose(identity, w, input),
+    /approved content brief/,
+  );
+  const approved = await service.mutate(identity, w, {
+    kind: "brief",
+    operation: "approve",
+    id: draft.id,
+    expectedVersion: 1,
+    requestKey: randomUUID(),
   });
-  const input={task:"write",scope:asset.scope,instruction:"Write",recordIds:[draft.id],requestKey:randomUUID()};
-  await assert.rejects(()=>generated.propose(identity,w,input),/approved content brief/);
-  const approved=await service.mutate(identity,w,{kind:"brief",operation:"approve",id:draft.id,expectedVersion:1,requestKey:randomUUID()});
-  const result=await generated.propose(identity,w,{...input,requestKey:randomUUID()});
-  assert.equal(result.text,"The supported methodology.");assert.equal(calls,1);
-  const proposals=(await generated.list(identity,w)).proposals;
-  assert.ok(proposals.some(p=>p.task==="write" && p.scope.brandId===asset.scope.brandId));
-  const saved=await service.mutate(identity,w,saveInput("asset",{...asset,title:result.title,text:result.text,description:result.description,gaps:[],sourceAssetIds:[source.id],sourceMetadata:{...asset.sourceMetadata,briefId:approved.id,briefVersion:approved.version,producer:"HVM"}}));
-  assert.equal(saved.status,"draft");
+  const result = await generated.propose(identity, w, {
+    ...input,
+    requestKey: randomUUID(),
+  });
+  assert.equal(result.text, "The supported methodology.");
+  assert.equal(calls, 1);
+  const proposals = (await generated.list(identity, w)).proposals;
+  assert.ok(
+    proposals.some(
+      (p) => p.task === "write" && p.scope.brandId === asset.scope.brandId,
+    ),
+  );
+  const saved = await service.mutate(
+    identity,
+    w,
+    saveInput("asset", {
+      ...asset,
+      title: result.title,
+      text: result.text,
+      description: result.description,
+      gaps: [],
+      sourceAssetIds: [source.id],
+      sourceMetadata: {
+        ...asset.sourceMetadata,
+        briefId: approved.id,
+        briefVersion: approved.version,
+        producer: "HVM",
+      },
+    }),
+  );
+  assert.equal(saved.status, "draft");
 });

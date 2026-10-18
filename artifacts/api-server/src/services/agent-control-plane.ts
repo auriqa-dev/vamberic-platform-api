@@ -238,7 +238,10 @@ export function createAgentControlPlane(
         !(
           run.frozen.protocolVersion === "2.0"
             ? [16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30]
-            : [12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30]
+            : [
+                12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27,
+                28, 29, 30,
+              ]
         ).includes(ledger?.version ?? 0)
       )
         throw new AgentControlPlaneUnavailable(
@@ -282,7 +285,13 @@ export function createAgentControlPlane(
       return false;
     const denied = (reason: string) => {
       if (run.frozen.definition.key === "next_best_action")
-        console.warn(JSON.stringify({ event: "nba_execution_denied", runId: run.id, reason }));
+        console.warn(
+          JSON.stringify({
+            event: "nba_execution_denied",
+            runId: run.id,
+            reason,
+          }),
+        );
       return false;
     };
     let stage = "operator_authority";
@@ -308,9 +317,14 @@ export function createAgentControlPlane(
         session,
         await policy.dependencies(db, run, session),
       );
-      if (hooks?.required(run) && !run.effectiveness) return denied("effectiveness_required");
-      if (!(await policy.current(db, run, session))) return denied("current_execution_policy");
-      if (run.effectiveness && (!hooks || !(await hooks.current(db, run, session))))
+      if (hooks?.required(run) && !run.effectiveness)
+        return denied("effectiveness_required");
+      if (!(await policy.current(db, run, session)))
+        return denied("current_execution_policy");
+      if (
+        run.effectiveness &&
+        (!hooks || !(await hooks.current(db, run, session)))
+      )
         return denied("effectiveness_changed");
       return true;
     } catch (error) {
@@ -1087,7 +1101,10 @@ export function createAgentControlPlane(
             !(
               work.protocolVersion === "2.0"
                 ? [16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30]
-                : [12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30]
+                : [
+                    12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26,
+                    27, 28, 29, 30,
+                  ]
             ).includes(ledger?.version ?? 0)
           )
             throw new AgentControlPlaneUnavailable(

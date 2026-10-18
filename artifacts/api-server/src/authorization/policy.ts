@@ -301,7 +301,8 @@ export function createAuthorizationAuthority(config: {
           ? action === "read"
           : m.role === "admin"
             ? action === "read" ||
-              (["offerings", "campaigns"].includes(resource.type) && action === "delete") ||
+              (["offerings", "campaigns"].includes(resource.type) &&
+                action === "delete") ||
               ([
                 "campaigns",
                 "offer_designs",
@@ -325,7 +326,7 @@ export function createAuthorizationAuthority(config: {
                 (action === "read" ||
                   [
                     "campaigns",
-                "offer_designs",
+                    "offer_designs",
                     "offers",
                     "offerings",
                     "ideal_customer_profiles",

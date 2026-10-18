@@ -91,7 +91,9 @@ export function createOffersRouter(config: AppConfig, mongo: MongoService) {
       await app.bundle(req.auth!, w(req), z.string().parse(req.params.id)),
     ),
   );
-  router.post(root + "/output", async (req,res) => res.json(await app.registerOutput(req.auth!,w(req),req.body)));
+  router.post(root + "/output", async (req, res) =>
+    res.json(await app.registerOutput(req.auth!, w(req), req.body)),
+  );
   router.post(root + "/save", async (req, res) =>
     res.json(await app.save(req.auth!, w(req), req.body)),
   );

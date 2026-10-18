@@ -42,7 +42,18 @@ export function validateHenryProposal(screen: HenryScreen, raw: unknown) {
       const before: unknown = JSON.parse(field.value),
         after: unknown = JSON.parse(change.value);
       if (screen.editor?.key.startsWith("offer-review:")) {
-        if (!Array.isArray(after) || after.length !== 6 || after.some(v => typeof v !== "string" || v.length > 2000) || !Array.isArray(before) || after[0] !== before[0] || !["supported_information", "assumption", "recommendation"].includes(after[3]) || !["review", "human_input"].includes(after[4])) throw new Error();
+        if (
+          !Array.isArray(after) ||
+          after.length !== 6 ||
+          after.some((v) => typeof v !== "string" || v.length > 2000) ||
+          !Array.isArray(before) ||
+          after[0] !== before[0] ||
+          !["supported_information", "assumption", "recommendation"].includes(
+            after[3],
+          ) ||
+          !["review", "human_input"].includes(after[4])
+        )
+          throw new Error();
       }
       if (
         Array.isArray(before) !== Array.isArray(after) ||
@@ -210,30 +221,26 @@ async function context(
       .findOne({ workspaceId: w, id, archived: { $ne: true } }, { session });
     const product =
       offer &&
-      (await db
-        .collection("offerings")
-        .findOne(
-          {
-            workspaceId: w,
-            id: offer.offeringId,
-            brandId,
-            archived: { $ne: true },
-          },
-          { session },
-        ));
+      (await db.collection("offerings").findOne(
+        {
+          workspaceId: w,
+          id: offer.offeringId,
+          brandId,
+          archived: { $ne: true },
+        },
+        { session },
+      ));
     const design =
       offer &&
-      (await db
-        .collection("offer_designs")
-        .findOne(
-          {
-            workspaceId: w,
-            id: offer.offerDesignId,
-            offeringId: offer.offeringId,
-            archived: { $ne: true },
-          },
-          { session },
-        ));
+      (await db.collection("offer_designs").findOne(
+        {
+          workspaceId: w,
+          id: offer.offerDesignId,
+          offeringId: offer.offeringId,
+          archived: { $ne: true },
+        },
+        { session },
+      ));
     if (!offer || !product || !design)
       throw new HiveConflict(
         "This offer is no longer available in the selected brand.",
@@ -241,11 +248,21 @@ async function context(
     currentOfferReview = {
       informationStatus:
         "Current working draft and human review decisions, not approved facts",
-      selectedProduct: {id:product.id, revision:product.revision, status:product.status, definition:product.definition, informationStatus:"Recorded product context. Use approved snapshots above for approved facts; current entries may be suggestions."},
+      selectedProduct: {
+        id: product.id,
+        revision: product.revision,
+        status: product.status,
+        definition: product.definition,
+        informationStatus:
+          "Recorded product context. Use approved snapshots above for approved facts; current entries may be suggestions.",
+      },
       offerId: offer.id,
       definition: offer.definition,
       offerUpdatedAt: offer.updatedAt,
-      methodology: getOfferMethodology(design.methodologyId, design.methodologyVersion),
+      methodology: getOfferMethodology(
+        design.methodologyId,
+        design.methodologyVersion,
+      ),
       designId: design.id,
       work: design.work,
       designUpdatedAt: design.updatedAt,
@@ -253,26 +270,105 @@ async function context(
     };
   }
   let campaigns: unknown[] = [];
-  let campaignContextStatus = "Unavailable with current permissions; do not infer absence.";
+  let campaignContextStatus =
+    "Unavailable with current permissions; do not infer absence.";
   try {
     const access = await resolveHvmContext(db, config, identity, session);
-    access.authority.scopeFilter(access.context, "read", {type:"campaigns",workspaceId:w});
-    const rows = await db.collection("events").find({workspaceId:w,eventType:"campaign_setup"}, {session})
-      .sort({"payload.version":-1,createdAt:-1}).limit(200).toArray();
+    access.authority.scopeFilter(access.context, "read", {
+      type: "campaigns",
+      workspaceId: w,
+    });
+    const rows = await db
+      .collection("events")
+      .find({ workspaceId: w, eventType: "campaign_setup" }, { session })
+      .sort({ "payload.version": -1, createdAt: -1 })
+      .limit(200)
+      .toArray();
     const seen = new Set<string>();
-    campaigns = rows.filter(row => {
-      if (seen.has(row.campaignId)) return false;
-      seen.add(row.campaignId);
-      return row.payload.setup?.brandId === brandId && !["deleted","archived"].includes(row.payload.status);
-    }).slice(0,20).map(row => ({id:row.campaignId,version:row.payload.version,status:row.payload.status,name:row.payload.setup.name,objective:row.payload.setup.objective,goal:row.payload.setup.goal,products:row.payload.setup.products,offers:row.payload.setup.offers,audiences:row.payload.setup.audiences}));
-    const journeyRows = await db.collection("events").find({workspaceId:w,eventType:"campaign_journey"},{session}).sort({"payload.version":-1}).limit(200).toArray();
-    campaigns = campaigns.map(value=>{const c=value as {id:string;version:number};const j=journeyRows.find(row=>row.campaignId===c.id);return {...c,preparation:j?{version:j.payload.version,status:j.payload.campaignVersion===c.version?j.payload.status:"review_required",recipientCount:j.payload.recipientCount ?? j.payload.recipients?.length ?? 0,launchRequiresCurrentReview:true}:null};});
-    campaignContextStatus = "Saved campaign plans, including drafts. Drafts are not approved or executing. Bounded recent context; do not infer that omitted plans do not exist.";
+    campaigns = rows
+      .filter((row) => {
+        if (seen.has(row.campaignId)) return false;
+        seen.add(row.campaignId);
+        return (
+          row.payload.setup?.brandId === brandId &&
+          !["deleted", "archived"].includes(row.payload.status)
+        );
+      })
+      .slice(0, 20)
+      .map((row) => ({
+        id: row.campaignId,
+        version: row.payload.version,
+        status: row.payload.status,
+        name: row.payload.setup.name,
+        objective: row.payload.setup.objective,
+        goal: row.payload.setup.goal,
+        products: row.payload.setup.products,
+        offers: row.payload.setup.offers,
+        audiences: row.payload.setup.audiences,
+      }));
+    const journeyRows = await db
+      .collection("events")
+      .find({ workspaceId: w, eventType: "campaign_journey" }, { session })
+      .sort({ "payload.version": -1 })
+      .limit(200)
+      .toArray();
+    campaigns = campaigns.map((value) => {
+      const c = value as { id: string; version: number };
+      const j = journeyRows.find((row) => row.campaignId === c.id);
+      return {
+        ...c,
+        preparation: j
+          ? {
+              version: j.payload.version,
+              status:
+                j.payload.campaignVersion === c.version
+                  ? j.payload.status
+                  : "review_required",
+              recipientCount:
+                j.payload.recipientCount ?? j.payload.recipients?.length ?? 0,
+              launchRequiresCurrentReview: true,
+            }
+          : null,
+      };
+    });
+    campaignContextStatus =
+      "Saved campaign plans, including drafts. Drafts are not approved or executing. Bounded recent context; do not infer that omitted plans do not exist.";
   } catch (error) {
     if (!(error instanceof AuthorizationDenied)) throw error;
   }
-  const websiteTracking = (await db.collection("events").find({workspaceId:w,eventType:"website_tracking_site","payload.brandId":brandId},{session}).limit(20).toArray()).map(r=>({origin:r.payload.origin,enabled:r.payload.enabled,verified:!!r.payload.verifiedAt,testOnly:r.payload.testOnly,revoked:r.payload.revoked,lastReceivedAt:r.payload.lastReceivedAt}));
-  const value = { ...approved, company, policies, content, currentOfferReview, campaigns, campaignContextStatus, websiteTracking, websiteTrackingGuidance:"Manage website tracking in Integrations. Browser activity requires consent; forwarded links only identify intended recipients. Tracking is never sending authority or proof of conversion." };
+  const websiteTracking = (
+    await db
+      .collection("events")
+      .find(
+        {
+          workspaceId: w,
+          eventType: "website_tracking_site",
+          "payload.brandId": brandId,
+        },
+        { session },
+      )
+      .limit(20)
+      .toArray()
+  ).map((r) => ({
+    origin: r.payload.origin,
+    enabled: r.payload.enabled,
+    verified: !!r.payload.verifiedAt,
+    testOnly: r.payload.testOnly,
+    revoked: r.payload.revoked,
+    lastReceivedAt: r.payload.lastReceivedAt,
+  }));
+  const value = {
+    ...approved,
+    company,
+    policies,
+    content,
+    currentOfferReview,
+    campaigns,
+    campaignContextStatus,
+    websiteTracking,
+    websiteTrackingGuidance:
+      "Manage website tracking in Integrations. Browser activity requires consent; forwarded links only identify intended recipients. Tracking is never sending authority or proof of conversion.",
+  };
   return { ...value, hash: fingerprint(value) };
 }
 export function createWorkspaceHenry(

@@ -156,7 +156,10 @@ export function createCommunications(
   }
   async function policies(db: Db, w: string, s?: ClientSession) {
     const current = await readApprovedContactStrategies(db, w, s);
-    if (current.missingApproval.length) throw new HiveConflict("Contact strategy approval evidence is missing. Review the affected strategies.");
+    if (current.missingApproval.length)
+      throw new HiveConflict(
+        "Contact strategy approval evidence is missing. Review the affected strategies.",
+      );
     return current.approved;
   }
   async function validate(
@@ -339,7 +342,14 @@ export function createCommunications(
         "This contact or organisation has another engagement under management.",
       );
     if (d.campaignId) {
-      await assertCampaignLaunch(db, w, d.campaignId, d.contactId, p.contactPointId, s);
+      await assertCampaignLaunch(
+        db,
+        w,
+        d.campaignId,
+        d.contactId,
+        p.contactPointId,
+        s,
+      );
       const c = await db
         .collection("events")
         .find(
@@ -645,7 +655,14 @@ export function createCommunications(
             );
         }
         const id = generatePlatformId("event");
-        const tracking = await prepareTracking(db, w, draft, id, input.testOnly, s);
+        const tracking = await prepareTracking(
+          db,
+          w,
+          draft,
+          id,
+          input.testOnly,
+          s,
+        );
         const presentation = await templates.resolve(
           db,
           u,
@@ -653,7 +670,13 @@ export function createCommunications(
           draft,
           input.templateId,
           s,
-          tracking?.url || campaignTrackedUrl(draft.ctaUrl, draft.campaignId, draft.id, input.testOnly),
+          tracking?.url ||
+            campaignTrackedUrl(
+              draft.ctaUrl,
+              draft.campaignId,
+              draft.id,
+              input.testOnly,
+            ),
         );
         const briefSource = await db.collection("events").findOne(
           {
@@ -694,7 +717,11 @@ export function createCommunications(
             template: presentation.template,
             rendered: {
               ...presentation.rendered,
-              notice: presentation.rendered.notice + (tracking ? " Personalised CTA tracking is enabled for this delivery; website activity requires consent. A click does not prove recipient identity." : " CTA tracking is off for this delivery."),
+              notice:
+                presentation.rendered.notice +
+                (tracking
+                  ? " Personalised CTA tracking is enabled for this delivery; website activity requires consent. A click does not prove recipient identity."
+                  : " CTA tracking is off for this delivery."),
               subject:
                 (input.testOnly ? "[HVM TEST] " : "") +
                 presentation.rendered.subject,

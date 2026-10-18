@@ -96,7 +96,8 @@ export type Outcome = z.infer<typeof outcome>;
 export function guidance(e: Outcome) {
   if (e.testOnly)
     return "Test evidence only; excluded from campaign metrics and NBA feedback.";
-  if (e.kind === "interaction_enquiry") return "Human-reviewed association of a website enquiry. Visitor statements are not verified qualification or permission for marketing. Review suppression and existing engagements before acting.";
+  if (e.kind === "interaction_enquiry")
+    return "Human-reviewed association of a website enquiry. Visitor statements are not verified qualification or permission for marketing. Review suppression and existing engagements before acting.";
   if (e.website)
     return e.website.identity === "anonymous"
       ? "Anonymous browser activity; no contact identity established."
@@ -205,7 +206,7 @@ export function summarise(events: Outcome[]) {
       "website_view",
       "website_engaged",
       "website_event",
-  "interaction_enquiry",
+      "interaction_enquiry",
     ].map((kind) => ({
       kind,
       label: (

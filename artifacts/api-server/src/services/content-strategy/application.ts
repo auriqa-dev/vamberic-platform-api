@@ -45,12 +45,23 @@ export function normaliseBriefRecommendation(
   brief: { actionId: string; dependencies: string[] },
   supplied: Pick<ContentRecord, "id" | "kind" | "status">[],
 ) {
-  if (brief.actionId && !supplied.some((r) =>
-    r.id === brief.actionId && r.kind === "action" && r.status !== "removed")) {
+  if (
+    brief.actionId &&
+    !supplied.some(
+      (r) =>
+        r.id === brief.actionId &&
+        r.kind === "action" &&
+        r.status !== "removed",
+    )
+  ) {
     brief.actionId = "";
-    if (brief.dependencies.length < 40) brief.dependencies = [...new Set([...brief.dependencies,
-      "No saved recommendation was linked. Select a recommendation if this brief should fulfil an existing action.",
-    ])];
+    if (brief.dependencies.length < 40)
+      brief.dependencies = [
+        ...new Set([
+          ...brief.dependencies,
+          "No saved recommendation was linked. Select a recommendation if this brief should fulfil an existing action.",
+        ]),
+      ];
   }
 }
 export function currentRecords(events: Document[]): ContentRecord[] {
@@ -328,20 +339,58 @@ export function createContentStrategy(
           previous?.status === "removed"
         )
           throw new HiveConflict("This record changed. Reload before saving.");
-        if (previous?.data.sourceType === "email_content" || (input.data && typeof input.data === "object" && "sourceType" in input.data && input.data.sourceType === "email_content")) throw new HiveConflict("View, edit, approve or remove this recipient-specific draft in Email Content Creation. Library registration does not grant reuse or sending authority.");
-        if (previous?.data.sourceType === "offer_output" && !["remove", "associate"].includes(input.operation)) throw new HiveConflict("Edit and approve the source offer in Offer Architecture. This Library output is a versioned internal reference.");
+        if (
+          previous?.data.sourceType === "email_content" ||
+          (input.data &&
+            typeof input.data === "object" &&
+            "sourceType" in input.data &&
+            input.data.sourceType === "email_content")
+        )
+          throw new HiveConflict(
+            "View, edit, approve or remove this recipient-specific draft in Email Content Creation. Library registration does not grant reuse or sending authority.",
+          );
+        if (
+          previous?.data.sourceType === "offer_output" &&
+          !["remove", "associate"].includes(input.operation)
+        )
+          throw new HiveConflict(
+            "Edit and approve the source offer in Offer Architecture. This Library output is a versioned internal reference.",
+          );
         if (!previous && input.operation !== "save")
           throw new HiveConflict("Save this record first.");
-        if (input.operation === "save" && input.data && typeof input.data === "object" && (("offerOutput" in input.data && input.data.offerOutput != null) || ("sourceType" in input.data && input.data.sourceType === "offer_output"))) throw new HiveConflict("Offer outputs are registered through Offer Architecture.");
-        if (input.operation === "associate" && (input.kind !== "asset" || !previous))
+        if (
+          input.operation === "save" &&
+          input.data &&
+          typeof input.data === "object" &&
+          (("offerOutput" in input.data && input.data.offerOutput != null) ||
+            ("sourceType" in input.data &&
+              input.data.sourceType === "offer_output"))
+        )
+          throw new HiveConflict(
+            "Offer outputs are registered through Offer Architecture.",
+          );
+        if (
+          input.operation === "associate" &&
+          (input.kind !== "asset" || !previous)
+        )
           throw new HiveConflict("Select an existing Library asset.");
-        const associationChange = input.operation === "associate"
-          ? z.object({ associations: assetData.shape.associations }).strict().parse(input.data)
-          : undefined;
+        const associationChange =
+          input.operation === "associate"
+            ? z
+                .object({ associations: assetData.shape.associations })
+                .strict()
+                .parse(input.data)
+            : undefined;
         const data = parseData(
           input.kind,
-          associationChange ? { ...previous!.data, associations: associationChange.associations }
-            : input.operation === "save" ? input.data : previous!.data,
+          associationChange
+            ? {
+                ...previous!.data,
+                associations: associationChange.associations,
+              }
+            : input.operation === "save"
+              ? input.data
+              : previous!.data,
         );
         if (
           !previous &&
@@ -947,11 +996,13 @@ export function createContentStrategy(
           version: (previous?.version ?? 0) + 1,
           kind: input.kind,
           status:
-            input.operation === "associate" ? previous!.status : input.operation === "approve"
-              ? "approved"
-              : input.operation === "remove"
-                ? "removed"
-                : "draft",
+            input.operation === "associate"
+              ? previous!.status
+              : input.operation === "approve"
+                ? "approved"
+                : input.operation === "remove"
+                  ? "removed"
+                  : "draft",
           data,
           updatedAt: now.toISOString(),
           fingerprint: fingerprint(data),
@@ -1069,17 +1120,28 @@ export function createContentStrategy(
           });
         if (input.task === "write") {
           const briefs = selected.filter((r) => r.kind === "brief");
-          if (briefs.length !== 1 || briefs[0]!.status !== "approved" || briefs[0]!.data.briefType !== "content")
+          if (
+            briefs.length !== 1 ||
+            briefs[0]!.status !== "approved" ||
+            briefs[0]!.data.briefType !== "content"
+          )
             throw new HiveConflict("Choose one approved content brief.");
           const brief = briefs[0]!;
           if (JSON.stringify(brief.data.scope) !== JSON.stringify(input.scope))
-            throw new HiveConflict("Use the approved brief's product, offer and audience scope.");
+            throw new HiveConflict(
+              "Use the approved brief's product, offer and audience scope.",
+            );
           if (recordBrand(brief, all) !== input.scope.brandId)
             throw new HiveConflict("The brief belongs to another brand.");
           for (const id of (brief.data.sourceAssetIds ?? []) as string[]) {
-            const asset = all.find((r) => r.id === id && r.kind === "asset" && r.status !== "removed");
+            const asset = all.find(
+              (r) =>
+                r.id === id && r.kind === "asset" && r.status !== "removed",
+            );
             if (!asset || recordBrand(asset, all) !== input.scope.brandId)
-              throw new HiveConflict("A brief source is unavailable for this brand.");
+              throw new HiveConflict(
+                "A brief source is unavailable for this brand.",
+              );
             if (!selected.some((r) => r.id === id)) selected.push(asset);
           }
         }
@@ -1337,8 +1399,15 @@ export function createContentStrategy(
               "That record changed or is unavailable. Ask Henry again with the current records.",
             );
           const result = henry?.strategy ?? henry?.brief ?? response;
-          if ((input.task === "brief" || henry?.brief) && "actionId" in result && "dependencies" in result)
-            normaliseBriefRecommendation(result, input.task === "henry" ? reserved.availableRecords : selected);
+          if (
+            (input.task === "brief" || henry?.brief) &&
+            "actionId" in result &&
+            "dependencies" in result
+          )
+            normaliseBriefRecommendation(
+              result,
+              input.task === "henry" ? reserved.availableRecords : selected,
+            );
           if (
             (input.task === "strategy" || input.task === "henry") &&
             "recommendations" in result

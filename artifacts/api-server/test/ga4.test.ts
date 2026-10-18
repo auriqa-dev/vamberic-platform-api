@@ -3,7 +3,11 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { lushaFixture, config } from "./helpers/lusha";
 import { createGa4Application } from "../src/services/ga4/application";
-import { googleAnalytics, GA4_SCOPE, Ga4Error } from "../src/services/ga4/google";
+import {
+  googleAnalytics,
+  GA4_SCOPE,
+  Ga4Error,
+} from "../src/services/ga4/google";
 import type { Ga4Secrets } from "../src/services/ga4/secrets";
 import { EventInsertSchema } from "../src/domain";
 async function fixture() {
@@ -41,7 +45,9 @@ async function fixture() {
   });
   let fail = false;
   const provider: ReturnType<typeof googleAnalytics> = {
-    report: async () => { throw new Error("Not used by connection tests"); },
+    report: async () => {
+      throw new Error("Not used by connection tests");
+    },
     authorise: (s) => `https://accounts.google.com/?state=${s}`,
     exchange: async () => token(),
     refresh: async () => token(),

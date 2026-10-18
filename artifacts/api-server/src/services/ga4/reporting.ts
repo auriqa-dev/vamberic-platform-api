@@ -110,15 +110,20 @@ export function parseReport(raw: unknown, dimensions: string[]) {
         .optional(),
     })
     .parse(raw);
-  const headerlessEmpty = r.metricHeaders.length === 0 &&
-    r.dimensionHeaders.length === 0 && r.rows.length === 0 && r.rowCount === 0 &&
-    r.kind === "analyticsData#runReport" && Boolean(r.metadata?.timeZone);
-  if (!headerlessEmpty && (
-    JSON.stringify(r.dimensionHeaders.map((h) => h.name)) !==
+  const headerlessEmpty =
+    r.metricHeaders.length === 0 &&
+    r.dimensionHeaders.length === 0 &&
+    r.rows.length === 0 &&
+    r.rowCount === 0 &&
+    r.kind === "analyticsData#runReport" &&
+    Boolean(r.metadata?.timeZone);
+  if (
+    !headerlessEmpty &&
+    (JSON.stringify(r.dimensionHeaders.map((h) => h.name)) !==
       JSON.stringify(dimensions) ||
-    JSON.stringify(r.metricHeaders.map((h) => h.name)) !==
-      JSON.stringify(metricNames)
-  ))
+      JSON.stringify(r.metricHeaders.map((h) => h.name)) !==
+        JSON.stringify(metricNames))
+  )
     throw new Error("Unexpected Analytics report columns");
   const rows = r.rows.map((row) => {
     if (
@@ -139,7 +144,10 @@ export function parseReport(raw: unknown, dimensions: string[]) {
     };
   });
   const warnings: string[] = [];
-  if (headerlessEmpty) warnings.push("Google returned no report rows for this selection; missing data is not zero.");
+  if (headerlessEmpty)
+    warnings.push(
+      "Google returned no report rows for this selection; missing data is not zero.",
+    );
   if (r.metadata?.subjectToThresholding)
     warnings.push(
       "Google applied privacy thresholding; some data may be withheld.",

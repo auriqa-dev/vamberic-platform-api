@@ -22,7 +22,8 @@ export function composeAgentDeployment(
   mongo: MongoService,
   env: NodeJS.ProcessEnv = process.env,
 ) {
-  if (env.NBA_FOUNDATION_RELEASE && !env.PSU_PRODUCTION_RELEASE) throw new Error("NBA requires the reviewed shared worker release");
+  if (env.NBA_FOUNDATION_RELEASE && !env.PSU_PRODUCTION_RELEASE)
+    throw new Error("NBA requires the reviewed shared worker release");
   if (
     env.PSU_TERMINAL_QUALIFICATION !== undefined &&
     env.PSU_PRODUCTION_RELEASE === undefined
@@ -92,15 +93,23 @@ export function composeAgentDeployment(
     describeTasks: (input) => ecs.send(new DescribeTasksCommand(input)),
     describeServices: (input) => ecs.send(new DescribeServicesCommand(input)),
   });
-  let nbaEnabled=false;
+  let nbaEnabled = false;
   if (env.NBA_FOUNDATION_RELEASE) {
-    const nba=CapacityReleaseSchema.parse(JSON.parse(env.NBA_FOUNDATION_RELEASE));
-    if (nba.manifestDigest !== NBA_FOUNDATION_MANIFEST.manifestDigest || nba.buildDigest !== NBA_FOUNDATION_MANIFEST.buildDigest ||
-      nba.environment !== release.environment || nba.workloadClientId !== release.workloadClientId ||
-      nba.serviceArn !== release.serviceArn || nba.taskDefinitionArn !== release.taskDefinitionArn ||
-      nba.imageDigest !== release.imageDigest || nba.policyDigest !== NBA_FOUNDATION_MANIFEST.manifestDigest)
+    const nba = CapacityReleaseSchema.parse(
+      JSON.parse(env.NBA_FOUNDATION_RELEASE),
+    );
+    if (
+      nba.manifestDigest !== NBA_FOUNDATION_MANIFEST.manifestDigest ||
+      nba.buildDigest !== NBA_FOUNDATION_MANIFEST.buildDigest ||
+      nba.environment !== release.environment ||
+      nba.workloadClientId !== release.workloadClientId ||
+      nba.serviceArn !== release.serviceArn ||
+      nba.taskDefinitionArn !== release.taskDefinitionArn ||
+      nba.imageDigest !== release.imageDigest ||
+      nba.policyDigest !== NBA_FOUNDATION_MANIFEST.manifestDigest
+    )
       throw new Error("NBA release does not match the reviewed shared worker");
-    nbaEnabled=true;
+    nbaEnabled = true;
   }
   const subsystem = composePsuProduction(
     config,

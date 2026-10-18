@@ -9,7 +9,7 @@
     "start": "node --enable-source-maps ./dist/index.mjs",
     "db:setup": "tsx src/commands/db-setup.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "DEPLOYMENT_ENV=test node --import tsx --test test/*.test.ts",
+    "test": "node ../../scripts/deploy/prepare-integration.mjs && DEPLOYMENT_ENV=test node --import tsx --test test/*.test.ts",
     "lint": "eslint src test",
     "format:check": "prettier --check \"src/**/*.ts\" \"test/**/*.ts\"",
     "db:migrate-products": "tsx src/commands/migrate-products.ts",
@@ -48,6 +48,7 @@
     "eslint-config-prettier": "^10.1.8",
     "pino-pretty": "^13.1.3",
     "prettier": "^3.9.6",
+    "react-router-dom": "7.18.4",
     "thread-stream": "3.1.0",
     "tsx": "catalog:",
     "typescript-eslint": "^8.70.0"

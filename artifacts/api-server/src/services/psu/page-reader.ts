@@ -273,10 +273,7 @@ export function createWebsiteReader(
           }
           const bytes = Buffer.byteLength(response.text, "utf8");
           totalBytes += bytes;
-          if (
-            bytes > limits.textBytes ||
-            totalBytes > limits.totalTextBytes
-          )
+          if (bytes > limits.textBytes || totalBytes > limits.totalTextBytes)
             throw new Error("Website text limit");
           if (
             now() - pageStarted >= limits.pageMs ||

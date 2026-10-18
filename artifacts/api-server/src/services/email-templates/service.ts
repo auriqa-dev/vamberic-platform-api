@@ -16,7 +16,13 @@ import { readCurrentBrandKit } from "../brand-kits";
 import { lockIcpWorkspace } from "../icp/access";
 import { HiveConflict } from "../hive-definitions";
 import { emailRecord, type EmailRecord } from "../email-content/model";
-import { templateSettings, personal, branded, renderTemplate, type TemplateSettings } from "./render";
+import {
+  templateSettings,
+  personal,
+  branded,
+  renderTemplate,
+  type TemplateSettings,
+} from "./render";
 const kind = "email_template";
 const change = z
   .object({
@@ -76,16 +82,14 @@ export function createEmailTemplates(config: AppConfig, mongo: MongoService) {
         s,
       );
       await lockIcpWorkspace(db, w, s);
-      const replay = await db
-        .collection("events")
-        .findOne(
-          {
-            workspaceId: w,
-            eventType: "email_template_history",
-            "payload.requestKey": i.requestKey,
-          },
-          { session: s },
-        );
+      const replay = await db.collection("events").findOne(
+        {
+          workspaceId: w,
+          eventType: "email_template_history",
+          "payload.requestKey": i.requestKey,
+        },
+        { session: s },
+      );
       if (replay) {
         if (replay.payload.requestHash !== fingerprint(i))
           throw new HiveConflict(
@@ -235,11 +239,13 @@ export function createEmailTemplates(config: AppConfig, mongo: MongoService) {
       (!row || row.payload.status !== "approved")
     )
       throw new HiveConflict("Choose an approved template.");
-    const settings = previewSettings ?? (row
-      ? templateSettings.parse(row.payload.settings)
-      : id === "branded"
-        ? branded
-        : personal);
+    const settings =
+      previewSettings ??
+      (row
+        ? templateSettings.parse(row.payload.settings)
+        : id === "branded"
+          ? branded
+          : personal);
     const current = await kit(db, u, w, d.brandId);
     const template = {
       id: row?.id || (id === "branded" ? "branded" : "personal"),
@@ -298,15 +304,44 @@ export function createEmailTemplates(config: AppConfig, mongo: MongoService) {
     return { template, rendered };
   }
   async function sample(u: AuthenticatedUser, w: string, raw: unknown) {
-    const i = z.object({ brandId: platformIdSchema("brand"), settings: templateSettings }).strict().parse(raw);
+    const i = z
+      .object({
+        brandId: platformIdSchema("brand"),
+        settings: templateSettings,
+      })
+      .strict()
+      .parse(raw);
     const db = await mongo.database();
     await contentAccess(db, config, u, w, "read");
-    if (!await db.collection("brands").findOne({id:i.brandId,workspaceId:w,archived:{$ne:true}}))
+    if (
+      !(await db
+        .collection("brands")
+        .findOne({ id: i.brandId, workspaceId: w, archived: { $ne: true } }))
+    )
       throw new HiveConflict("Choose a brand in this workspace.");
     // Preview-only text is never persisted as a draft or made eligible for sending.
-    const draft = {brandId:i.brandId,content:{subject:"Sample email — design preview",body:"Hello Alex,\n\nThis sample shows your email layout, spacing and approved brand presentation. Your personalised message will appear here.\n\nWould you like to find out more?",ctaText:""},ctaUrl:""} as EmailRecord;
-    const result = await resolve(db,u,w,draft,"personal",undefined,undefined,i.settings);
-    result.rendered.notice = "Sample content only. Unsaved design preview; no email or contact has been created. " + result.rendered.notice;
+    const draft = {
+      brandId: i.brandId,
+      content: {
+        subject: "Sample email — design preview",
+        body: "Hello Alex,\n\nThis sample shows your email layout, spacing and approved brand presentation. Your personalised message will appear here.\n\nWould you like to find out more?",
+        ctaText: "",
+      },
+      ctaUrl: "",
+    } as EmailRecord;
+    const result = await resolve(
+      db,
+      u,
+      w,
+      draft,
+      "personal",
+      undefined,
+      undefined,
+      i.settings,
+    );
+    result.rendered.notice =
+      "Sample content only. Unsaved design preview; no email or contact has been created. " +
+      result.rendered.notice;
     return result;
   }
   async function preview(u: AuthenticatedUser, w: string, raw: unknown) {

@@ -63,7 +63,9 @@ export function createAgentCapacity(
       if (
         !ledger ||
         !(
-          options?.version === 23 ? [23, 24, 25, 26, 27, 28, 29, 30] : [options?.version ?? 22]
+          options?.version === 23
+            ? [23, 24, 25, 26, 27, 28, 29, 30]
+            : [options?.version ?? 22]
         ).includes(ledger?.version ?? 0) ||
         (ledger.schemaVersion !== undefined &&
           ledger.schemaVersion !== ledger.version)
@@ -117,9 +119,11 @@ export function createAgentCapacity(
       .findOne({ _id: "vapp-v1" } as never, { session });
     if (
       !ledger ||
-      !(options?.version === 23 ? [23, 24, 25, 26, 27, 28, 29, 30] : [options?.version ?? 22]).includes(
-        ledger?.version ?? 0,
-      ) ||
+      !(
+        options?.version === 23
+          ? [23, 24, 25, 26, 27, 28, 29, 30]
+          : [options?.version ?? 22]
+      ).includes(ledger?.version ?? 0) ||
       (ledger.schemaVersion !== undefined &&
         ledger.schemaVersion !== ledger.version)
     )

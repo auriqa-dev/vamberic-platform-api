@@ -59,7 +59,8 @@ async function requireSchema(db: Db, session?: ClientSession) {
   if (
     ![
       6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24,
-      25, 26, 27, 28, 29, 30].includes(ledger?.version)
+      25, 26, 27, 28, 29, 30,
+    ].includes(ledger?.version)
   )
     throw new Error("Hive requires reviewed/applied schema v6, v7, v8 or v9");
 }
@@ -122,14 +123,12 @@ export async function readHiveDefinitions(
     if (kind !== "ideal_customer_profiles") return record;
     const link = "offer" in record ? record.offer : undefined;
     const current = link
-      ? await db
-          .collection("offers")
-          .findOne({
-            workspaceId,
-            id: link.id,
-            offeringId: row.offeringId,
-            archived: false,
-          })
+      ? await db.collection("offers").findOne({
+          workspaceId,
+          id: link.id,
+          offeringId: row.offeringId,
+          archived: false,
+        })
       : null;
     return {
       ...record,
@@ -331,17 +330,15 @@ export async function mutateHiveDefinition(
         row.offer = body.offer;
     } else if (operation === "approve") {
       if (kind === "ideal_customer_profiles" && row.offer) {
-        const offer = await db
-          .collection("offers")
-          .findOne(
-            {
-              workspaceId,
-              id: row.offer.id,
-              offeringId: row.offeringId,
-              archived: false,
-            },
-            options,
-          );
+        const offer = await db.collection("offers").findOne(
+          {
+            workspaceId,
+            id: row.offer.id,
+            offeringId: row.offeringId,
+            archived: false,
+          },
+          options,
+        );
         if (offer?.approvedRevision !== row.offer.revision)
           throw new HiveConflict(
             "The approved offer changed; review and link its current revision before approving",
@@ -559,17 +556,15 @@ async function references(
       .findOne({ id: row.offeringId, workspaceId, archived: false }, options);
     if (!offering) throw new AuthorizationDenied();
     if (kind === "ideal_customer_profiles" && row.offer) {
-      const offer = await db
-        .collection("offers")
-        .findOne(
-          {
-            workspaceId,
-            id: row.offer.id,
-            offeringId: row.offeringId,
-            archived: false,
-          },
-          options,
-        );
+      const offer = await db.collection("offers").findOne(
+        {
+          workspaceId,
+          id: row.offer.id,
+          offeringId: row.offeringId,
+          archived: false,
+        },
+        options,
+      );
       const revision = await db
         .collection("offer_revisions")
         .findOne(

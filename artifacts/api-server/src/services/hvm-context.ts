@@ -54,7 +54,9 @@ export async function resolveHvmContext(
     .findOne({ _id: "vapp-v1" } as Document, { session });
   if (
     ![
-      5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30].includes(ledger?.version)
+      5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24,
+      25, 26, 27, 28, 29, 30,
+    ].includes(ledger?.version)
   )
     throw new Error(
       "HVM requires reviewed/applied schema v5, v6, v7, v8, v9 or v10",

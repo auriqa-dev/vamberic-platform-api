@@ -205,8 +205,18 @@ test("v28 dry run and repeated apply are additive and preserve existing records"
 });
 
 test("discovery normalises bare hosts without rewriting explicit schemes", async () => {
-  const {normaliseDiscoveryUrl}=await import("../src/services/content-strategy/library");
-  assert.equal(normaliseDiscoveryUrl(" www.example.com "),"https://www.example.com");
-  assert.equal(normaliseDiscoveryUrl("https://example.com/guide"),"https://example.com/guide");
-  assert.equal(normaliseDiscoveryUrl("file:///etc/passwd"),"file:///etc/passwd");
+  const { normaliseDiscoveryUrl } =
+    await import("../src/services/content-strategy/library");
+  assert.equal(
+    normaliseDiscoveryUrl(" www.example.com "),
+    "https://www.example.com",
+  );
+  assert.equal(
+    normaliseDiscoveryUrl("https://example.com/guide"),
+    "https://example.com/guide",
+  );
+  assert.equal(
+    normaliseDiscoveryUrl("file:///etc/passwd"),
+    "file:///etc/passwd",
+  );
 });

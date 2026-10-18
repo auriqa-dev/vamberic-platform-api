@@ -80,9 +80,10 @@ async function access(
     .collection("schema_versions")
     .findOne({ _id: "vapp-v1" } as Document, { session });
   if (
-    ![9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30].includes(
-      ledger?.version,
-    )
+    ![
+      9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27,
+      28, 29, 30,
+    ].includes(ledger?.version)
   )
     throw new Error("Operating foundation requires schema v9 or v10");
   const empress = resolved.authority.authorize(resolved.context, "manage", {
@@ -600,10 +601,18 @@ export async function mutateOperating(
   // Retired Agent setup/commercial contracts remain readable for history.
   // Cleanup of definitions still uses the transactional dependency checks below.
   if (
-    ["swarm_templates", "commercial_policies", "client_agents", "client_swarms",
-      "pricing_recommendations", "swarm_agreements"].includes(r) ||
-    (r === "agent_definitions" && !["create", "publish", "retire", "delete"].includes(operation))
-  ) throw new AuthorizationDenied();
+    [
+      "swarm_templates",
+      "commercial_policies",
+      "client_agents",
+      "client_swarms",
+      "pricing_recommendations",
+      "swarm_agreements",
+    ].includes(r) ||
+    (r === "agent_definitions" &&
+      !["create", "publish", "retire", "delete"].includes(operation))
+  )
+    throw new AuthorizationDenied();
   if (operation === "delete" && r !== "agent_definitions")
     throw new AuthorizationDenied();
   const exceptional = operation === "empress-approve";
@@ -658,9 +667,10 @@ export async function mutateOperating(
         .collection("schema_versions")
         .findOne({ _id: "vapp-v1" } as Document, { session });
       if (
-        ![11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30].includes(
-          ledger?.version ?? 0,
-        )
+        ![
+          11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27,
+          28, 29, 30,
+        ].includes(ledger?.version ?? 0)
       )
         throw new Error("Effectiveness metadata requires schema v11");
     }
@@ -669,9 +679,10 @@ export async function mutateOperating(
         .collection("schema_versions")
         .findOne({ _id: "vapp-v1" } as Document, { session });
       if (
-        ![10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30].includes(
-          ledger?.version ?? 0,
-        )
+        ![
+          10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26,
+          27, 28, 29, 30,
+        ].includes(ledger?.version ?? 0)
       )
         throw new Error(
           "Execution implementation metadata requires schema v10",
@@ -724,11 +735,22 @@ export async function mutateOperating(
     if (operation !== "create" && !prev) throw new AuthorizationDenied();
     // Only the reviewed native NBA and client website Interaction definitions can be registered. Retired generic
     // Agent setup/commercial authoring and PSU registration remain unavailable.
-    if (r === "agent_definitions" && ["create","publish"].includes(operation)) {
-      const candidate=prev ?? body;
-      const reviewed=candidate.key === "website_interaction" ? interactionRegistration(a.actor,now) : nbaRegistration(a.actor,now);
-      if (!a.empress || candidate.key!==reviewed.key || candidate.version!==reviewed.version ||
-          candidate.availability!==reviewed.availability || !isDeepStrictEqual(candidate.data,reviewed.data))
+    if (
+      r === "agent_definitions" &&
+      ["create", "publish"].includes(operation)
+    ) {
+      const candidate = prev ?? body;
+      const reviewed =
+        candidate.key === "website_interaction"
+          ? interactionRegistration(a.actor, now)
+          : nbaRegistration(a.actor, now);
+      if (
+        !a.empress ||
+        candidate.key !== reviewed.key ||
+        candidate.version !== reviewed.version ||
+        candidate.availability !== reviewed.availability ||
+        !isDeepStrictEqual(candidate.data, reviewed.data)
+      )
         throw new AuthorizationDenied();
     }
 
@@ -876,7 +898,11 @@ export async function mutateOperating(
       const billingLedger = await db
         .collection("schema_versions")
         .findOne({ _id: "vapp-v1" } as Document, { session });
-      if ([19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30].includes(billingLedger?.version ?? 0)) {
+      if (
+        [19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30].includes(
+          billingLedger?.version ?? 0,
+        )
+      ) {
         const billingLock = await db
           .collection("crm_workspaces")
           .updateOne(
@@ -911,7 +937,8 @@ export async function mutateOperating(
       if (!platform(r) || row.status !== "draft")
         throw new OperatingConflict("Only global drafts publish");
       row.status = "active";
-      if (r === "methodology_availability") await persistMethodologyDefinition(db, session, row, a.actor);
+      if (r === "methodology_availability")
+        await persistMethodologyDefinition(db, session, row, a.actor);
     }
     if (operation === "configure") {
       if (!["client_agents", "client_swarms"].includes(r))

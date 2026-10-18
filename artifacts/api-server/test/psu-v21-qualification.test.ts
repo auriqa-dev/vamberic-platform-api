@@ -62,41 +62,31 @@ test("v21 workspace PSU discovery needs no Client Agent and still rejects unavai
     ),
   );
   f.db.rows("hvm_partner_memberships")[0]!.status = "ended";
-  assert.equal(
-    (
-      await psuAppOptions(
-        f.config,
-        f.db.mongo,
-        f.queen,
-        f.workspaceId,
-        capabilities,
-      )
-    ).items.length,
-    0,
+  f.db.rows("workspace_memberships").forEach((m) => {
+    m.status = "ended";
+  });
+  await assert.rejects(
+    psuAppOptions(f.config, f.db.mongo, f.queen, f.workspaceId, capabilities),
   );
 });
-test("v21 Empress may register exact PSU metadata without workspace membership or activation", async () => {
+test("v21 Empress cannot reinstate retired PSU Agent registration", async () => {
   const f = await workspaceAgentFixture(true, PRODUCT_CLARIFICATION_MANIFEST);
   f.db.rows("schema_versions")[0]!.version = 21;
   const definition = f.db.rows("agent_definitions")[0]!;
   const actor = { ...f.queen, subject: "empress-only" },
     config = { ...f.config, empressSubjects: [actor.subject] };
   f.db.rows("agent_definitions").splice(0);
-  const created = await mutateOperating(
-    f.db.mongo,
-    config,
-    actor,
-    "agent_definitions",
-    "create",
-    {
+  const before = structuredClone(f.db.records);
+  await assert.rejects(
+    mutateOperating(f.db.mongo, config, actor, "agent_definitions", "create", {
       key: definition.key,
       version: 1,
       availability: "queens",
       data: definition.data,
-    },
+    }),
   );
-  assert.ok(created);
-  assert.equal(f.db.rows("agent_definitions")[0]!.status, "draft");
+  assert.deepEqual(f.db.records, before);
+  assert.equal(f.db.rows("agent_definitions").length, 0);
   assert.equal(f.db.rows("client_agents").length, 0);
   assert.equal(f.db.rows("agent_runs").length, 0);
   assert.equal(
@@ -106,9 +96,9 @@ test("v21 Empress may register exact PSU metadata without workspace membership o
     false,
   );
 });
-test("unknown schema24 remains unavailable for Agent control plane and PSU discovery", async () => {
+test("unknown schema31 remains unavailable for Agent control plane and PSU discovery", async () => {
   const f = await workspaceAgentFixture(true, PRODUCT_CLARIFICATION_MANIFEST);
-  f.db.rows("schema_versions")[0]!.version = 24;
+  f.db.rows("schema_versions")[0]!.version = 31;
   await assert.rejects(requireAgentControlPlane(await f.db.mongo.database()));
   await assert.rejects(
     psuAppOptions(f.config, f.db.mongo, f.queen, f.workspaceId),

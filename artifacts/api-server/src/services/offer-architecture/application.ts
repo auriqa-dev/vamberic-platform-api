@@ -1,4 +1,4 @@
-import {reviewedResearchContext} from "../research/evidence-context";
+import { reviewedResearchContext } from "../research/evidence-context";
 import { contentAccess } from "../content-strategy/application";
 import { offerOutput, outputAsset, registerOfferOutput } from "./output";
 import { createHash } from "node:crypto";
@@ -315,12 +315,18 @@ export function createOfferArchitecture(
       targetIcpIds: offer.definition.targetIcpIds,
       targetBuyerProfileIds: offer.definition.targetBuyerProfileIds,
     }).catch(() => null);
-    const libraryOutput = (await outputAsset(db,w,id))?.payload.record;
+    const libraryOutput = (await outputAsset(db, w, id))?.payload.record;
     return {
       offer,
       design,
       reviewHistory: await readReviewHistory(db, w, id),
-      output: {...offerOutput(offer, design as Document | null), assetId:libraryOutput?.status !== "removed" ? libraryOutput?.id ?? null : null},
+      output: {
+        ...offerOutput(offer, design as Document | null),
+        assetId:
+          libraryOutput?.status !== "removed"
+            ? (libraryOutput?.id ?? null)
+            : null,
+      },
       sourceChanged:
         !!generation &&
         (!current ||
@@ -462,7 +468,10 @@ export function createOfferArchitecture(
       const sequenceLedger = await db
         .collection("schema_versions")
         .findOne({ _id: "vapp-v1" } as Document);
-      if ([27, 28, 29, 30].includes(sequenceLedger?.version ?? 0) && !input.briefId)
+      if (
+        [27, 28, 29, 30].includes(sequenceLedger?.version ?? 0) &&
+        !input.briefId
+      )
         throw new OfferConflict("Confirm the offer brief before generation");
       let confirmedBrief: Document | undefined;
       let existingOffer: Document | undefined;
@@ -822,7 +831,16 @@ export function createOfferArchitecture(
               {
                 approvedBrandBrief: generationBrandBrief(brand),
                 context: {
-                  sharedResearch:await reviewedResearchContext(db,w,String(product.brandId??""),[input.offeringId,...(existingOffer?[existingOffer.id]:[]),...input.targetIcpIds]),
+                  sharedResearch: await reviewedResearchContext(
+                    db,
+                    w,
+                    String(product.brandId ?? ""),
+                    [
+                      input.offeringId,
+                      ...(existingOffer ? [existingOffer.id] : []),
+                      ...input.targetIcpIds,
+                    ],
+                  ),
                   sources: source.snapshots,
                   confirmedBrief,
                   existingOffer: existingOffer?.definition,
@@ -1170,7 +1188,15 @@ export function createOfferArchitecture(
                 id: prepared.row.id,
                 "payload.status": "generating",
               },
-              { $set: { "payload.status": "failed", ...(error instanceof OfferIncompleteError && error.usage ? {"payload.usage":error.usage} : {}), updatedAt: new Date() } },
+              {
+                $set: {
+                  "payload.status": "failed",
+                  ...(error instanceof OfferIncompleteError && error.usage
+                    ? { "payload.usage": error.usage }
+                    : {}),
+                  updatedAt: new Date(),
+                },
+              },
             );
           }
         })().catch(() => {
@@ -1179,18 +1205,53 @@ export function createOfferArchitecture(
       return read(identity, w, prepared.row.id);
     },
     async registerOutput(identity: AuthenticatedUser, w: string, raw: unknown) {
-      const input=z.object({id:platformIdSchema("offer"),expectedUpdatedAt:z.string().datetime(),expectedDesignUpdatedAt:z.string().datetime()}).strict().parse(raw);
+      const input = z
+        .object({
+          id: platformIdSchema("offer"),
+          expectedUpdatedAt: z.string().datetime(),
+          expectedDesignUpdatedAt: z.string().datetime(),
+        })
+        .strict()
+        .parse(raw);
       if (!mongo.withTransaction) throw new Error("Transactions required");
-      await mongo.withTransaction(async(db,session)=>{
-        const actor=await offerAuthority(db,config,identity,w,"offers","update",session);
-        await contentAccess(db,config,identity,w,"update",session);
-        const now=await lockIcpWorkspace(db,w,session);
-        const offer=await db.collection("offers").findOne({workspaceId:w,id:input.id,archived:false},{session});
-        const design=offer && await db.collection("offer_designs").findOne({workspaceId:w,id:offer.offerDesignId,archived:false},{session});
-        if(!offer || !design || offer.updatedAt.toISOString()!==input.expectedUpdatedAt || design.updatedAt.toISOString()!==input.expectedDesignUpdatedAt) throw new OfferConflict("Offer changed; reload before registering its output");
-        await registerOfferOutput(db,session,w,offer,design,actor,now);
+      await mongo.withTransaction(async (db, session) => {
+        const actor = await offerAuthority(
+          db,
+          config,
+          identity,
+          w,
+          "offers",
+          "update",
+          session,
+        );
+        await contentAccess(db, config, identity, w, "update", session);
+        const now = await lockIcpWorkspace(db, w, session);
+        const offer = await db
+          .collection("offers")
+          .findOne(
+            { workspaceId: w, id: input.id, archived: false },
+            { session },
+          );
+        const design =
+          offer &&
+          (await db
+            .collection("offer_designs")
+            .findOne(
+              { workspaceId: w, id: offer.offerDesignId, archived: false },
+              { session },
+            ));
+        if (
+          !offer ||
+          !design ||
+          offer.updatedAt.toISOString() !== input.expectedUpdatedAt ||
+          design.updatedAt.toISOString() !== input.expectedDesignUpdatedAt
+        )
+          throw new OfferConflict(
+            "Offer changed; reload before registering its output",
+          );
+        await registerOfferOutput(db, session, w, offer, design, actor, now);
       });
-      return bundle(identity,w,input.id);
+      return bundle(identity, w, input.id);
     },
     async save(identity: AuthenticatedUser, w: string, raw: unknown) {
       const input = saveSchema.parse(raw);
@@ -1256,9 +1317,20 @@ export function createOfferArchitecture(
             definition: input.definition,
           },
         );
-        await registerOfferOutput(db,session,w,
-          (await db.collection("offers").findOne({workspaceId:w,id:input.id},{session}))!,
-          (await db.collection("offer_designs").findOne({workspaceId:w,id:input.designId},{session}))!,actor,new Date(),true);
+        await registerOfferOutput(
+          db,
+          session,
+          w,
+          (await db
+            .collection("offers")
+            .findOne({ workspaceId: w, id: input.id }, { session }))!,
+          (await db
+            .collection("offer_designs")
+            .findOne({ workspaceId: w, id: input.designId }, { session }))!,
+          actor,
+          new Date(),
+          true,
+        );
         if (priorDesign)
           await recordReviewChanges(
             db,
@@ -1390,9 +1462,20 @@ export function createOfferArchitecture(
           input.action,
           { id: offer.id, expectedUpdatedAt: input.expectedUpdatedAt },
         );
-        await registerOfferOutput(db,session,w,
-          (await db.collection("offers").findOne({workspaceId:w,id:offer.id},{session}))!,
-          (await db.collection("offer_designs").findOne({workspaceId:w,id:design.id},{session}))!,actor,new Date(),input.action !== "approve");
+        await registerOfferOutput(
+          db,
+          session,
+          w,
+          (await db
+            .collection("offers")
+            .findOne({ workspaceId: w, id: offer.id }, { session }))!,
+          (await db
+            .collection("offer_designs")
+            .findOne({ workspaceId: w, id: design.id }, { session }))!,
+          actor,
+          new Date(),
+          input.action !== "approve",
+        );
       });
       return bundle(identity, w, input.id);
     },

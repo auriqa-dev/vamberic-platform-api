@@ -34,7 +34,13 @@ export function createCommunicationsRouter(
     ),
   );
   router.post(root + "/templates/sample", async (req, res) =>
-    res.json(await templates.sample(req.auth!, String(req.params.workspaceId), req.body)),
+    res.json(
+      await templates.sample(
+        req.auth!,
+        String(req.params.workspaceId),
+        req.body,
+      ),
+    ),
   );
   router.post(root + "/preview", async (req, res) =>
     res.json(

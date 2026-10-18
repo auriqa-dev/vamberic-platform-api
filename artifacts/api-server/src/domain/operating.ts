@@ -171,7 +171,6 @@ export const AgentDefinitionDataV10 = AgentDefinitionDataV9.extend({
     .optional(),
 });
 export const AgentDefinitionData = AgentDefinitionDataV10.extend({
-
   effectiveness: z.array(EffectivenessDefinitionSchema).max(6).optional(),
 });
 export const IntegrationProviderData = z

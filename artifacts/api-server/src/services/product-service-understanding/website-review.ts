@@ -108,16 +108,14 @@ export async function verifyWebsiteReview(
     provenance = AnswerProvenanceSchema.parse(event.payload.answerProvenance);
   const attempt = AgentAttemptSchema.parse(
     withoutMongoId(
-      (await db
-        .collection("agent_attempts")
-        .findOne(
-          {
-            id: envelope.attemptId,
-            runId: run.id,
-            workspaceId: run.workspaceId,
-          },
-          { session },
-        )) ?? {},
+      (await db.collection("agent_attempts").findOne(
+        {
+          id: envelope.attemptId,
+          runId: run.id,
+          workspaceId: run.workspaceId,
+        },
+        { session },
+      )) ?? {},
     ),
   );
   if (

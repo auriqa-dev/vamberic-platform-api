@@ -13,9 +13,9 @@ import { parseFrozenWork } from "../../src/domain/agent-control-plane";
 import {
   captureMakerRequest,
   CALIBRATION_ID,
-} from "../../../../../vamberic-agent-runtime/scripts/psu/general-maker-calibration.ts";
-import { GeneralMakerDto } from "../../../../../vamberic-agent-runtime/src/agents/product-service-understanding/general-composition.ts";
-import { structuredOutput } from "../../../../../vamberic-agent-runtime/src/models/openai/schema.ts";
+} from "../../../../.integration/vamberic-agent-runtime/dist/scripts/psu/general-maker-calibration.js";
+import { GeneralMakerDto } from "../../../../.integration/vamberic-agent-runtime/dist/src/agents/product-service-understanding/general-composition.js";
+import { structuredOutput } from "../../../../.integration/vamberic-agent-runtime/dist/src/models/openai/schema.js";
 
 export async function prepareOfflineMakerCalibration() {
   const f = await workspaceAgentFixture(true);

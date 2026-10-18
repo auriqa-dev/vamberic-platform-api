@@ -122,10 +122,36 @@ test("direct client administrator matches Queen owner across every workspace res
   const client = fixture("client");
   const queen = fixture("partner");
   for (const type of RESOURCES) {
-    for (const action of ["read", "create", "update", "delete", "delete-preview", "approve", "manage"] as const) {
-      assert.equal(client.authority.authorize(client.context, action, { type, workspaceId }), queen.authority.authorize(queen.context, action, { type, workspaceId }), `${type}:${action}`);
-      assert.equal(client.authority.authorize(client.context, action, { type, workspaceId: otherWorkspaceId }), false, `foreign ${type}:${action}`);
-      assert.equal(client.authority.authorize(client.context, action, { type }), false, `global ${type}:${action}`);
+    for (const action of [
+      "read",
+      "create",
+      "update",
+      "delete",
+      "delete-preview",
+      "approve",
+      "manage",
+    ] as const) {
+      assert.equal(
+        client.authority.authorize(client.context, action, {
+          type,
+          workspaceId,
+        }),
+        queen.authority.authorize(queen.context, action, { type, workspaceId }),
+        `${type}:${action}`,
+      );
+      assert.equal(
+        client.authority.authorize(client.context, action, {
+          type,
+          workspaceId: otherWorkspaceId,
+        }),
+        false,
+        `foreign ${type}:${action}`,
+      );
+      assert.equal(
+        client.authority.authorize(client.context, action, { type }),
+        false,
+        `global ${type}:${action}`,
+      );
     }
   }
 });
@@ -140,7 +166,9 @@ for (const scenario of [
 ] as const) {
   test(`operating scope/action matrix: ${scenario.name}`, () => {
     const empress = "empress" in scenario && scenario.empress;
-    const queen = "basis" in scenario && (scenario.basis === "partner" || scenario.role === "admin");
+    const queen =
+      "basis" in scenario &&
+      (scenario.basis === "partner" || scenario.role === "admin");
     const authority = createAuthorizationAuthority({
       humanClients: [{ issuer, clientId, application: "hvmapp" }],
       empressHumans: empress ? [{ issuer, id: actor.id }] : [],

@@ -135,12 +135,30 @@ test("canonical www redirects read the destination robots policy and private red
   assert.equal(result.pages[0]?.url, "https://www.example.com/");
   assert.equal(reads.length, 2);
 });
-test("large-site excerpts preserve more core-page material than generic articles without exceeding the context bound",async()=>{
- const {sourceExcerpts}=await import("../src/services/psu/source-excerpts");
- const {pageTextDigest}=await import("../src/services/psu/page-reader");
- const pages=Array.from({length:100},(_,i)=>{const text=("Detailed company facts "+i+" ").repeat(1000);return {url:'https://example.com/'+(i===0?'pricing':`insights/${i}`),title:'Page',text,digest:pageTextDigest(text),retrievedAt:new Date().toISOString()};});
- const sources=sourceExcerpts(pages,96000);
- const size=(i:number)=>sources.filter(s=>s.pageDigest===pages[i]!.digest).reduce((n,s)=>n+s.quote.length,0);
- assert.ok(size(0)>size(1)*7);assert.ok(sources.reduce((n,s)=>n+s.quote.length,0)<=96000);
- assert.ok(sources.every(s=>pages.find(p=>p.digest===s.pageDigest)!.text.includes(s.quote)));
+test("large-site excerpts preserve more core-page material than generic articles without exceeding the context bound", async () => {
+  const { sourceExcerpts } =
+    await import("../src/services/psu/source-excerpts");
+  const { pageTextDigest } = await import("../src/services/psu/page-reader");
+  const pages = Array.from({ length: 100 }, (_, i) => {
+    const text = ("Detailed company facts " + i + " ").repeat(1000);
+    return {
+      url: "https://example.com/" + (i === 0 ? "pricing" : `insights/${i}`),
+      title: "Page",
+      text,
+      digest: pageTextDigest(text),
+      retrievedAt: new Date().toISOString(),
+    };
+  });
+  const sources = sourceExcerpts(pages, 96000);
+  const size = (i: number) =>
+    sources
+      .filter((s) => s.pageDigest === pages[i]!.digest)
+      .reduce((n, s) => n + s.quote.length, 0);
+  assert.ok(size(0) > size(1) * 7);
+  assert.ok(sources.reduce((n, s) => n + s.quote.length, 0) <= 96000);
+  assert.ok(
+    sources.every((s) =>
+      pages.find((p) => p.digest === s.pageDigest)!.text.includes(s.quote),
+    ),
+  );
 });

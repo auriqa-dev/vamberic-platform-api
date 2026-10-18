@@ -172,6 +172,13 @@ test("Mongo null optional values remain readable without weakening required fiel
 });
 
 test("every measurement metric has a readable label, including website enquiries", () => {
-  for (const metric of summarise([])) assert.ok(typeof metric.label === "string" && metric.label.length > 0, metric.kind);
-  assert.equal(summarise([]).find(m=>m.kind==="interaction_enquiry")?.label,"Website enquiries");
+  for (const metric of summarise([]))
+    assert.ok(
+      typeof metric.label === "string" && metric.label.length > 0,
+      metric.kind,
+    );
+  assert.equal(
+    summarise([]).find((m) => m.kind === "interaction_enquiry")?.label,
+    "Website enquiries",
+  );
 });

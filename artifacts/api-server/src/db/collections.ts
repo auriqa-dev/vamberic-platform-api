@@ -1,5 +1,3 @@
-import { WEBSITE_TRACKING_INDEXES } from "../services/website-tracking/indexes";
-import { HIVE_IMPORT_INDEXES } from "./hive-import-indexes";
 import { CANONICAL_SUPPORT_INDEX } from "./canonical-support-v18";
 import { ACTION_LIBRARY_COLLECTIONS } from "./action-library-v17";
 import type { z } from "zod";
@@ -659,9 +657,6 @@ export const V14_SETUP_COLLECTIONS: readonly CollectionDefinition[] = [
   {
     name: "organisations",
     indexes: [
-      ...HIVE_IMPORT_INDEXES.filter(
-        (i) => i.collection === "organisations",
-      ).map((i) => i.index),
       appId(),
       { key: { domain: 1 }, name: "domain" },
       ...[...PUBLIC_ENQUIRY_INDEXES, ...WORKSPACE_ENQUIRY_INDEXES]
@@ -785,9 +780,6 @@ export const V14_SETUP_COLLECTIONS: readonly CollectionDefinition[] = [
   {
     name: "imports",
     indexes: [
-      ...HIVE_IMPORT_INDEXES.filter((i) => i.collection === "imports").map(
-        (i) => i.index,
-      ),
       appId(),
       { key: { provider: 1, importedAt: -1 }, name: "provider_imported_at" },
       { key: { campaignId: 1 }, name: "campaign" },
@@ -798,10 +790,6 @@ export const V14_SETUP_COLLECTIONS: readonly CollectionDefinition[] = [
   {
     name: "events",
     indexes: [
-      ...WEBSITE_TRACKING_INDEXES,
-      ...HIVE_IMPORT_INDEXES.filter((i) => i.collection === "events").map(
-        (i) => i.index,
-      ),
       V14_EVENT_IDENTITY_INDEX,
       appId(),
       { key: { occurredAt: -1 }, name: "occurred_at" },

@@ -70,7 +70,7 @@ test("installation refuses credential-bearing or insecure destinations", () => {
   }
 });
 test("private, foreign and unapproved content cannot enter chat", () => {
-  const r: any = {
+  const r = {
     id: "a",
     kind: "asset",
     status: "approved",
@@ -406,27 +406,23 @@ test("reviewed enquiries preserve an existing contact's restrictions and produce
   f.installation.payload.testOnly = false;
   const person = generatePlatformId("person"),
     address = generatePlatformId("contact");
-  f.db
-    .rows("people")
-    .push({
-      id: person,
-      workspaceId: f.w,
-      archived: false,
-      displayName: "Existing name",
-      suppressed: true,
-    });
-  f.db
-    .rows("contact_points")
-    .push({
-      id: address,
-      workspaceId: f.w,
-      personId: person,
-      type: "email",
-      value: "visitor@example.org",
-      normalizedValue: "visitor@example.org",
-      archived: false,
-      suppressed: true,
-    });
+  f.db.rows("people").push({
+    id: person,
+    workspaceId: f.w,
+    archived: false,
+    displayName: "Existing name",
+    suppressed: true,
+  });
+  f.db.rows("contact_points").push({
+    id: address,
+    workspaceId: f.w,
+    personId: person,
+    type: "email",
+    value: "visitor@example.org",
+    normalizedValue: "visitor@example.org",
+    archived: false,
+    suppressed: true,
+  });
   const priorPerson = structuredClone(f.db.rows("people")[0]);
   const session = await f.app.start(f.installation.id, "https://example.org");
   const input = {
@@ -660,8 +656,13 @@ test("public HTTP boundary enforces feature gate, origin and session secret", as
   const { publicInteractionRouter } = await import("../src/routes/interaction");
   const f = await liveShape();
   const previous = process.env.HVM_INTERACTION_ENABLED;
-  const server = express().use("/interaction", publicInteractionRouter(config, f.db.mongo)).listen(0, "127.0.0.1");
-  await new Promise<void>((resolve, reject) => { server.once("listening", resolve); server.once("error", reject); });
+  const server = express()
+    .use("/interaction", publicInteractionRouter(config, f.db.mongo))
+    .listen(0, "127.0.0.1");
+  await new Promise<void>((resolve, reject) => {
+    server.once("listening", resolve);
+    server.once("error", reject);
+  });
   const address = server.address();
   assert.ok(address && typeof address === "object");
   const url = `http://127.0.0.1:${address.port}/interaction/${f.installation.id}`;
@@ -670,26 +671,75 @@ test("public HTTP boundary enforces feature gate, origin and session secret", as
     assert.equal((await fetch(url)).status, 503);
     process.env.HVM_INTERACTION_ENABLED = "true";
     assert.equal((await fetch(url)).status, 403);
-    assert.equal((await fetch(url, {headers:{Origin:"https://foreign.example"}})).status, 403);
-    const headers = {Origin:"https://example.org", "Content-Type":"application/json"};
-    const response = await fetch(url + "/sessions", {method:"POST",headers,body:"{}"});
+    assert.equal(
+      (await fetch(url, { headers: { Origin: "https://foreign.example" } }))
+        .status,
+      403,
+    );
+    const headers = {
+      Origin: "https://example.org",
+      "Content-Type": "application/json",
+    };
+    const response = await fetch(url + "/sessions", {
+      method: "POST",
+      headers,
+      body: "{}",
+    });
     assert.equal(response.status, 200);
-    assert.equal(response.headers.get("access-control-allow-origin"), "https://example.org");
-    const result = await response.json() as {sessionId:string;token:string};
+    assert.equal(
+      response.headers.get("access-control-allow-origin"),
+      "https://example.org",
+    );
+    const result = (await response.json()) as {
+      sessionId: string;
+      token: string;
+    };
     assert.ok(result.sessionId && result.token);
-    assert.equal((await fetch(url + `/sessions/${result.sessionId}/messages`, {method:"POST",headers,body:"{}"})).status, 400);
+    assert.equal(
+      (
+        await fetch(url + `/sessions/${result.sessionId}/messages`, {
+          method: "POST",
+          headers,
+          body: "{}",
+        })
+      ).status,
+      400,
+    );
   } finally {
-    if (previous === undefined) delete process.env.HVM_INTERACTION_ENABLED; else process.env.HVM_INTERACTION_ENABLED = previous;
-    await new Promise<void>((resolve,reject)=>server.close(error=>error?reject(error):resolve()));
+    if (previous === undefined) delete process.env.HVM_INTERACTION_ENABLED;
+    else process.env.HVM_INTERACTION_ENABLED = previous;
+    await new Promise<void>((resolve, reject) =>
+      server.close((error) => (error ? reject(error) : resolve())),
+    );
   }
 });
 
-
 test("a reviewed new visitor creates a schema-valid named contact", async () => {
- const f = await liveShape(); const session = await f.app.start(f.installation.id,"https://example.org");
- const result = await f.app.enquire(f.installation.id,"https://example.org",session.sessionId,session.token,{requestKey:randomUUID(),name:"Taylor Example",email:"new@example.org",organisation:"",message:"Please help",privacyAcknowledged:true});
- await f.app.mutate(f.identity,f.w,{id:result.id,expectedVersion:1,operation:"associate"});
- const {PersonSchema,ContactPointSchema}=await import("../src/domain");
- assert.equal(PersonSchema.parse(f.db.rows("people")[0]).firstName,"Taylor");
- assert.equal(ContactPointSchema.parse(f.db.rows("contact_points")[0]).normalizedValue,"new@example.org");
+  const f = await liveShape();
+  const session = await f.app.start(f.installation.id, "https://example.org");
+  const result = await f.app.enquire(
+    f.installation.id,
+    "https://example.org",
+    session.sessionId,
+    session.token,
+    {
+      requestKey: randomUUID(),
+      name: "Taylor Example",
+      email: "new@example.org",
+      organisation: "",
+      message: "Please help",
+      privacyAcknowledged: true,
+    },
+  );
+  await f.app.mutate(f.identity, f.w, {
+    id: result.id,
+    expectedVersion: 1,
+    operation: "associate",
+  });
+  const { PersonSchema, ContactPointSchema } = await import("../src/domain");
+  assert.equal(PersonSchema.parse(f.db.rows("people")[0]).firstName, "Taylor");
+  assert.equal(
+    ContactPointSchema.parse(f.db.rows("contact_points")[0]).normalizedValue,
+    "new@example.org",
+  );
 });

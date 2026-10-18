@@ -93,20 +93,64 @@ const control = (r: { id: string; updatedAt: string }) => ({
 
 test("retired setup rejects all writes and preserves authorized historical reads", async (t) => {
   const f = await fixture(t);
-  for (const resource of ["agent_definitions", "swarm_templates", "commercial_policies", "client_agents", "client_swarms", "pricing_recommendations", "swarm_agreements"] as const) {
-    const global = ["agent_definitions", "swarm_templates", "commercial_policies"].includes(resource);
-    const root = (global ? "/api/v1/hvm/empress" : f.root + "/operating") + "/" + resource.replaceAll("_", "-");
-    const row = { ...structuredClone(fields[resource]), ...(global ? {} : { workspaceId: f.input.workspaceId }) };
+  for (const resource of [
+    "agent_definitions",
+    "swarm_templates",
+    "commercial_policies",
+    "client_agents",
+    "client_swarms",
+    "pricing_recommendations",
+    "swarm_agreements",
+  ] as const) {
+    const global = [
+      "agent_definitions",
+      "swarm_templates",
+      "commercial_policies",
+    ].includes(resource);
+    const root =
+      (global ? "/api/v1/hvm/empress" : f.root + "/operating") +
+      "/" +
+      resource.replaceAll("_", "-");
+    const row = {
+      ...structuredClone(fields[resource]),
+      ...(global ? {} : { workspaceId: f.input.workspaceId }),
+    };
     f.db.rows(resource).push(row);
     const before = JSON.stringify(f.db.rows(resource));
-    for (const op of ["create", "update", "publish", "configure", "approve", "empress-approve", "supersede", ...(resource === "agent_definitions" ? [] : ["retire"])]) {
-      assert.equal((await f.request(root + "/" + op, {})).status, 404, resource + ":" + op);
+    for (const op of [
+      "create",
+      "update",
+      "publish",
+      "configure",
+      "approve",
+      "empress-approve",
+      "supersede",
+      ...(resource === "agent_definitions" ? [] : ["retire"]),
+    ]) {
+      assert.equal(
+        (await f.request(root + "/" + op, {})).status,
+        resource === "agent_definitions" && ["create", "publish"].includes(op)
+          ? 400
+          : 404,
+        resource + ":" + op,
+      );
     }
     assert.equal(JSON.stringify(f.db.rows(resource)), before);
     assert.equal((await f.request(root + "/" + row.id)).status, 200);
-    assert.equal((await f.request(root + "/" + row.id, undefined, f.vapp)).status, 404);
+    assert.equal(
+      (await f.request(root + "/" + row.id, undefined, f.vapp)).status,
+      404,
+    );
   }
-  assert.equal((await f.request("/api/v1/hvm/empress/agreement-approvals/anything/approve", {})).status, 400);
+  assert.equal(
+    (
+      await f.request(
+        "/api/v1/hvm/empress/agreement-approvals/anything/approve",
+        {},
+      )
+    ).status,
+    400,
+  );
 });
 
 for (const [name, adjustment, expected] of [
@@ -291,16 +335,16 @@ test("readiness resolves compatible provider alternatives and rejects foreign, d
   assert.equal(evaluateSwarmReadiness(model).ready, true);
 });
 
-import { createOperatingGateway } from "../../../../hvm-app/src/data/operating/gateway";
+import { createOperatingGateway } from "../../../.integration/hvm-app/src/data/operating/gateway";
 import {
   AgentDefinitionData,
   IntegrationProviderData,
-} from "../../../../hvm-app/src/data/operating/models";
-import { resourceFields } from "../../../../hvm-app/src/components/operating/fields";
+} from "../../../.integration/hvm-app/src/data/operating/models";
+import { resourceFields } from "../../../.integration/hvm-app/src/components/operating/fields";
 import {
   toForm,
   toPayload,
-} from "../../../../hvm-app/src/components/operating/form-fields";
+} from "../../../.integration/hvm-app/src/components/operating/form-fields";
 test("Empress cannot register PSU; legacy PSU remains available for guarded archive", async (t) => {
   const f = await fixture(t);
   f.db.rows("schema_versions")[0]!.version = 23;
@@ -433,13 +477,11 @@ test("Empress deletes only unused drafts and retains audit history", async (t) =
     (await f.request(root + "/delete", control(draft), f.vapp)).status,
     404,
   );
-  f.db
-    .rows("client_agents")
-    .push({
-      id: "dependency",
-      data: { definition: { id: draft.id } },
-      archived: true,
-    });
+  f.db.rows("client_agents").push({
+    id: "dependency",
+    data: { definition: { id: draft.id } },
+    archived: true,
+  });
   const blocked = await f.request(`${root}/${draft.id}/removal-review/delete`);
   assert.equal(blocked.body.allowed, false);
   assert.match(blocked.body.blockers.join(" "), /Client configurations/);
@@ -461,7 +503,10 @@ test("Empress deletes only unused drafts and retains audit history", async (t) =
 test("Published definitions archive with history; execution results block removal", async (t) => {
   const f = await fixture(t);
   const root = "/api/v1/hvm/empress/agent-definitions";
-  const active = { ...structuredClone(fields.agent_definitions), status: "active" };
+  const active = {
+    ...structuredClone(fields.agent_definitions),
+    status: "active",
+  };
   f.db.rows("agent_definitions").push(active);
   assert.equal(
     (await f.request(root + "/delete", control(active))).status,
@@ -486,23 +531,43 @@ test("Published definitions archive with history; execution results block remova
   assert.equal((await f.request(`${root}/${active.id}`)).status, 200);
 });
 
-test("Empress registers, persists and versions the new methodology without changing Value Equation", async t => {
+test("Empress registers, persists and versions the new methodology without changing Value Equation", async (t) => {
   const f = await fixture(t);
   const path = "/api/v1/hvm/empress/offer-methodology-catalogue";
   const catalogue = await f.request(path);
-  assert.equal(catalogue.status,200);
+  assert.equal(catalogue.status, 200);
   const id = "offermethodology_00000000000000000000000002";
-  const registered = await f.request(path+"/register",{id,version:1});
-  assert.equal(registered.status,200,JSON.stringify(registered.body));
-  const again = await f.request(path+"/register",{id,version:1});
-  assert.equal(again.status,200);
-  assert.equal(f.db.rows("methodology_availability").filter(r=>r.key==="value_proposition_development").length,1);
+  const registered = await f.request(path + "/register", { id, version: 1 });
+  assert.equal(registered.status, 200, JSON.stringify(registered.body));
+  const again = await f.request(path + "/register", { id, version: 1 });
+  assert.equal(again.status, 200);
+  assert.equal(
+    f.db
+      .rows("methodology_availability")
+      .filter((r) => r.key === "value_proposition_development").length,
+    1,
+  );
   const persisted = await f.request(path);
-  assert.equal(persisted.body.items.find((m:any)=>m.id===id).persisted,true);
-  assert.equal(f.db.rows("events").filter(e=>e.eventType==="offer_methodology_definition").length,1);
-  const methods = await f.request(f.root+"/offer-design-methodologies");
-  assert.equal(methods.status,200);
-  assert.ok(methods.body.items.some((m:any)=>m.id===id && m.stages.length===8));
-  const unknown = await f.request(path+"/register",{id,version:2});
-  assert.equal(unknown.status,409);
+  assert.equal(
+    persisted.body.items.find(
+      (m: { id: string; persisted: boolean }) => m.id === id,
+    ).persisted,
+    true,
+  );
+  assert.equal(
+    f.db
+      .rows("events")
+      .filter((e) => e.eventType === "offer_methodology_definition").length,
+    1,
+  );
+  const methods = await f.request(f.root + "/offer-design-methodologies");
+  assert.equal(methods.status, 200);
+  assert.ok(
+    methods.body.items.some(
+      (m: { id: string; stages: unknown[] }) =>
+        m.id === id && m.stages.length === 8,
+    ),
+  );
+  const unknown = await f.request(path + "/register", { id, version: 2 });
+  assert.equal(unknown.status, 409);
 });

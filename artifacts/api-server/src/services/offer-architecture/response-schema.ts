@@ -5,7 +5,11 @@ import type { Document } from "mongodb";
  */
 export function offerResponseSchema(shape: Document): Document {
   if (shape.anyOf) return { anyOf: shape.anyOf.map(offerResponseSchema) };
-  if (shape.enum) return { type: shape.enum[0] === null ? "null" : typeof shape.enum[0], enum: shape.enum };
+  if (shape.enum)
+    return {
+      type: shape.enum[0] === null ? "null" : typeof shape.enum[0],
+      enum: shape.enum,
+    };
   if (shape.bsonType === "null") return { type: "null" };
   if (shape.bsonType === "object") {
     const required = new Set(shape.required ?? []);

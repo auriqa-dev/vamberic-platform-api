@@ -20,7 +20,8 @@ export const CompanyProfileSchema = z.strictObject({
       } catch {
         return false;
       }
-    }).optional(),
+    })
+    .optional(),
   description: text(10000),
   valueProposition: text(10000).optional(),
   businessModel: z.enum(["B2B", "B2C", "D2C", "Mixed", "Unknown"]).optional(),

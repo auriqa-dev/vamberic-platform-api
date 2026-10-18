@@ -208,18 +208,21 @@ export const BrandKitRecordSchema = humanBase
       })
       .strict()
       .optional(),
-    chatPersonality: z.object({
-      displayName: text(100).optional(),
-      avatarAssetId: text(100).optional(),
-      role: text(1000).optional(),
-      greeting: text(1000).optional(),
-      manner: text(2000).optional(),
-      responseGuidance: text(1000).optional(),
-      questionsGuidance: text(1000).optional(),
-      uncertaintyWording: text(1000).optional(),
-      handoffWording: text(1000).optional(),
-      openingQuestions: z.array(text(300)).max(6).optional(),
-    }).strict().optional(),
+    chatPersonality: z
+      .object({
+        displayName: text(100).optional(),
+        avatarAssetId: text(100).optional(),
+        role: text(1000).optional(),
+        greeting: text(1000).optional(),
+        manner: text(2000).optional(),
+        responseGuidance: text(1000).optional(),
+        questionsGuidance: text(1000).optional(),
+        uncertaintyWording: text(1000).optional(),
+        handoffWording: text(1000).optional(),
+        openingQuestions: z.array(text(300)).max(6).optional(),
+      })
+      .strict()
+      .optional(),
     emailDefaults: z
       .object({
         fromDisplayName: text(200).optional(),

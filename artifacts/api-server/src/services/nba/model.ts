@@ -43,12 +43,27 @@ export const nbaDecision = z
       ])
       .nullable(),
     policyContextHash: text(100).optional(),
-    policyAssessments: z.array(z.object({
-      policyId: text(100).min(1), version: z.number().int().positive(),
-      action: z.enum(nbaActions), offerId: text(100).nullable(),
-      applies: z.boolean(), effect: z.enum(["permitted", "prohibited", "deferred", "escalated"]),
-      reason: text(2000).min(1), evidenceIds: z.array(text(100)).max(40),
-    }).strict()).optional(),
+    policyAssessments: z
+      .array(
+        z
+          .object({
+            policyId: text(100).min(1),
+            version: z.number().int().positive(),
+            action: z.enum(nbaActions),
+            offerId: text(100).nullable(),
+            applies: z.boolean(),
+            effect: z.enum([
+              "permitted",
+              "prohibited",
+              "deferred",
+              "escalated",
+            ]),
+            reason: text(2000).min(1),
+            evidenceIds: z.array(text(100)).max(40),
+          })
+          .strict(),
+      )
+      .optional(),
     instruction: text(4000),
   })
   .strict();
@@ -196,8 +211,16 @@ export type DecisionContext = {
   contactStrategies?: ContactStrategyPolicyV14[];
   data: unknown;
 };
-export function policyDecisionHash(decision: Pick<NbaDecision, "action" | "offerId" | "instruction">, context: DecisionContext) {
-  return nbaHash({ versions: context.versions, action: decision.action, offerId: decision.offerId, instruction: decision.instruction });
+export function policyDecisionHash(
+  decision: Pick<NbaDecision, "action" | "offerId" | "instruction">,
+  context: DecisionContext,
+) {
+  return nbaHash({
+    versions: context.versions,
+    action: decision.action,
+    offerId: decision.offerId,
+    instruction: decision.instruction,
+  });
 }
 /** Model text is a recommendation. Authority, identifiers and eligibility are server-owned. */
 export function guardDecision(
@@ -213,23 +236,43 @@ export function guardDecision(
     throw new Error("NBA referenced evidence outside its context");
   // Assessments are recommendations tied to this exact action and offer. They
   // never grant sending authority. Missing/unsupported evidence fails closed.
-  if (context.contactStrategies?.length && !["no_action", "human_review", "wait"].includes(decision.action)) {
+  if (
+    context.contactStrategies?.length &&
+    !["no_action", "human_review", "wait"].includes(decision.action)
+  ) {
     if (decision.policyContextHash !== policyDecisionHash(decision, context))
-      blockers.push("Contact strategy assessment is stale. Generate a fresh decision for the current action and evidence.");
-    const assessments = Object.fromEntries((decision.policyAssessments ?? []).filter(a =>
-      a.action === decision.action && a.offerId === decision.offerId &&
-      a.evidenceIds.length > 0 && a.evidenceIds.every(id => context.evidenceIds.includes(id)) &&
-      (decision.policyAssessments ?? []).filter(b => b.policyId === a.policyId).length === 1
-    ).map(a => [a.policyId, a]));
+      blockers.push(
+        "Contact strategy assessment is stale. Generate a fresh decision for the current action and evidence.",
+      );
+    const assessments = Object.fromEntries(
+      (decision.policyAssessments ?? [])
+        .filter(
+          (a) =>
+            a.action === decision.action &&
+            a.offerId === decision.offerId &&
+            a.evidenceIds.length > 0 &&
+            a.evidenceIds.every((id) => context.evidenceIds.includes(id)) &&
+            (decision.policyAssessments ?? []).filter(
+              (b) => b.policyId === a.policyId,
+            ).length === 1,
+        )
+        .map((a) => [a.policyId, a]),
+    );
     const result = evaluateContactStrategies(context.contactStrategies, {
-      workspaceId: context.workspaceId, evaluatedAt: now,
+      workspaceId: context.workspaceId,
+      evaluatedAt: now,
       // This gate assesses policy fit for internal recommendations only.
       // External execution retains separate legal/platform/delivery permission.
-      legal: "permitted", platform: "permitted", suppression: "clear", assessments,
+      legal: "permitted",
+      platform: "permitted",
+      suppression: "clear",
+      assessments,
     });
     for (const trace of result.trace)
       if (["prohibited", "deferred", "escalated"].includes(trace.effect))
-        blockers.push(`Contact strategy requires review (${trace.effect}): ${trace.reason}`);
+        blockers.push(
+          `Contact strategy requires review (${trace.effect}): ${trace.reason}`,
+        );
   }
   if (decision.dueAt && Date.parse(decision.dueAt) < now.getTime())
     blockers.push("The proposed time is in the past; review the timing.");
@@ -243,7 +286,10 @@ export function guardDecision(
     );
   if (
     context.suppressed &&
-    !(decision.action === "request_evidence" && context.internalResearchAllowed === true) &&
+    !(
+      decision.action === "request_evidence" &&
+      context.internalResearchAllowed === true
+    ) &&
     !["no_action", "human_review", "wait"].includes(decision.action)
   )
     blockers.push("Contact policy prevents this action.");
@@ -272,11 +318,18 @@ export function guardDecision(
     blockers.push(
       "The required execution capability is not connected. The recommendation has been retained.",
     );
-  if (!blockers.length && context.completedResearchUnchanged &&
-      ["request_evidence", "discover_organisations"].includes(decision.action)) {
-    return { decision, state: "review_required", blockers: [
-      "Research has already completed for this subject and the business context is unchanged. Review its findings or add new evidence before requesting more research.",
-    ] };
+  if (
+    !blockers.length &&
+    context.completedResearchUnchanged &&
+    ["request_evidence", "discover_organisations"].includes(decision.action)
+  ) {
+    return {
+      decision,
+      state: "review_required",
+      blockers: [
+        "Research has already completed for this subject and the business context is unchanged. Review its findings or add new evidence before requesting more research.",
+      ],
+    };
   }
   return {
     decision,

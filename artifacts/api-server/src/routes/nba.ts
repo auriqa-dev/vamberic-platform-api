@@ -7,7 +7,11 @@ import { createNbaService } from "../services/nba/service";
 import { contentGeneratorFromEnvironment } from "../services/content-strategy/generate";
 import { AuthorizationDenied } from "../authorization/policy";
 import { HiveConflict } from "../services/hive-definitions";
-export function createNbaRouter(config: AppConfig, mongo: MongoService, execution?: NbaExecution) {
+export function createNbaRouter(
+  config: AppConfig,
+  mongo: MongoService,
+  execution?: NbaExecution,
+) {
   const router = Router(),
     service = createNbaService(
       config,

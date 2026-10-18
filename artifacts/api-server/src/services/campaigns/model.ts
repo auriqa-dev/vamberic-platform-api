@@ -5,10 +5,21 @@ const ref = z
   .strict();
 export const campaignSetup = z
   .object({
-    operatingMode: z.enum(["opportunity_development", "engagement_management", "both"]).optional(),
+    operatingMode: z
+      .enum(["opportunity_development", "engagement_management", "both"])
+      .optional(),
     organisationPriorities: text(2000).optional(),
     researchRefresh: text(2000).optional(),
-    bookingUrl: z.union([z.literal(""), z.string().url().max(2048).refine(v => v.startsWith("https://"), "Use an HTTPS booking URL")]).optional(),
+    bookingUrl: z
+      .union([
+        z.literal(""),
+        z
+          .string()
+          .url()
+          .max(2048)
+          .refine((v) => v.startsWith("https://"), "Use an HTTPS booking URL"),
+      ])
+      .optional(),
     meetingPurpose: text(1000).optional(),
     handoverRecipient: text(200).optional(),
     enrichmentPolicy: text(2000).optional(),
@@ -16,7 +27,16 @@ export const campaignSetup = z
     monthlyCreditAllocation: z.number().int().positive().optional(),
     name: text(200).min(1),
     objective: text(2000),
-    purpose: z.enum(["acquisition", "retention", "reactivation", "education", "cross_sell", "other"]).default("acquisition"),
+    purpose: z
+      .enum([
+        "acquisition",
+        "retention",
+        "reactivation",
+        "education",
+        "cross_sell",
+        "other",
+      ])
+      .default("acquisition"),
     brandId: text(100).min(1),
     products: z.array(ref).max(20),
     offers: z.array(ref).max(20),
@@ -71,7 +91,10 @@ export const overlapStatement =
 export function campaignReadiness(v: CampaignSetup) {
   return [
     !v.operatingMode && "Choose how NBA should work on this campaign.",
-    v.operatingMode !== "engagement_management" && v.source !== "existing" && !v.researchPriority && "Describe the research objective for new organisations.",
+    v.operatingMode !== "engagement_management" &&
+      v.source !== "existing" &&
+      !v.researchPriority &&
+      "Describe the research objective for new organisations.",
     !v.objective && "Describe the commercial objective.",
     !v.products.length && "Select an approved product.",
     !v.offers.length && "Select at least one approved offer.",
@@ -80,9 +103,23 @@ export function campaignReadiness(v: CampaignSetup) {
   ].filter((s): s is string => Boolean(s));
 }
 
-export const meetingMutation = z.object({
- requestKey: z.string().uuid(), expectedVersion:z.number().int().nonnegative(),
- id:z.string().optional(), personId:z.string().min(1).max(100), offerId:z.string().min(1).max(100),
- status:z.enum(["confirmed","rescheduled","cancelled","attended","no_show","voided"]),
- startsAt:z.string().datetime(), notes:text(2000), providerReference:text(300).optional(),
-}).strict();
+export const meetingMutation = z
+  .object({
+    requestKey: z.string().uuid(),
+    expectedVersion: z.number().int().nonnegative(),
+    id: z.string().optional(),
+    personId: z.string().min(1).max(100),
+    offerId: z.string().min(1).max(100),
+    status: z.enum([
+      "confirmed",
+      "rescheduled",
+      "cancelled",
+      "attended",
+      "no_show",
+      "voided",
+    ]),
+    startsAt: z.string().datetime(),
+    notes: text(2000),
+    providerReference: text(300).optional(),
+  })
+  .strict();

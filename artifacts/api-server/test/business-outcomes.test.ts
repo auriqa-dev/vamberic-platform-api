@@ -24,19 +24,17 @@ async function fixture() {
   const f = await lushaFixture(),
     app = createBusinessOutcomes(config, f.db.mongo);
   const campaignId = generatePlatformId("campaign");
-  f.db
-    .rows("events")
-    .push({
-      id: generatePlatformId("event"),
-      workspaceId: f.w,
-      eventType: "campaign_setup",
-      campaignId,
-      payload: {
-        version: 4,
-        status: "draft",
-        setup: { name: "Prospecting", brandId: f.brand },
-      },
-    });
+  f.db.rows("events").push({
+    id: generatePlatformId("event"),
+    workspaceId: f.w,
+    eventType: "campaign_setup",
+    campaignId,
+    payload: {
+      version: 4,
+      status: "draft",
+      setup: { name: "Prospecting", brandId: f.brand },
+    },
+  });
   const d = {
     name: "Free signup",
     description: "One newly created free account",
@@ -300,7 +298,7 @@ test("a transaction callback retry creates one definition with a stable identity
   const f = await lushaFixture();
   const original = f.db.mongo.withTransaction!;
   let retried = false;
-  f.db.mongo.withTransaction = async work => {
+  f.db.mongo.withTransaction = async (work) => {
     if (!retried) {
       retried = true;
       const before = structuredClone(f.db.records);
@@ -310,11 +308,29 @@ test("a transaction callback retry creates one definition with a stable identity
     return original(work);
   };
   const app = createBusinessOutcomes(config, f.db.mongo);
-  const result = await app.change(f.identity, f.w, { action: "save", id: null, version: 0, requestId: randomUUID(), definition: {
-    name: "Signup", description: "Confirmed free account", brandId: f.brand, campaignId: null, sourceName: "Account system", expectedEvent: "free_account_created",
-    mapping: { eventId: "event_id", subjectId: "account_id", occurredAt: "occurred_at", eventType: "event_type" },
-  } });
+  const result = await app.change(f.identity, f.w, {
+    action: "save",
+    id: null,
+    version: 0,
+    requestId: randomUUID(),
+    definition: {
+      name: "Signup",
+      description: "Confirmed free account",
+      brandId: f.brand,
+      campaignId: null,
+      sourceName: "Account system",
+      expectedEvent: "free_account_created",
+      mapping: {
+        eventId: "event_id",
+        subjectId: "account_id",
+        occurredAt: "occurred_at",
+        eventType: "event_type",
+      },
+    },
+  });
   assert.equal(result.state.definitions.length, 1);
-  const audit = f.db.rows("events").find(r => r.eventType === "business_outcome_change")!;
+  const audit = f.db
+    .rows("events")
+    .find((r) => r.eventType === "business_outcome_change")!;
   assert.equal(audit.payload.outcomeId, result.state.definitions[0]!.id);
 });

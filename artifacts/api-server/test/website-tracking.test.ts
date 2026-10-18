@@ -140,14 +140,20 @@ test("redirects preserve approved destinations, reject invalid tokens and stop r
   assert.equal(await f.app.redirect(f.token + "bad", false), null);
   const url = await f.app.redirect(f.token, false);
   assert.match(url!, /#details&hvm_tracking=/);
-  assert.equal(await f.app.redirect(f.token, true), f.draft.ctaUrl);
+  assert.equal(
+    await f.app.redirect(f.token, true),
+    expectedAttributedDestination(f.draft),
+  );
   assert.equal(
     f.db.rows("events").filter((r) => r.eventType === "measurement_outcome")
       .length,
     2,
   );
   f.site.payload.revoked = true;
-  assert.equal(await f.app.redirect(f.token, false), f.draft.ctaUrl);
+  assert.equal(
+    await f.app.redirect(f.token, false),
+    expectedAttributedDestination(f.draft),
+  );
   assert.equal(
     f.db.rows("events").filter((r) => r.eventType === "measurement_outcome")
       .length,
@@ -370,7 +376,10 @@ test("recording failure leaves a valid CTA navigable and scanner requests never 
     0,
   );
   f.db.failCollection = "events";
-  assert.equal(await f.app.redirect(f.token, false), f.draft.ctaUrl);
+  assert.equal(
+    await f.app.redirect(f.token, false),
+    expectedAttributedDestination(f.draft),
+  );
 });
 test("a website interaction cannot replace an out-of-office wait or unsubscribe review", async () => {
   const f = await fixture();
@@ -606,7 +615,10 @@ test("retention removes website evidence and session identity without deleting d
   assert.ok(f.db.rows("events").some((r) => r.id === f.comm.id));
   const link = await readToken(f.db, f.token, "website_tracking_link");
   assert.equal(link!.payload.communicationId, null);
-  assert.equal(await f.app.redirect(f.token, false), f.draft.ctaUrl);
+  assert.equal(
+    await f.app.redirect(f.token, false),
+    expectedAttributedDestination(f.draft),
+  );
 });
 test("test browser sessions remain excluded when the site leaves test mode or its test communication is removed", async () => {
   const f = await fixture(true);
@@ -643,3 +655,20 @@ test("test browser sessions remain excluded when the site leaves test mode or it
       .every((r) => r.payload.testOnly),
   );
 });
+
+function expectedAttributedDestination(draft: {
+  ctaUrl: string;
+  campaignId: string;
+}) {
+  const url = new URL(draft.ctaUrl);
+  for (const [key, value] of Object.entries({
+    utm_source: "hvm",
+    utm_medium: "email",
+    utm_campaign: draft.campaignId,
+    utm_id: draft.campaignId,
+    utm_source_platform: "hvm",
+    utm_content: "draft",
+  }))
+    url.searchParams.set(key, value);
+  return url.toString();
+}

@@ -159,9 +159,10 @@ export function createAgentEffectiveness(
       .collection("schema_versions")
       .findOne({ _id: "vapp-v1" } as never, { session });
     if (
-      ![11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30].includes(
-        ledger?.version ?? 0,
-      )
+      ![
+        11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28,
+        29, 30,
+      ].includes(ledger?.version ?? 0)
     )
       throw new AgentControlPlaneUnavailable(
         "Effectiveness requires schema v11",

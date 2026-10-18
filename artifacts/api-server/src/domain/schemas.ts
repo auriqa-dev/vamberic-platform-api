@@ -1033,15 +1033,18 @@ export const EventInsertSchema = insertSchema(EventRecordSchema)
         "nba_frontier",
         "nba_capability_result",
         "email_content_record",
-      "email_content_generation",
-      "content_strategy_record",
-      "content_strategy_generation",
-      "content_strategy_handoff",
-      "contact_strategy_definition",
-    "contact_strategy_changed",
+        "email_content_generation",
+        "content_strategy_record",
+        "content_strategy_generation",
+        "content_strategy_handoff",
+        "contact_strategy_definition",
+        "contact_strategy_changed",
         "contact_strategy_interpretation",
         "contact_strategy_assessed",
-      ].includes(value.eventType) || /^(campaign_|business_outcome_|performance_|ga4_|interaction_|website_tracking_|measurement_|nba_measurement_|communication)/.test(value.eventType)
+      ].includes(value.eventType) ||
+      /^(campaign_|business_outcome_|performance_|ga4_|interaction_|website_tracking_|measurement_|nba_measurement_|communication)/.test(
+        value.eventType,
+      )
     )
       context.addIssue({
         code: "custom",

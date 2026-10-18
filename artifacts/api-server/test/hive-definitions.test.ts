@@ -524,11 +524,13 @@ test("schema v5 retains existing HVM access but new foundation fails closed with
   assert.equal((await f.request("/api/v1/hvm/context")).status, 200);
   f.db.rows("schema_versions")[0].version = 16;
   assert.equal((await f.request("/api/v1/hvm/context")).status, 200);
-  for (const version of [17, 18, 19, 20, 21, 22, 23]) {
+  for (const version of [
+    17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30,
+  ]) {
     f.db.rows("schema_versions")[0].version = version;
     assert.equal((await f.request("/api/v1/hvm/context")).status, 200);
   }
-  f.db.rows("schema_versions")[0].version = 24;
+  f.db.rows("schema_versions")[0].version = 31;
   assert.equal((await f.request("/api/v1/hvm/context")).status, 503);
 });
 test("Organisation hard-delete preview blocks retained Offering references", async (t) => {

@@ -27,9 +27,35 @@ export function createCampaignRouter(config: AppConfig, mongo: MongoService) {
       ),
     ),
   );
-  router.get(root + "/:id/journey", async (req,res) => res.json(await service.journey(req.auth!,String(req.params.workspaceId),String(req.params.id))));
-  router.get(root + "/:id/recipients", async (req,res) => res.json(await service.recipientCandidates(req.auth!,String(req.params.workspaceId),String(req.params.id),req.query)));
-  router.post(root + "/:id/journey", async (req,res) => res.json(await service.saveJourney(req.auth!,String(req.params.workspaceId),String(req.params.id),req.body)));
+  router.get(root + "/:id/journey", async (req, res) =>
+    res.json(
+      await service.journey(
+        req.auth!,
+        String(req.params.workspaceId),
+        String(req.params.id),
+      ),
+    ),
+  );
+  router.get(root + "/:id/recipients", async (req, res) =>
+    res.json(
+      await service.recipientCandidates(
+        req.auth!,
+        String(req.params.workspaceId),
+        String(req.params.id),
+        req.query,
+      ),
+    ),
+  );
+  router.post(root + "/:id/journey", async (req, res) =>
+    res.json(
+      await service.saveJourney(
+        req.auth!,
+        String(req.params.workspaceId),
+        String(req.params.id),
+        req.body,
+      ),
+    ),
+  );
   router.get(root + "/:id/audience", async (req, res) =>
     res.json(
       await service.audience(
@@ -59,7 +85,16 @@ export function createCampaignRouter(config: AppConfig, mongo: MongoService) {
       ),
     ),
   );
-  router.post(root + "/:id/meetings", async (req,res) => res.json(await service.recordMeeting(req.auth!,String(req.params.workspaceId),String(req.params.id),req.body)));
+  router.post(root + "/:id/meetings", async (req, res) =>
+    res.json(
+      await service.recordMeeting(
+        req.auth!,
+        String(req.params.workspaceId),
+        String(req.params.id),
+        req.body,
+      ),
+    ),
+  );
   router.post(root + "/:id/research", async (req, res) =>
     res
       .status(202)

@@ -6,8 +6,6 @@ import {
   MailboxError,
   GOOGLE_SCOPES,
   googleMailbox,
-  emailMime,
-  parseGoogleMessage,
 } from "../../src/services/mailbox/google";
 import type { MailboxSecrets } from "../../src/services/mailbox/secrets";
 export async function mailboxFixture() {

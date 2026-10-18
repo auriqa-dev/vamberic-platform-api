@@ -222,13 +222,27 @@ test("reply triage preserves evidence without treating it as instructions", () =
 test("normal delivery records interaction; reply pauses follow-up and reaches NBA", async () => {
   const f = await fixture(),
     point = generatePlatformId("contact");
-  const { createContactStrategies } = await import("../src/services/contact-strategy/application");
+  const { createContactStrategies } =
+    await import("../src/services/contact-strategy/application");
   const strategies = createContactStrategies(config, f.db.mongo);
   const key = `custom_${randomUUID().replaceAll("-", "")}`;
-  await strategies.mutate(f.identity, f.w, { key, name: "Synthetic scope", operation: "save", expectedVersion: 0,
-    statement: "Only apply this restriction to commercial customers." });
-  await strategies.mutate(f.identity, f.w, { key, operation: "approve", expectedVersion: 1 });
-  assert.equal((await f.comm.list(f.identity, f.w)).policies.filter(p => p.key === key).length, 1);
+  await strategies.mutate(f.identity, f.w, {
+    key,
+    name: "Synthetic scope",
+    operation: "save",
+    expectedVersion: 0,
+    statement: "Only apply this restriction to commercial customers.",
+  });
+  await strategies.mutate(f.identity, f.w, {
+    key,
+    operation: "approve",
+    expectedVersion: 1,
+  });
+  assert.equal(
+    (await f.comm.list(f.identity, f.w)).policies.filter((p) => p.key === key)
+      .length,
+    1,
+  );
 
   f.db.rows("contact_points").push({
     id: point,
@@ -260,10 +274,16 @@ test("normal delivery records interaction; reply pauses follow-up and reaches NB
         reason: "Synthetic fixture has no commercial activity",
       })),
     });
-  await assert.rejects(() => f.comm.mutate(f.identity, f.w, r.id, {
-    expectedVersion: r.version, operation: "approve", reason: "Missing custom assessment",
-    legalConfirmed: true, platformConfirmed: true, assessments: [],
-  }));
+  await assert.rejects(() =>
+    f.comm.mutate(f.identity, f.w, r.id, {
+      expectedVersion: r.version,
+      operation: "approve",
+      reason: "Missing custom assessment",
+      legalConfirmed: true,
+      platformConfirmed: true,
+      assessments: [],
+    }),
+  );
   r = await approve(r);
   await f.comm.tick();
   assert.equal(
@@ -276,35 +296,31 @@ test("normal delivery records interaction; reply pauses follow-up and reaches NB
   );
   const decisionId = generatePlatformId("event"),
     campaignId = generatePlatformId("campaign");
-  f.db
-    .rows("events")
-    .push({
-      id: generatePlatformId("event"),
-      workspaceId: f.w,
-      campaignId,
-      eventType: "nba_decision",
-      payload: {
-        decisionId,
-        version: 1,
-        state: "scheduled",
-        subject: { type: "person", id: f.person },
-        claimKeys: [`person:${f.person}`],
-      },
-    });
-  f.db
-    .rows("events")
-    .push({
-      id: generatePlatformId("event"),
-      workspaceId: f.w,
-      campaignId,
-      eventType: "nba_claim",
-      payload: {
-        key: `person:${f.person}`,
-        version: 1,
-        state: "held",
-        decisionId,
-      },
-    });
+  f.db.rows("events").push({
+    id: generatePlatformId("event"),
+    workspaceId: f.w,
+    campaignId,
+    eventType: "nba_decision",
+    payload: {
+      decisionId,
+      version: 1,
+      state: "scheduled",
+      subject: { type: "person", id: f.person },
+      claimKeys: [`person:${f.person}`],
+    },
+  });
+  f.db.rows("events").push({
+    id: generatePlatformId("event"),
+    workspaceId: f.w,
+    campaignId,
+    eventType: "nba_claim",
+    payload: {
+      key: `person:${f.person}`,
+      version: 1,
+      state: "held",
+      decisionId,
+    },
+  });
   f.reply();
   await f.comm.sync(f.identity, f.w);
   const state = await f.comm.list(f.identity, f.w);
@@ -699,29 +715,72 @@ test("elapsed response window requires successful inbox sync and emits once", as
 });
 
 test("tracked delivery freezes its original Library CTA and renders the personalised link before approval", async () => {
-  const {trackingRow}=await import("../src/services/website-tracking/service");
-  const f=await fixture();
-  f.db.rows("events").push(trackingRow(f.w,"website_tracking_site",{origin:"https://example.com",brandId:f.brand,enabled:true,testOnly:true,retentionDays:30,policyConfirmed:true,events:[],paths:[],version:1,verifiedAt:new Date().toISOString(),revoked:false}));
-  const prior=process.env.HVM_TRACKING_PUBLIC_ORIGIN;
-  process.env.HVM_TRACKING_PUBLIC_ORIGIN="https://api.example.com";
-  try{
-    let r=await f.comm.create(f.identity,f.w,f.input);
-    assert.equal(r.draft.ctaUrl,"https://example.com/compare");
-    assert.match(r.rendered.text,/api.example.com\/api\/v1\/public\/tracking\/r\//);
-    assert.match(r.rendered.html,/api.example.com\/api\/v1\/public\/tracking\/r\//);
-    assert.equal((await f.comm.create(f.identity,f.w,f.input)).id,r.id);
-    assert.equal(f.db.rows("events").filter(r=>r.eventType==="website_tracking_link").length,1);
-    await f.comm.tick();assert.equal(f.sent(),0);
-    r=await f.comm.mutate(f.identity,f.w,r.id,{expectedVersion:r.version,operation:"approve",reason:"Controlled mocked delivery"});
-    await f.comm.tick();assert.equal(f.sent(),1);
-  }finally{if(prior===undefined)delete process.env.HVM_TRACKING_PUBLIC_ORIGIN;else process.env.HVM_TRACKING_PUBLIC_ORIGIN=prior}
+  const { trackingRow } =
+    await import("../src/services/website-tracking/service");
+  const f = await fixture();
+  f.db.rows("events").push(
+    trackingRow(f.w, "website_tracking_site", {
+      origin: "https://example.com",
+      brandId: f.brand,
+      enabled: true,
+      testOnly: true,
+      retentionDays: 30,
+      policyConfirmed: true,
+      events: [],
+      paths: [],
+      version: 1,
+      verifiedAt: new Date().toISOString(),
+      revoked: false,
+    }),
+  );
+  const prior = process.env.HVM_TRACKING_PUBLIC_ORIGIN;
+  process.env.HVM_TRACKING_PUBLIC_ORIGIN = "https://api.example.com";
+  try {
+    let r = await f.comm.create(f.identity, f.w, f.input);
+    assert.equal(r.draft.ctaUrl, "https://example.com/compare");
+    assert.match(
+      r.rendered.text,
+      /api.example.com\/api\/v1\/public\/tracking\/r\//,
+    );
+    assert.match(
+      r.rendered.html,
+      /api.example.com\/api\/v1\/public\/tracking\/r\//,
+    );
+    assert.equal((await f.comm.create(f.identity, f.w, f.input)).id, r.id);
+    assert.equal(
+      f.db.rows("events").filter((r) => r.eventType === "website_tracking_link")
+        .length,
+      1,
+    );
+    await f.comm.tick();
+    assert.equal(f.sent(), 0);
+    r = await f.comm.mutate(f.identity, f.w, r.id, {
+      expectedVersion: r.version,
+      operation: "approve",
+      reason: "Controlled mocked delivery",
+    });
+    await f.comm.tick();
+    assert.equal(f.sent(), 1);
+  } finally {
+    if (prior === undefined) delete process.env.HVM_TRACKING_PUBLIC_ORIGIN;
+    else process.env.HVM_TRACKING_PUBLIC_ORIGIN = prior;
+  }
 });
 
-test('campaign test delivery uses isolated GA4 tags even without a website tracker',async()=>{
- const f=await fixture(),campaignId=generatePlatformId('campaign');
- for(const row of f.db.rows('events').filter(e=>e.eventType==='email_content_record' && e.payload.record.id===f.approved.id)) row.payload.record.campaignId=campaignId;
- const prepared=await f.comm.create(f.identity,f.w,f.input);
- assert.ok(prepared.rendered.text.includes(`utm_id=test_${campaignId}`));
- assert.ok(prepared.rendered.html.includes(`utm_id=test_${campaignId}`));
- assert.equal(prepared.status,'awaiting_review');assert.equal(f.sent(),0);
+test("campaign test delivery uses isolated GA4 tags even without a website tracker", async () => {
+  const f = await fixture(),
+    campaignId = generatePlatformId("campaign");
+  for (const row of f.db
+    .rows("events")
+    .filter(
+      (e) =>
+        e.eventType === "email_content_record" &&
+        e.payload.record.id === f.approved.id,
+    ))
+    row.payload.record.campaignId = campaignId;
+  const prepared = await f.comm.create(f.identity, f.w, f.input);
+  assert.ok(prepared.rendered.text.includes(`utm_id=test_${campaignId}`));
+  assert.ok(prepared.rendered.html.includes(`utm_id=test_${campaignId}`));
+  assert.equal(prepared.status, "awaiting_review");
+  assert.equal(f.sent(), 0);
 });

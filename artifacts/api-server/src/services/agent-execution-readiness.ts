@@ -366,9 +366,10 @@ export function createAgentExecutionReadiness(
         .collection<{ _id: string; version: number }>("schema_versions")
         .findOne({ _id: "vapp-v1" }, { session });
       if (
-        ![12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30].includes(
-          ledger?.version ?? 0,
-        )
+        ![
+          12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28,
+          29, 30,
+        ].includes(ledger?.version ?? 0)
       )
         return {
           reasons: [...reasons, "protocol_schema_upgrade_required"],
@@ -443,7 +444,13 @@ export function createAgentExecutionReadiness(
       );
       const denied = (reason: string) => {
         if (run.frozen.definition.key === "next_best_action")
-          console.warn(JSON.stringify({ event: "nba_execution_denied", runId: run.id, reason }));
+          console.warn(
+            JSON.stringify({
+              event: "nba_execution_denied",
+              runId: run.id,
+              reason,
+            }),
+          );
         return false;
       };
       if (run.frozen.protocolVersion === "2.0") {
@@ -504,9 +511,14 @@ export function createAgentExecutionReadiness(
           (p: { maker: string; evaluator: string; revision: string }) =>
             [p.maker, p.evaluator, p.revision].includes(run.operation),
         );
-        if (Boolean(profile) !== Boolean(run.effectiveness)) return denied("readiness_contract");
-        if (!(await execution.allowed(db, run.workspaceId, run.frozen, session))) return denied("workspace_execution_policy");
-        const capacityReady = (run.status === "running" && capabilities.continuing
+        if (Boolean(profile) !== Boolean(run.effectiveness))
+          return denied("readiness_contract");
+        if (
+          !(await execution.allowed(db, run.workspaceId, run.frozen, session))
+        )
+          return denied("workspace_execution_policy");
+        const capacityReady =
+          run.status === "running" && capabilities.continuing
             ? await capabilities.continuing(state.manifest, run.operation)
             : capabilities.admission
               ? await capabilities.admission(
@@ -515,7 +527,7 @@ export function createAgentExecutionReadiness(
                   state.manifest,
                   run.operation,
                 )
-              : await capabilities.available(state.manifest, run.operation));
+              : await capabilities.available(state.manifest, run.operation);
         return capacityReady || denied("runtime_capacity");
       }
       if (

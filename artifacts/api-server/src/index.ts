@@ -20,12 +20,30 @@ import { MongoClientService } from "./services/mongo";
 const config = loadConfig();
 const mongo = new MongoClientService(config.mongodbUri);
 const agents = composeAgentDeployment(config, mongo);
-const app = createApp(config, mongo, { agents, brandGenerator:brandGeneratorFromEnvironment(), icpGenerator: icpGeneratorFromEnvironment(), psuGenerator: psuGeneratorFromEnvironment() });
+const app = createApp(config, mongo, {
+  agents,
+  brandGenerator: brandGeneratorFromEnvironment(),
+  icpGenerator: icpGeneratorFromEnvironment(),
+  psuGenerator: psuGeneratorFromEnvironment(),
+});
 const server = createServer(app);
-const stopResearch = process.env.HVM_RESEARCH_WORKER_ENABLED === "true" ? researchWorker(config,mongo) : undefined;
-const stopNba = process.env.NBA_FOUNDATION_RELEASE ? nbaWorker(config,mongo,()=>logger.warn("NBA reconciliation needs attention")) : undefined;
-const stopCommunications = process.env.HVM_MAILBOX_WORKER_ENABLED === "true" ? communicationsWorker(config,mongo) : undefined;
-const stopMailbox = process.env.HVM_MAILBOX_WORKER_ENABLED === "true" ? mailboxWorker(config, mongo) : undefined;
+const stopResearch =
+  process.env.HVM_RESEARCH_WORKER_ENABLED === "true"
+    ? researchWorker(config, mongo)
+    : undefined;
+const stopNba = process.env.NBA_FOUNDATION_RELEASE
+  ? nbaWorker(config, mongo, () =>
+      logger.warn("NBA reconciliation needs attention"),
+    )
+  : undefined;
+const stopCommunications =
+  process.env.HVM_MAILBOX_WORKER_ENABLED === "true"
+    ? communicationsWorker(config, mongo)
+    : undefined;
+const stopMailbox =
+  process.env.HVM_MAILBOX_WORKER_ENABLED === "true"
+    ? mailboxWorker(config, mongo)
+    : undefined;
 const dispatchEnabled = process.env.AGENT_DISPATCH_ENABLED;
 if (
   dispatchEnabled !== undefined &&

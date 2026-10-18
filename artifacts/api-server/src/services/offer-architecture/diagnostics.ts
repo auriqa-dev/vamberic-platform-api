@@ -25,7 +25,15 @@ export class OfferProviderError extends Error {
   }
 }
 export class OfferIncompleteError extends Error {
-  constructor(readonly reason: "output_limit" | "content_filter" | "incomplete", readonly usage?: {model:string;inputTokens:number;outputTokens:number;searchCalls?:number}) {
+  constructor(
+    readonly reason: "output_limit" | "content_filter" | "incomplete",
+    readonly usage?: {
+      model: string;
+      inputTokens: number;
+      outputTokens: number;
+      searchCalls?: number;
+    },
+  ) {
     super("Offer response incomplete");
   }
 }
@@ -117,7 +125,8 @@ const safeFields = new Set([
 export function safeOfferFailure(
   error: unknown,
 ): Pick<OfferDiagnostic, "code" | "httpStatus" | "issues"> {
-  if (error instanceof OfferIncompleteError) return {code: `provider_${error.reason}`};
+  if (error instanceof OfferIncompleteError)
+    return { code: `provider_${error.reason}` };
   if (error instanceof OfferProviderError)
     return { code: "provider_http_error", httpStatus: error.httpStatus };
   if (error instanceof z.ZodError)

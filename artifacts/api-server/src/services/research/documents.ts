@@ -140,7 +140,9 @@ export function createResearchDocuments(
             .trim()
             .min(1)
             .max(200)
-            .regex(/^[^/\\\r\n]+\.(csv|xlsx|xls|txt|md|pdf|docx|doc|pptx|ppt|png|jpg|jpeg|webp|gif|mp4|mov|webm|mp3|wav|m4a|ogg)$/i),
+            .regex(
+              /^[^/\\\r\n]+\.(csv|xlsx|xls|txt|md|pdf|docx|doc|pptx|ppt|png|jpg|jpeg|webp|gif|mp4|mov|webm|mp3|wav|m4a|ogg)$/i,
+            ),
           size: z.number().int().positive().max(MAX_RESEARCH_BYTES),
           sha256: z.string().regex(/^[a-f0-9]{64}$/),
           details: researchDetails,
@@ -306,8 +308,22 @@ export function createResearchDocuments(
               "A document changed. Reload before updating it.",
             );
           if (input.operation === "remove") {
-            const references=await db.collection("events").find({workspaceId:w,eventType:"content_strategy_record","payload.record.kind":"asset","payload.record.data.sourceDocumentId":t.id},{session}).toArray();
-            if(references.length)throw new HiveConflict("This original is retained by Library asset history. Archive the Library asset instead.");
+            const references = await db
+              .collection("events")
+              .find(
+                {
+                  workspaceId: w,
+                  eventType: "content_strategy_record",
+                  "payload.record.kind": "asset",
+                  "payload.record.data.sourceDocumentId": t.id,
+                },
+                { session },
+              )
+              .toArray();
+            if (references.length)
+              throw new HiveConflict(
+                "This original is retained by Library asset history. Archive the Library asset instead.",
+              );
           }
           await db.collection("events").insertOne(
             EventSchema.parse({

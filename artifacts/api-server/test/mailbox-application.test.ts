@@ -178,9 +178,14 @@ test("controlled test, replay, reply dedup and disconnect preserve test isolatio
   await f.app.disconnect(f.identity, f.w, {
     expectedUpdatedAt: state.updatedAt,
   });
-  const disconnected = f.db.rows("workspace_integrations").find((r) => r.workspaceId === f.w)!;
+  const disconnected = f.db
+    .rows("workspace_integrations")
+    .find((r) => r.workspaceId === f.w)!;
   // Mongo permits the base actor fields only; an OAuth issuer here rejects the write.
-  assert.deepEqual(disconnected.updatedBy, { type: "human", id: f.identity.subject });
+  assert.deepEqual(disconnected.updatedBy, {
+    type: "human",
+    id: f.identity.subject,
+  });
   assert.equal(disconnected.secretReference, undefined);
   await assert.rejects(
     f.app.sendTest(f.identity, f.w, { ...input, operationId: randomUUID() }),

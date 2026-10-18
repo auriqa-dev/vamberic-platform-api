@@ -84,29 +84,25 @@ export async function agentDefinitionRemovalReview(
   for (const [collection, filter, message] of checks) {
     // Historical configuration may remain after archive, but never after delete.
     if (
-      await db
-        .collection(collection)
-        .findOne(
-          {
-            ...filter,
-            ...(operation === "retire" ? { archived: { $ne: true } } : {}),
-          },
-          { session, projection: { _id: 1 } },
-        )
+      await db.collection(collection).findOne(
+        {
+          ...filter,
+          ...(operation === "retire" ? { archived: { $ne: true } } : {}),
+        },
+        { session, projection: { _id: 1 } },
+      )
     )
       blockers.push(message);
   }
   // Completed runs can still have reviewable results or quarantine obligations.
   // Do not infer completion of review from a terminal execution status.
   if (
-    await db
-      .collection("agent_runs")
-      .findOne(
-        {
-          $or: [{ "frozen.definition.id": id }, { "target.definition.id": id }],
-        },
-        { session, projection: { _id: 1 } },
-      )
+    await db.collection("agent_runs").findOne(
+      {
+        $or: [{ "frozen.definition.id": id }, { "target.definition.id": id }],
+      },
+      { session, projection: { _id: 1 } },
+    )
   )
     blockers.push(
       "Execution history exists. Review its results and recovery obligations before archiving; this screen cannot remove it safely.",

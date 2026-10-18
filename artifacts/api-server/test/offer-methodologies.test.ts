@@ -131,19 +131,38 @@ test("Value Proposition Development v1.0 has eight complete, independent executi
   assert.equal(second.name, "Value Proposition Development");
   assert.equal(second.version, 1);
   assert.notEqual(second.id, method.id);
-  assert.deepEqual(second.stages.map(s=>s.name), [
-    "Customer Context","Problems and Priorities","Desired Outcomes","Alternatives and Competition",
-    "Differentiated Value","Evidence and Credibility","Commercial Proposition","Validation and Approval",
-  ]);
+  assert.deepEqual(
+    second.stages.map((s) => s.name),
+    [
+      "Customer Context",
+      "Problems and Priorities",
+      "Desired Outcomes",
+      "Alternatives and Competition",
+      "Differentiated Value",
+      "Evidence and Credibility",
+      "Commercial Proposition",
+      "Validation and Approval",
+    ],
+  );
   for (const stage of second.stages) {
-    for (const key of ["requiredContext","analysisRequirements","expectedOutputs","validationDecisions","completionCriteria"] as const)
-      assert.ok(stage[key]?.length, stage.key+":"+key);
-    assert.equal(stage.workingDataSchema,"offer_stage_v1");
+    for (const key of [
+      "requiredContext",
+      "analysisRequirements",
+      "expectedOutputs",
+      "validationDecisions",
+      "completionCriteria",
+    ] as const)
+      assert.ok(stage[key]?.length, stage.key + ":" + key);
+    assert.equal(stage.workingDataSchema, "offer_stage_v1");
     assert.ok(stage.completionRequirements.includes("decision_rationale"));
   }
-  const {responseSchemaForMethodology} = await import("../src/services/offer-architecture/generate");
+  const { responseSchemaForMethodology } =
+    await import("../src/services/offer-architecture/generate");
   const schema = responseSchemaForMethodology(second);
-  assert.equal(schema.properties.stages.minItems,8);
-  assert.equal(schema.properties.stages.maxItems,8);
-  assert.deepEqual(schema.properties.stages.items.properties.stageKey.enum, second.stages.map(s=>s.key));
+  assert.equal(schema.properties.stages.minItems, 8);
+  assert.equal(schema.properties.stages.maxItems, 8);
+  assert.deepEqual(
+    schema.properties.stages.items.properties.stageKey.enum,
+    second.stages.map((s) => s.key),
+  );
 });

@@ -193,50 +193,60 @@ export function googleAnalytics(
       const scope = filter ? attribution.parse(filter) : undefined;
       const run = async (dimensions: string[]) => {
         const raw = await api(
-            access,
-            `https://analyticsdata.googleapis.com/v1beta/${property}:runReport`,
-            {
-              dateRanges: [window],
-              metrics: metricNames.map((name) => ({ name })),
-              dimensions: dimensions.map((name) => ({ name })),
-              ...(scope
-                ? {
-                    dimensionFilter: {
-                      filter: {
-                        fieldName: scope.field,
-                        stringFilter: {
-                          matchType: "EXACT",
-                          value: scope.value,
-                          caseSensitive: true,
-                        },
+          access,
+          `https://analyticsdata.googleapis.com/v1beta/${property}:runReport`,
+          {
+            dateRanges: [window],
+            metrics: metricNames.map((name) => ({ name })),
+            dimensions: dimensions.map((name) => ({ name })),
+            ...(scope
+              ? {
+                  dimensionFilter: {
+                    filter: {
+                      fieldName: scope.field,
+                      stringFilter: {
+                        matchType: "EXACT",
+                        value: scope.value,
+                        caseSensitive: true,
                       },
                     },
+                  },
+                }
+              : {}),
+            limit: dimensions.length ? "1000" : "1",
+            returnPropertyQuota: true,
+            ...(dimensions[0] === "date"
+              ? { orderBys: [{ dimension: { dimensionName: "date" } }] }
+              : dimensions.length
+                ? {
+                    orderBys: [
+                      { metric: { metricName: "sessions" }, desc: true },
+                    ],
                   }
                 : {}),
-              limit: dimensions.length ? "1000" : "1",
-              returnPropertyQuota: true,
-              ...(dimensions[0] === "date"
-                ? { orderBys: [{ dimension: { dimensionName: "date" } }] }
-                : dimensions.length
-                  ? {
-                      orderBys: [
-                        { metric: { metricName: "sessions" }, desc: true },
-                      ],
-                    }
-                  : {}),
-            },
-          );
+          },
+        );
         try {
           return parseReport(raw, dimensions);
         } catch (e) {
           // Schema paths only: never log response values, credentials or campaign tags.
-          logger.warn({
-            dimensions,
-            issues: e instanceof z.ZodError
-              ? e.issues.map((issue) => ({ code: issue.code, path: issue.path }))
-              : [{ code: "report_shape" }],
-          }, "GA4 report response validation failed");
-          throw new Ga4Error("INVALID_REPORT", "Google Analytics returned an unexpected report. Campaign settings are preserved; website metrics are unavailable. Retry after the reporting connection has been checked.");
+          logger.warn(
+            {
+              dimensions,
+              issues:
+                e instanceof z.ZodError
+                  ? e.issues.map((issue) => ({
+                      code: issue.code,
+                      path: issue.path,
+                    }))
+                  : [{ code: "report_shape" }],
+            },
+            "GA4 report response validation failed",
+          );
+          throw new Ga4Error(
+            "INVALID_REPORT",
+            "Google Analytics returned an unexpected report. Campaign settings are preserved; website metrics are unavailable. Retry after the reporting connection has been checked.",
+          );
         }
       };
       // Separate aggregate query: unique users must never be summed across days or channels.

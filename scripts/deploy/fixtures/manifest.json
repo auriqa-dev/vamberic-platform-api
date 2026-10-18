@@ -1,0 +1,11 @@
+{
+  "purpose": "Immutable cross-repository integration test inputs; never deployed",
+  "frontendCommit": "25418cbeba65a26d1c06eca02708ed2c14748a8b",
+  "runtimeImageDigest": "sha256:81aae2233de36f662df8320023a6c14ef61b67b32062924c12781830613a1c74",
+  "archives": {
+    "hvm-app.tar.gz": "6964a4b6ed75fa9a2e2f380079118c196b81cc9ebe1f25248f5ce93c237a5534",
+    "vamberic-agent-runtime.tar.gz": "4bdcc18985aa6de1dcc7c755779f8d17ebe0a29730cb08fe38e85f51cab4f12f",
+    "hvm-app-legacy-psu.tar.gz": "6d15ffb76afc709f388a5af6b362307fe4d3ae2d764e9d28d2fa05b45c057d2c"
+  },
+  "legacyFrontend": "Reviewed PSU release-candidate client, retained only for compatibility tests of historical Run endpoints"
+}

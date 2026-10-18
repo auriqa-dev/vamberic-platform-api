@@ -676,16 +676,31 @@ export function createOfferBriefs(
               );
             });
           } catch (error) {
-            const failure = error instanceof OfferBriefProviderFailure
-              ? error.diagnostic : safeOfferFailure(error);
-            console.warn(JSON.stringify({ event: "offer_brief_failed", workspaceId: w, jobId: prepared.row.id, ...failure }));
+            const failure =
+              error instanceof OfferBriefProviderFailure
+                ? error.diagnostic
+                : safeOfferFailure(error);
+            console.warn(
+              JSON.stringify({
+                event: "offer_brief_failed",
+                workspaceId: w,
+                jobId: prepared.row.id,
+                ...failure,
+              }),
+            );
             await db.collection("events").updateOne(
               {
                 id: prepared.row.id,
                 workspaceId: w,
                 "payload.status": "interpreting",
               },
-              { $set: { "payload.status": "failed", "payload.failure": failure, updatedAt: new Date() } },
+              {
+                $set: {
+                  "payload.status": "failed",
+                  "payload.failure": failure,
+                  updatedAt: new Date(),
+                },
+              },
             );
           }
         })().catch(() => {});

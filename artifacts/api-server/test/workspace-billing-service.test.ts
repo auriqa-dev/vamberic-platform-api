@@ -70,77 +70,78 @@ const empress = {
   ...identity,
   subject: "00000000-0000-4000-8000-000000000099",
 };
-for (const version of [19,28]) test(`Empress approves without workspace authority; Queen reads and cannot mutate; revocation preserves audit (v${version})`, async () => {
-  const f = fixture();
-  const client = await f.run();
-  // The retired provisioning writer creates the historical fixture at v19.
-  // Exercise current billing against that preserved workspace after the additive release.
-  f.db.rows("schema_versions")[0]!.version = version;
-  const id = client.workspaceId;
-  const request = {
-    action: "approve",
-    requestKey: "approval-1",
-    expectedRevision: 0,
-    reason: "Internal fictional client",
-  };
-  await assert.rejects(
-    mutateWorkspaceBilling(f.db.mongo, config, identity, id, request),
-  );
-  const result = await mutateWorkspaceBilling(
-    f.db.mongo,
-    config,
-    empress,
-    id,
-    request,
-  );
-  assert.equal(result.revision, 1);
-  assert.equal(result.effective.treatment, "internal");
-  assert.deepEqual(
-    await mutateWorkspaceBilling(f.db.mongo, config, empress, id, request),
-    result,
-  );
-  await assert.rejects(
-    mutateWorkspaceBilling(f.db.mongo, config, empress, id, {
-      ...request,
-      reason: "changed",
-    }),
-  );
-  assert.equal(
-    (await readWorkspaceBilling(f.db.mongo, config, identity, id)).effective
-      .treatment,
-    "internal",
-  );
-  await assert.rejects(readWorkspaceBilling(f.db.mongo, config, empress, id));
-  await assert.rejects(
-    readWorkspaceBilling(
+for (const version of [19, 28])
+  test(`Empress approves without workspace authority; Queen reads and cannot mutate; revocation preserves audit (v${version})`, async () => {
+    const f = fixture();
+    const client = await f.run();
+    // The retired provisioning writer creates the historical fixture at v19.
+    // Exercise current billing against that preserved workspace after the additive release.
+    f.db.rows("schema_versions")[0]!.version = version;
+    const id = client.workspaceId;
+    const request = {
+      action: "approve",
+      requestKey: "approval-1",
+      expectedRevision: 0,
+      reason: "Internal fictional client",
+    };
+    await assert.rejects(
+      mutateWorkspaceBilling(f.db.mongo, config, identity, id, request),
+    );
+    const result = await mutateWorkspaceBilling(
       f.db.mongo,
       config,
-      { ...identity, subject: "foreign" },
+      empress,
       id,
-    ),
-  );
-  const revoked = await mutateWorkspaceBilling(
-    f.db.mongo,
-    config,
-    empress,
-    id,
-    {
-      action: "revoke",
-      requestKey: "revoke-1",
-      expectedRevision: 1,
-      reason: "Ended",
-    },
-  );
-  assert.equal(revoked.effective.treatment, "existing_terms");
-  assert.equal(revoked.revision, 2);
-  assert.equal(
-    f.db
-      .rows("events")
-      .filter((e) => e.eventType === "workspace_billing_exemption_changed")
-      .length,
-    2,
-  );
-});
+      request,
+    );
+    assert.equal(result.revision, 1);
+    assert.equal(result.effective.treatment, "internal");
+    assert.deepEqual(
+      await mutateWorkspaceBilling(f.db.mongo, config, empress, id, request),
+      result,
+    );
+    await assert.rejects(
+      mutateWorkspaceBilling(f.db.mongo, config, empress, id, {
+        ...request,
+        reason: "changed",
+      }),
+    );
+    assert.equal(
+      (await readWorkspaceBilling(f.db.mongo, config, identity, id)).effective
+        .treatment,
+      "internal",
+    );
+    await assert.rejects(readWorkspaceBilling(f.db.mongo, config, empress, id));
+    await assert.rejects(
+      readWorkspaceBilling(
+        f.db.mongo,
+        config,
+        { ...identity, subject: "foreign" },
+        id,
+      ),
+    );
+    const revoked = await mutateWorkspaceBilling(
+      f.db.mongo,
+      config,
+      empress,
+      id,
+      {
+        action: "revoke",
+        requestKey: "revoke-1",
+        expectedRevision: 1,
+        reason: "Ended",
+      },
+    );
+    assert.equal(revoked.effective.treatment, "existing_terms");
+    assert.equal(revoked.revision, 2);
+    assert.equal(
+      f.db
+        .rows("events")
+        .filter((e) => e.eventType === "workspace_billing_exemption_changed")
+        .length,
+      2,
+    );
+  });
 
 import { operatingFixtures } from "./helpers/operating-fixtures";
 import { OperatingSchemas } from "../src/domain/operating";
@@ -149,7 +150,7 @@ import {
   updateCrmRecord,
   createCrmRecord,
 } from "../src/services/crm-foundation";
-test("workspace exemption governs agreement calculation and preserves provider cost snapshot", async () => {
+test("workspace exemption does not reinstate retired agreement authoring or erase provider cost snapshots", async () => {
   const f = fixture(),
     client = await f.run(),
     id = client.workspaceId,
@@ -175,27 +176,28 @@ test("workspace exemption governs agreement calculation and preserves provider c
   });
   const recommendation = f.db.rows("pricing_recommendations")[0]!,
     gross = structuredClone(recommendation.data);
-  await mutateOperating(
-    f.db.mongo,
-    config,
-    identity,
-    "swarm_agreements",
-    "create",
-    {
-      data: {
-        ...rows.swarm_agreements.data.decision,
-        recommendationId: recommendation.id,
-        treatment: "standard",
-        onboardingMinor: 100,
+  const before = structuredClone(f.db.records);
+  await assert.rejects(
+    mutateOperating(
+      f.db.mongo,
+      config,
+      identity,
+      "swarm_agreements",
+      "create",
+      {
+        data: {
+          ...rows.swarm_agreements.data.decision,
+          recommendationId: recommendation.id,
+          treatment: "standard",
+          onboardingMinor: 100,
+        },
       },
-    },
-    id,
+      id,
+    ),
   );
-  const agreement = f.db.rows("swarm_agreements")[0]!;
-  assert.equal(agreement.data.finalRecurringMinor, 0);
-  assert.equal(agreement.data.decision.onboardingMinor, 0);
-  assert.equal(agreement.data.decision.treatment, "internal");
-  assert.deepEqual(agreement.data.recommendationSnapshot, gross);
+  assert.deepEqual(f.db.records, before);
+  assert.equal(f.db.rows("swarm_agreements").length, 0);
+  assert.deepEqual(f.db.rows("pricing_recommendations")[0].data, gross);
 });
 test("generic CRM writes cannot forge an exemption or its approval event", async () => {
   const f = fixture(),

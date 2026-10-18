@@ -237,7 +237,7 @@ test("public discovery retains candidates without creating managed contacts", as
     );
   assert.equal(created, undefined);
   assert.ok(saved.job.discovery[0].candidateId);
-  assert.equal(saved.job.discovery[0].details.email,undefined);
+  assert.equal(saved.job.discovery[0].details.email, undefined);
   const second = await service.start(identity, w, {
     ...research,
     requestKey: randomUUID(),

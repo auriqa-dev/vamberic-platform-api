@@ -425,18 +425,16 @@ export function createGa4Application(
         await mongo.withTransaction!(async (tx, session) => {
           await integrationAccess(tx, config, identity, w, "update", session);
           const now = await lockIcpWorkspace(tx, w, session);
-          await tx
-            .collection("workspace_integrations")
-            .updateOne(
-              {
-                workspaceId: w,
-                id: r.id,
-                updatedAt: r.updatedAt,
-                status: "connected",
-              },
-              { $set: { errorCode: e.code, updatedAt: now, lastSyncAt: now } },
-              { session },
-            );
+          await tx.collection("workspace_integrations").updateOne(
+            {
+              workspaceId: w,
+              id: r.id,
+              updatedAt: r.updatedAt,
+              status: "connected",
+            },
+            { $set: { errorCode: e.code, updatedAt: now, lastSyncAt: now } },
+            { session },
+          );
         });
       }
       throw e;
@@ -517,17 +515,44 @@ export function createGa4Application(
     if (reference) await cleanup(w, reference);
     return read(identity, w);
   }
-  async function report(identity: AuthenticatedUser, w: string, window: unknown, filter?: Parameters<ReturnType<typeof googleAnalytics>["report"]>[4]) {
-    const db = await access(identity,w,"read"), r = await row(db,w);
-    if(r?.status!=="connected" || !r.secretReference || r.errorCode)throw new Ga4Error("NOT_CONNECTED","Connect and test a GA4 property in Integrations first.");
-    const state=await read(identity,w);
-    if(!state.property?.timeZone)throw new Ga4Error("PROPERTY_CHANGED","Test the GA4 connection to confirm its timezone.");
-    const {client,value}=await tokens(w,r.secretReference);
-    const traffic=await client.report(value.accessToken,r.externalAccountId,window,state.property.timeZone,filter);
-    await integrationAccess(db,config,identity,w,"read");
-    const current=await row(db,w);
-    if(current?.updatedAt.toISOString()!==r.updatedAt.toISOString())throw new HiveConflict("GA4 connection changed during reporting. Refresh the dashboard.");
-    return {property:state.property,connectionVersion:r.connectedAt.toISOString(),traffic};
+  async function report(
+    identity: AuthenticatedUser,
+    w: string,
+    window: unknown,
+    filter?: Parameters<ReturnType<typeof googleAnalytics>["report"]>[4],
+  ) {
+    const db = await access(identity, w, "read"),
+      r = await row(db, w);
+    if (r?.status !== "connected" || !r.secretReference || r.errorCode)
+      throw new Ga4Error(
+        "NOT_CONNECTED",
+        "Connect and test a GA4 property in Integrations first.",
+      );
+    const state = await read(identity, w);
+    if (!state.property?.timeZone)
+      throw new Ga4Error(
+        "PROPERTY_CHANGED",
+        "Test the GA4 connection to confirm its timezone.",
+      );
+    const { client, value } = await tokens(w, r.secretReference);
+    const traffic = await client.report(
+      value.accessToken,
+      r.externalAccountId,
+      window,
+      state.property.timeZone,
+      filter,
+    );
+    await integrationAccess(db, config, identity, w, "read");
+    const current = await row(db, w);
+    if (current?.updatedAt.toISOString() !== r.updatedAt.toISOString())
+      throw new HiveConflict(
+        "GA4 connection changed during reporting. Refresh the dashboard.",
+      );
+    return {
+      property: state.property,
+      connectionVersion: r.connectedAt.toISOString(),
+      traffic,
+    };
   }
   return { read, begin, finish, properties, select, test, disconnect, report };
 }

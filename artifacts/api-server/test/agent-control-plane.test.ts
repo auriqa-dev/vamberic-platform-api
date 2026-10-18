@@ -1790,17 +1790,17 @@ for (const capacity of ["partner", "client"] as const)
 
 test("Platform confirmation reaches a fresh Runtime executor and PSU admission", async () => {
   const { admitHumanFacts, confirmationLabel } =
-    await import("../../../../vamberic-agent-runtime/dist/src/agents/product-service-understanding/fact-admission.js");
+    await import("../../../.integration/vamberic-agent-runtime/dist/src/agents/product-service-understanding/fact-admission.js");
   const { executeAttempt } =
-    await import("../../../../vamberic-agent-runtime/dist/src/runtime/executor.js");
+    await import("../../../.integration/vamberic-agent-runtime/dist/src/runtime/executor.js");
   const { ImplementationRegistry } =
-    await import("../../../../vamberic-agent-runtime/dist/src/registry/registry.js");
+    await import("../../../.integration/vamberic-agent-runtime/dist/src/registry/registry.js");
   const { createFakeAgent } =
-    await import("../../../../vamberic-agent-runtime/dist/src/agents/fake.js");
+    await import("../../../.integration/vamberic-agent-runtime/dist/src/agents/fake.js");
   const { FakeClock } =
-    await import("../../../../vamberic-agent-runtime/dist/src/runtime/clock.js");
+    await import("../../../.integration/vamberic-agent-runtime/dist/src/runtime/clock.js");
   const { FakePlatformContext } =
-    await import("../../../../vamberic-agent-runtime/dist/src/platform/context.js");
+    await import("../../../.integration/vamberic-agent-runtime/dist/src/platform/context.js");
   const f = await fixture("1.2");
   await f.service.acceptPrepared(f.queen, f.prepared);
   const initial = await f.service.claim(f.principal, {
@@ -2014,11 +2014,15 @@ test("Partner respondent on a client-delegated Run records and serializes the re
   assert.ok(f.db.rows("hvm_partner_memberships")[0]!.executionSerial > before);
 });
 
-
 test("independent client admin authority survives delegated partner revocation", async () => {
   const f = await fixture();
   await f.service.acceptPrepared(f.queen, f.prepared);
-  f.db.rows("hvm_partner_memberships").forEach((m) => { m.status = "revoked"; });
-  const work = await f.service.claim(f.principal, {dispatch: f.dispatch(), claimId: "direct-admin"});
+  f.db.rows("hvm_partner_memberships").forEach((m) => {
+    m.status = "revoked";
+  });
+  const work = await f.service.claim(f.principal, {
+    dispatch: f.dispatch(),
+    claimId: "direct-admin",
+  });
   assert.equal(work.runId, f.runId);
 });

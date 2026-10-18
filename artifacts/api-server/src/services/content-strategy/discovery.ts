@@ -32,7 +32,10 @@ export async function readRaw(
   permit: (url: string) => boolean = () => true,
   parentSignal?: AbortSignal,
 ) {
-  const signal = AbortSignal.any([AbortSignal.timeout(15000), ...(parentSignal ? [parentSignal] : [])]);
+  const signal = AbortSignal.any([
+    AbortSignal.timeout(15000),
+    ...(parentSignal ? [parentSignal] : []),
+  ]);
   let current = publicPageUrl(url);
   for (let i = 0; i < 3; i++) {
     if (!permit(current))

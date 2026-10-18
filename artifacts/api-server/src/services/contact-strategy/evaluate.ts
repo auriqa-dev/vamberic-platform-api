@@ -3,9 +3,9 @@ import { strategyTemplate } from "./catalogue";
 import { templateSource } from "./provision";
 export function currentContactStrategies(policies: ContactStrategyPolicyV14[]) {
   const latest = new Map<string, ContactStrategyPolicyV14>();
-  for (const p of [...policies].sort((a,b) => b.version - a.version))
+  for (const p of [...policies].sort((a, b) => b.version - a.version))
     if (p.status !== "draft" && !latest.has(p.key)) latest.set(p.key, p);
-  return [...latest.values()].filter(p => p.status === "recorded");
+  return [...latest.values()].filter((p) => p.status === "recorded");
 }
 /** Internal admission contract, never accept these assessments from a public request.
  * The future NBA adapter must resolve current authoritative evidence for this exact
@@ -68,7 +68,8 @@ export function evaluateContactStrategies(
     escalated = false;
   for (const policy of currentContactStrategies(policies)) {
     const key = policy.key;
-    let supported = /^custom_[0-9a-f]{32}$/.test(key) &&
+    let supported =
+      /^custom_[0-9a-f]{32}$/.test(key) &&
       policy.source.reference === templateSource(key, 1);
     try {
       const t = strategyTemplate(key);

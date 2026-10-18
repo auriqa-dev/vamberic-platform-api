@@ -143,7 +143,18 @@ export function createNbaReconciler(
                 s,
                 row.payload.decisionId,
               );
-              if (nbaHash(ctx.versions) !== row.payload.contextHash || guardDecision({ ...row.payload.decision, dueAt: null, awaitEvent: "policy" }, ctx, new Date()).blockers.length)
+              if (
+                nbaHash(ctx.versions) !== row.payload.contextHash ||
+                guardDecision(
+                  {
+                    ...row.payload.decision,
+                    dueAt: null,
+                    awaitEvent: "policy",
+                  },
+                  ctx,
+                  new Date(),
+                ).blockers.length
+              )
                 throw new HiveConflict("NBA context changed");
             },
           )
@@ -192,7 +203,14 @@ export function createNbaReconciler(
               s,
               id,
             );
-            if (nbaHash(ctx.versions) !== row.payload.contextHash || guardDecision({ ...row.payload.decision, dueAt: null, awaitEvent: "policy" }, ctx, new Date()).blockers.length)
+            if (
+              nbaHash(ctx.versions) !== row.payload.contextHash ||
+              guardDecision(
+                { ...row.payload.decision, dueAt: null, awaitEvent: "policy" },
+                ctx,
+                new Date(),
+              ).blockers.length
+            )
               throw new HiveConflict("NBA context changed");
           },
           id,
@@ -274,7 +292,14 @@ export function createNbaReconciler(
           s,
           p.decisionId,
         );
-        if (nbaHash(ctx.versions) !== p.contextHash || guardDecision({ ...p.decision, dueAt: null, awaitEvent: "policy" }, ctx, new Date()).blockers.length)
+        if (
+          nbaHash(ctx.versions) !== p.contextHash ||
+          guardDecision(
+            { ...p.decision, dueAt: null, awaitEvent: "policy" },
+            ctx,
+            new Date(),
+          ).blockers.length
+        )
           next = {
             state: "review_required",
             blockers: [
@@ -407,7 +432,13 @@ export function createNbaReconciler(
           next = {
             state: "review_required",
             blockers: [
-              ["empty_output", "invalid_json", "result_contract", "refusal", "incomplete_output"].includes(emailFailureCode ?? "")
+              [
+                "empty_output",
+                "invalid_json",
+                "result_contract",
+                "refusal",
+                "incomplete_output",
+              ].includes(emailFailureCode ?? "")
                 ? "The model did not return a usable email draft. Reconsider this decision to try again; existing drafts are unchanged and no email was sent."
                 : "Email preparation did not complete. Check Email Content Creation before retrying; no email was sent.",
             ],

@@ -359,56 +359,190 @@ test("generic event creation cannot forge strategy approval, interpretation or d
 });
 
 test("custom strategy survives reload, refines without approval, versions and enforces tenant authority", async () => {
-  const db = new EnquiryMemoryDb(), w = workspace();
-  db.rows("schema_versions").push({_id:"vapp-v1",version:27});
-  const identity={subject:"custom-admin",issuer:testIssuer,clientId:"hvmclient"};
-  await provisionHvmClient(db.mongo,{
-    organisationId:generatePlatformId("org"),organisationName:"Custom fixture",workspaceId:w,
-    management:"client",brandId:generatePlatformId("brand"),clientMembershipId:generatePlatformId("workspacemembership"),
-    workspaceName:"Custom fixture",brandName:"Custom fixture",brandSlug:"custom-fixture",
-    human:{type:"human",id:identity.subject,issuer:identity.issuer},
-  },testIssuer);
-  let received: any;
-  const service=createContactStrategies(config,db.mongo,async input=>{
-    received=input;
-    return {proposal:{statement:"Pause inactive accounts until they request help.",explanation:"Clarified intent",conflicts:[],questions:[]},usage:{model:"fixture",inputTokens:1,outputTokens:1}};
+  const db = new EnquiryMemoryDb(),
+    w = workspace();
+  db.rows("schema_versions").push({ _id: "vapp-v1", version: 27 });
+  const identity = {
+    subject: "custom-admin",
+    issuer: testIssuer,
+    clientId: "hvmclient",
+  };
+  await provisionHvmClient(
+    db.mongo,
+    {
+      organisationId: generatePlatformId("org"),
+      organisationName: "Custom fixture",
+      workspaceId: w,
+      management: "client",
+      brandId: generatePlatformId("brand"),
+      clientMembershipId: generatePlatformId("workspacemembership"),
+      workspaceName: "Custom fixture",
+      brandName: "Custom fixture",
+      brandSlug: "custom-fixture",
+      human: { type: "human", id: identity.subject, issuer: identity.issuer },
+    },
+    testIssuer,
+  );
+  let received: unknown;
+  const service = createContactStrategies(config, db.mongo, async (input) => {
+    received = input;
+    return {
+      proposal: {
+        statement: "Pause inactive accounts until they request help.",
+        explanation: "Clarified intent",
+        conflicts: [],
+        questions: [],
+      },
+      usage: { model: "fixture", inputTokens: 1, outputTokens: 1 },
+    };
   });
-  const key=`custom_${randomUUID().replaceAll("-", "")}`;
-  const proposed=await service.propose(identity,w,{key,name:"Inactive accounts",instruction:"Do not bother inactive accounts",requestKey:randomUUID()});
-  assert.equal(received.template.name,"Inactive accounts");
-  assert.equal((await service.list(identity,w)).policies.filter(p=>p.key===key).length,0);
-  const input={key,name:"Inactive accounts",statement:proposed.statement,expectedVersion:0,operation:"save"};
-  await assert.rejects(()=>service.mutate({...identity,subject:"outsider"},w,input));
-  const saved=await service.mutate(identity,w,input);
-  assert.equal(saved.status,"draft");
-  const reloaded=await service.list(identity,w);
-  assert.equal(reloaded.templates.find(t=>t.key===key)?.name,"Inactive accounts");
-  assert.equal(reloaded.policies.find(p=>p.id===saved.id)?.clauses[0].statement,proposed.statement);
-  await assert.rejects(()=>service.mutate(identity,w,input),/changed/);
-  assert.equal(db.rows("events").filter(e=>e.eventType==="contact_strategy_definition").length,1);
-  const approved=await service.mutate(identity,w,{key,expectedVersion:1,operation:"approve"});
-  assert.equal(approved.status,"recorded");
-  await assert.rejects(()=>service.mutate(identity,w,{key,expectedVersion:2,operation:"remove"}),/Deactivate/);
-  const edited=await service.mutate(identity,w,{key,expectedVersion:2,operation:"save",statement:"Only respond to inbound requests."});
-  assert.equal(edited.status,"draft");
-  assert.equal(db.rows("contact_strategy_policies").find(p=>p.id===approved.id)?.status,"recorded");
-  await service.mutate(identity,w,{key,expectedVersion:3,operation:"deactivate"});
-  const removed=await service.mutate(identity,w,{key,expectedVersion:4,operation:"remove"});
-  assert.equal(removed.status,"withdrawn");
+  const key = `custom_${randomUUID().replaceAll("-", "")}`;
+  const proposed = await service.propose(identity, w, {
+    key,
+    name: "Inactive accounts",
+    instruction: "Do not bother inactive accounts",
+    requestKey: randomUUID(),
+  });
+  assert.partialDeepStrictEqual(received, {
+    template: { name: "Inactive accounts" },
+  });
+  assert.equal(
+    (await service.list(identity, w)).policies.filter((p) => p.key === key)
+      .length,
+    0,
+  );
+  const input = {
+    key,
+    name: "Inactive accounts",
+    statement: proposed.statement,
+    expectedVersion: 0,
+    operation: "save",
+  };
+  await assert.rejects(() =>
+    service.mutate({ ...identity, subject: "outsider" }, w, input),
+  );
+  const saved = await service.mutate(identity, w, input);
+  assert.equal(saved.status, "draft");
+  const reloaded = await service.list(identity, w);
+  assert.equal(
+    reloaded.templates.find((t) => t.key === key)?.name,
+    "Inactive accounts",
+  );
+  assert.equal(
+    reloaded.policies.find((p) => p.id === saved.id)?.clauses[0].statement,
+    proposed.statement,
+  );
+  await assert.rejects(() => service.mutate(identity, w, input), /changed/);
+  assert.equal(
+    db
+      .rows("events")
+      .filter((e) => e.eventType === "contact_strategy_definition").length,
+    1,
+  );
+  const approved = await service.mutate(identity, w, {
+    key,
+    expectedVersion: 1,
+    operation: "approve",
+  });
+  assert.equal(approved.status, "recorded");
+  await assert.rejects(
+    () =>
+      service.mutate(identity, w, {
+        key,
+        expectedVersion: 2,
+        operation: "remove",
+      }),
+    /Deactivate/,
+  );
+  const edited = await service.mutate(identity, w, {
+    key,
+    expectedVersion: 2,
+    operation: "save",
+    statement: "Only respond to inbound requests.",
+  });
+  assert.equal(edited.status, "draft");
+  assert.equal(
+    db.rows("contact_strategy_policies").find((p) => p.id === approved.id)
+      ?.status,
+    "recorded",
+  );
+  await service.mutate(identity, w, {
+    key,
+    expectedVersion: 3,
+    operation: "deactivate",
+  });
+  const removed = await service.mutate(identity, w, {
+    key,
+    expectedVersion: 4,
+    operation: "remove",
+  });
+  assert.equal(removed.status, "withdrawn");
 });
 
 test("approved reader requires matching tenant approval evidence and retains approved predecessors", async () => {
-  const { readApprovedContactStrategies } = await import("../src/services/contact-strategy/current");
-  const db = new EnquiryMemoryDb(), w = workspace();
+  const { readApprovedContactStrategies } =
+    await import("../src/services/contact-strategy/current");
+  const db = new EnquiryMemoryDb(),
+    w = workspace();
   const p = planStrategyTemplates(w, [], new Date()).created[0];
   p.status = "recorded";
   db.rows("contact_strategy_policies").push(p);
-  assert.deepEqual((await readApprovedContactStrategies(db as any, w)).missingApproval, [p.id]);
-  db.rows("events").push({workspaceId:workspace(), eventType:"contact_strategy_changed", payload:{operation:"approve",policyId:p.id,version:p.version}});
-  assert.equal((await readApprovedContactStrategies(db as any, w)).approved.length, 0);
-  db.rows("events").push({workspaceId:w, eventType:"contact_strategy_changed", payload:{operation:"approve",policyId:p.id,version:p.version}});
-  db.rows("contact_strategy_policies").push({...p,id:generatePlatformId("contactstrategy"),version:2,status:"draft"});
-  assert.deepEqual((await readApprovedContactStrategies(db as any, w)).approved.map(r=>r.id), [p.id]);
-  db.rows("contact_strategy_policies").push({...p,id:generatePlatformId("contactstrategy"),version:3,status:"withdrawn"});
-  assert.deepEqual((await readApprovedContactStrategies(db as any, w)).approved, []);
+  assert.deepEqual(
+    (
+      await readApprovedContactStrategies(
+        db as unknown as Parameters<typeof readApprovedContactStrategies>[0],
+        w,
+      )
+    ).missingApproval,
+    [p.id],
+  );
+  db.rows("events").push({
+    workspaceId: workspace(),
+    eventType: "contact_strategy_changed",
+    payload: { operation: "approve", policyId: p.id, version: p.version },
+  });
+  assert.equal(
+    (
+      await readApprovedContactStrategies(
+        db as unknown as Parameters<typeof readApprovedContactStrategies>[0],
+        w,
+      )
+    ).approved.length,
+    0,
+  );
+  db.rows("events").push({
+    workspaceId: w,
+    eventType: "contact_strategy_changed",
+    payload: { operation: "approve", policyId: p.id, version: p.version },
+  });
+  db.rows("contact_strategy_policies").push({
+    ...p,
+    id: generatePlatformId("contactstrategy"),
+    version: 2,
+    status: "draft",
+  });
+  assert.deepEqual(
+    (
+      await readApprovedContactStrategies(
+        db as unknown as Parameters<typeof readApprovedContactStrategies>[0],
+        w,
+      )
+    ).approved.map((r) => r.id),
+    [p.id],
+  );
+  db.rows("contact_strategy_policies").push({
+    ...p,
+    id: generatePlatformId("contactstrategy"),
+    version: 3,
+    status: "withdrawn",
+  });
+  assert.deepEqual(
+    (
+      await readApprovedContactStrategies(
+        db as unknown as Parameters<typeof readApprovedContactStrategies>[0],
+        w,
+      )
+    ).approved,
+    [],
+  );
 });

@@ -376,16 +376,26 @@ test("HubSpot history review is scoped, preserves dates and requires fresh conta
   assert.equal(r.status, 404);
 });
 
-
 test("company preview accepts a bounded batch above the ordinary request limit", async (t) => {
   const f = await fixture(t);
   const payload = {
-    requestKey: crypto.randomUUID(), filename: "companies.csv", fieldMapping: {},
+    requestKey: crypto.randomUUID(),
+    filename: "companies.csv",
+    fieldMapping: {},
     hubspot: { kind: "companies", timezone: "Europe/London" },
-    rows: Array.from({ length: 100 }, (_, i) => ({ row: i + 1, original: {
-      "Record ID": String(i + 1), "Company name": `Company ${i}`,
-      ...Object.fromEntries(Array.from({ length: 50 }, (_, j) => [`Source field ${j}`, "x".repeat(80)])),
-    } })),
+    rows: Array.from({ length: 100 }, (_, i) => ({
+      row: i + 1,
+      original: {
+        "Record ID": String(i + 1),
+        "Company name": `Company ${i}`,
+        ...Object.fromEntries(
+          Array.from({ length: 50 }, (_, j) => [
+            `Source field ${j}`,
+            "x".repeat(80),
+          ]),
+        ),
+      },
+    })),
   };
   const bytes = Buffer.byteLength(JSON.stringify(payload));
   assert.ok(bytes > 256 * 1024 && bytes < 700000);
@@ -393,9 +403,19 @@ test("company preview accepts a bounded batch above the ordinary request limit",
   assert.equal(result.status, 200, JSON.stringify(result.body));
   assert.equal(result.body.rows.length, 100);
   assert.equal(result.body.counts.created, 100);
-  assert.equal(f.db.rows("organisations").filter(r => r.name?.startsWith("Company ")).length, 0);
+  assert.equal(
+    f.db.rows("organisations").filter((r) => r.name?.startsWith("Company "))
+      .length,
+    0,
+  );
   // The higher parser bound remains finite and applies only to imports.
   const oversized = { padding: "x".repeat(1024 * 1024 + 1) };
-  assert.notEqual((await f.request(f.root + "/icp/imports/preview", oversized)).status, 200);
-  assert.notEqual((await f.request(f.root + "/records/organisations/create", payload)).status, 201);
+  assert.notEqual(
+    (await f.request(f.root + "/icp/imports/preview", oversized)).status,
+    200,
+  );
+  assert.notEqual(
+    (await f.request(f.root + "/records/organisations/create", payload)).status,
+    201,
+  );
 });

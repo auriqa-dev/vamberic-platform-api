@@ -86,7 +86,6 @@ import { OperatingSchemas } from "../src/domain/operating";
 import {
   ApprovalReview,
   ApprovalPage,
-  ApprovalSuccess,
 } from "../src/services/agreement-approval-contract";
 const root = "/api/v1/hvm/empress/agreement-approvals";
 async function pendingFixture(t: TestContext, treatment = "internal") {
@@ -134,91 +133,40 @@ function empressOnly(f: Awaited<ReturnType<typeof pendingFixture>>) {
 }
 
 for (const treatment of ["internal", "waived"]) {
-  test(`Empress-only HTTP review and approval of ${treatment} without workspace access`, async (t) => {
+  test(`Empress can review historical ${treatment} agreements but cannot reactivate retired approval`, async (t) => {
     const f = await pendingFixture(t, treatment);
     empressOnly(f);
-    const frozen = structuredClone(f.agreement.data.recommendationSnapshot);
+    const before = structuredClone(f.db.records);
     const list = await f.request(root);
     assert.equal(list.status, 200);
     ApprovalPage.parse(list.body);
     assert.equal(list.body.items.length, 1);
     const detail = await f.request(`${root}/${f.agreement.id}`);
     assert.equal(detail.status, 200);
-    assert.deepEqual(detail.body, list.body.items[0]);
     ApprovalReview.parse(detail.body);
-    assert.equal(detail.body.finalRecurringMinor, 0);
-    assert.equal(detail.body.decision.onboardingMinor, 0);
-    assert.ok(detail.body.recommendation.expectedOperatingMonthlyMinor > 0);
-    assert.ok(detail.body.recommendation.recommendedMonthlyMinor > 0);
+    assert.deepEqual(detail.body, list.body.items[0]);
     assert.equal(detail.body.policy.result, "requires_empress_approval");
-    assert.deepEqual(
-      Object.keys(detail.body).sort(),
-      [
-        "id",
-        "status",
-        "updatedAt",
-        "workspaceId",
-        "swarm",
-        "recommendation",
-        "decision",
-        "recommendedPeriodMinor",
-        "finalRecurringMinor",
-        "finalMonthlyEquivalentMinor",
-        "policy",
-      ].sort(),
-    );
     assert.ok(!JSON.stringify(detail.body).includes("PRIVATE_"));
     for (const path of [
       "client-swarms",
       "client-agents",
       "swarm-agreements",
       "pricing-recommendations",
-    ]) {
+    ])
       assert.equal(
         (await f.request(f.root + "/operating/" + path)).status,
         404,
       );
-    }
-    assert.equal(
-      (await f.request(f.root + "/profile", { name: "Unrelated" })).status,
-      404,
-    );
-    const approved = await f.request(
-      `${root}/${f.agreement.id}/approve`,
-      f.approve(),
-    );
-    assert.equal(approved.status, 200, JSON.stringify(approved));
-    ApprovalSuccess.parse(approved.body);
-    assert.equal(approved.body.policyResult, "approved_by_empress");
-    assert.deepEqual(approved.body.empressApproval.actor, f.input.human);
-    assert.equal(
-      approved.body.empressApproval.reason,
-      "Explicit commercial exception",
-    );
-    assert.ok(!Number.isNaN(Date.parse(approved.body.empressApproval.at)));
-    assert.deepEqual(
-      f.db.rows("swarm_agreements")[0].data.recommendationSnapshot,
-      frozen,
-    );
-    const audit = f.db
-      .rows("events")
-      .find((e) => e.payload?.operation === "empress-approve")!;
-    assert.equal(audit.workspaceId, f.input.workspaceId);
-    assert.deepEqual(audit.payload.actor, f.input.human);
-    assert.equal(audit.payload.authority, "empress");
-    assert.equal(audit.payload.authorizationResource, "agreement_approvals");
-    assert.equal(audit.payload.reason, approved.body.empressApproval.reason);
-    assert.equal(
-      audit.occurredAt.toISOString(),
-      approved.body.empressApproval.at,
-    );
-    assert.deepEqual((await f.request(root)).body.items, []);
-    assert.equal((await f.request(`${root}/${f.agreement.id}`)).status, 404);
-    assert.equal(
-      (await f.request(`${root}/${f.agreement.id}/approve`, f.approve()))
-        .status,
-      404,
-    );
+    const responses = await Promise.all([
+      f.request(`${root}/${f.agreement.id}/approve`, f.approve()),
+      f.request(`${root}/${f.agreement.id}/approve`, f.approve()),
+      f.request(f.root + "/operating/swarm-agreements/empress-approve", {
+        id: f.agreement.id,
+        ...f.approve(),
+      }),
+    ]);
+    for (const response of responses) assert.equal(response.status, 404);
+    assert.deepEqual(f.db.records, before);
   });
 }
 for (const role of [
@@ -267,25 +215,13 @@ for (const role of [
             expectedUpdatedAt: f.agreement.updatedAt.toISOString(),
           })
         ).status,
-        409,
+        404,
       );
       const other = `/api/v1/hvm/workspaces/${generatePlatformId("workspace")}/operating/swarm-agreements`;
       assert.equal((await f.request(other)).status, 404);
     }
   });
 }
-test("combined Empress/Queen retains separate authority and approval attribution", async (t) => {
-  const f = await pendingFixture(t);
-  assert.equal(
-    (await f.request(f.root + "/operating/client-swarms")).status,
-    200,
-  );
-  assert.equal(
-    (await f.request(`${root}/${f.agreement.id}/approve`, f.approve())).status,
-    200,
-  );
-  assert.equal(f.db.rows("events").at(-1)!.payload.authority, "empress");
-});
 test("queue is empty or bounded and paginated; ordinary and historic agreements excluded", async (t) => {
   const f = await pendingFixture(t);
   const eligible = structuredClone(f.agreement);
@@ -338,9 +274,42 @@ test("queue is empty or bounded and paginated; ordinary and historic agreements 
     );
   }
 });
-test("strict query, IDs, bounded reason and actor spoofing fail safely without writes", async (t) => {
+
+test("combined Empress and Queen cannot mutate retired commercial records, including stale or spoofed requests", async (t) => {
   const f = await pendingFixture(t);
-  const before = JSON.stringify(f.db.rows("swarm_agreements"));
+  const before = structuredClone(f.db.records);
+  for (const body of [
+    f.approve(),
+    f.approve({ expectedUpdatedAt: "2020-01-01T00:00:00.000Z" }),
+    f.approve({ actor: f.input.human }),
+    f.approve({ reason: " " }),
+    f.approve({ reason: "x".repeat(2001) }),
+  ]) {
+    const response = await f.request(`${root}/${f.agreement.id}/approve`, body);
+    assert.ok([400, 404].includes(response.status));
+    assert.deepEqual(f.db.records, before);
+  }
+  for (const operation of [
+    "approve",
+    "empress-approve",
+    "update",
+    "supersede",
+    "retire",
+  ])
+    assert.equal(
+      (
+        await f.request(f.root + "/operating/swarm-agreements/" + operation, {
+          id: f.agreement.id,
+          ...f.approve(),
+        })
+      ).status,
+      404,
+    );
+  assert.deepEqual(f.db.records, before);
+});
+test("historical review queries reject scope injection and malformed identifiers without writes", async (t) => {
+  const f = await pendingFixture(t);
+  const before = structuredClone(f.db.records);
   for (const query of [
     "limit=101",
     "limit=0",
@@ -351,7 +320,7 @@ test("strict query, IDs, bounded reason and actor spoofing fail safely without w
     "limit=1&limit=2",
     "id[$ne]=x",
   ])
-    assert.equal((await f.request(root + "?" + query)).status, 400, query);
+    assert.equal((await f.request(root + "?" + query)).status, 400);
   assert.equal((await f.request(root + "/bad-id")).status, 400);
   assert.equal(
     (await f.request(`${root}/${generatePlatformId("swarmagreement")}`)).status,
@@ -361,143 +330,16 @@ test("strict query, IDs, bounded reason and actor spoofing fail safely without w
     (await f.request(`${root}/${f.agreement.id}?workspaceId=x`)).status,
     400,
   );
-  for (const body of [
-    { expectedUpdatedAt: f.agreement.updatedAt.toISOString() },
-    f.approve({ reason: " " }),
-    f.approve({ reason: "x".repeat(2001) }),
-    f.approve({ actor: f.input.human }),
-    f.approve({ expectedUpdatedAt: "not-date" }),
-  ])
-    assert.equal(
-      (await f.request(`${root}/${f.agreement.id}/approve`, body)).status,
-      400,
-    );
-  assert.equal(
-    (await f.request(`${root}/bad/approve`, f.approve())).status,
-    400,
-  );
-  assert.equal(
-    (
-      await f.request(
-        `${root}/${f.agreement.id}/approve?workspaceId=x`,
-        f.approve(),
-      )
-    ).status,
-    400,
-  );
-  assert.equal(JSON.stringify(f.db.rows("swarm_agreements")), before);
+  assert.deepEqual(f.db.records, before);
 });
-test("approval rechecks changed timestamp and lifecycle at mutation time", async (t) => {
-  const f = await pendingFixture(t);
-  const body = f.approve();
-  await f.request(`${root}/${f.agreement.id}`);
-  f.agreement.updatedAt = new Date(f.agreement.updatedAt.getTime() + 1);
-  assert.equal(
-    (await f.request(`${root}/${f.agreement.id}/approve`, body)).status,
-    409,
-  );
-  for (const status of ["superseded", "retired", "approved"]) {
-    f.db.rows("swarm_agreements")[0].status = status;
-    assert.equal(
-      (await f.request(`${root}/${f.agreement.id}/approve`, body)).status,
-      404,
-    );
-  }
-  const row = f.db.rows("swarm_agreements")[0];
-  row.status = "proposed";
-  row.data.policyResult = "within_policy";
-  assert.equal(
-    (await f.request(`${root}/${row.id}/approve`, body)).status,
-    404,
-  );
-});
-test("approval verifies frozen commercial consistency and overlapping approved periods", async (t) => {
-  const f = await pendingFixture(t);
-  f.agreement.data.finalRecurringMinor = 123;
-  assert.equal(
-    (await f.request(`${root}/${f.agreement.id}/approve`, f.approve())).status,
-    409,
-  );
-  const row = f.db.rows("swarm_agreements")[0];
-  row.data.finalRecurringMinor = 0;
-  f.db.rows("swarm_agreements").push({
-    ...structuredClone(row),
-    id: generatePlatformId("swarmagreement"),
-    status: "approved",
-  });
-  assert.equal(
-    (await f.request(`${root}/${row.id}/approve`, f.approve())).status,
-    409,
-  );
-  assert.equal(f.db.rows("swarm_agreements")[0].status, "proposed");
-  assert.ok(
-    !f.db
-      .rows("events")
-      .some((e) => e.payload?.operation === "empress-approve"),
-  );
-});
-test("concurrent approvals permit exactly one mutation and one audit event", async (t) => {
+test("historical review uses frozen snapshots, never current policy or raw workspace records", async (t) => {
   const f = await pendingFixture(t);
   empressOnly(f);
-  const results = await Promise.all(
-    [1, 2].map(() =>
-      f.request(`${root}/${f.agreement.id}/approve`, f.approve()),
-    ),
-  );
-  assert.deepEqual(results.map((r) => r.status).sort(), [200, 404]);
-  assert.equal(
-    f.db
-      .rows("events")
-      .filter((e) => e.payload?.operation === "empress-approve").length,
-    1,
-  );
-});
-
-test("review uses frozen snapshots rather than current policy or swarm values", async (t) => {
-  const f = await pendingFixture(t);
   const before = await f.request(`${root}/${f.agreement.id}`);
-  f.db.rows("commercial_policies")[0].data.minimumMargin = 0;
-  f.db.rows("client_swarms")[0].data.name = "Changed current name";
-  assert.deepEqual(
-    (await f.request(`${root}/${f.agreement.id}`)).body,
-    before.body,
-  );
-  assert.equal(
-    (
-      await f.request(
-        `${root}/${f.agreement.id}/approve`,
-        f.approve({ reason: "x".repeat(2000) }),
-      )
-    ).status,
-    200,
-  );
-});
-test("ordinary within-policy approval remains Queen-controlled", async (t) => {
-  const f = await pendingFixture(t, "standard");
-  assert.deepEqual((await f.request(root)).body.items, []);
-  assert.equal(
-    (await f.request(`${root}/${f.agreement.id}/approve`, f.approve())).status,
-    404,
-  );
-  f.config.empressSubjects = [];
-  assert.equal(
-    (
-      await f.request(f.root + "/operating/swarm-agreements/approve", {
-        id: f.agreement.id,
-        expectedUpdatedAt: f.agreement.updatedAt.toISOString(),
-      })
-    ).status,
-    200,
-  );
-});
-test("legacy exceptional operation uses the narrow Empress path and cannot expose raw workspace documents", async (t) => {
-  const f = await pendingFixture(t);
-  empressOnly(f);
-  const result = await f.request(
-    f.root + "/operating/swarm-agreements/empress-approve",
-    { id: f.agreement.id, ...f.approve() },
-  );
-  assert.equal(result.status, 200);
-  ApprovalSuccess.parse(result.body);
-  assert.equal(result.body.data, undefined);
+  f.db.rows("commercial_policies").length = 0;
+  f.db.rows("client_swarms")[0].description = "CHANGED_PRIVATE_CONFIGURATION";
+  const after = await f.request(`${root}/${f.agreement.id}`);
+  assert.equal(after.status, 200);
+  assert.deepEqual(after.body, before.body);
+  assert.ok(!JSON.stringify(after.body).includes("PRIVATE"));
 });

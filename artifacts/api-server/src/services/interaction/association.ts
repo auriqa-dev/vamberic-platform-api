@@ -70,7 +70,8 @@ export async function associateEnquiry(
       ...base,
       id: generatePlatformId("person"),
       firstName: visitor.name.trim().split(/\s+/)[0],
-      lastName: visitor.name.trim().split(/\s+/).slice(1).join(" ") || undefined,
+      lastName:
+        visitor.name.trim().split(/\s+/).slice(1).join(" ") || undefined,
       displayName: visitor.name,
     });
     const contact = ContactPointSchema.parse({

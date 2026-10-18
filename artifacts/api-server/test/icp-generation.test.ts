@@ -127,46 +127,218 @@ test("ICP keeps valid optional entries and rejects wrong profile identity", () =
   );
 });
 
-
-test("supporting-context limits keep full user instructions and disclose excerpts",()=>{
- const notes:string[]=[];
- const context=icpContext({...input,instructions:"Exact user direction",offerResearch:{huge:"x".repeat(80000)}},[],notes);
- assert.equal(context.instructions,"Exact user direction");
- assert.ok(JSON.stringify(context).length<15000);
- assert.ok(notes.some(n=>n.includes("offerResearch")));
+test("supporting-context limits keep full user instructions and disclose excerpts", () => {
+  const notes: string[] = [];
+  const context = icpContext(
+    {
+      ...input,
+      instructions: "Exact user direction",
+      offerResearch: { huge: "x".repeat(80000) },
+    },
+    [],
+    notes,
+  );
+  assert.equal(context.instructions, "Exact user direction");
+  assert.ok(JSON.stringify(context).length < 15000);
+  assert.ok(notes.some((n) => n.includes("offerResearch")));
 });
-test("unavailable optional customer pages preserve useful generation with a review note",async()=>{
- const generate=createIcpGenerator(config,async()=>new Response(JSON.stringify({status:"completed",model:ICP_MODEL,usage:{input_tokens:10,output_tokens:20},output:[{type:"message",content:[{type:"output_text",text:JSON.stringify({definition:{name:"Buyers",description:"Draft",profileType:"b2b",researchCriteria:["Hypothesis: demand stress; evidence required"],adoptionReadiness:["Can act on recommendations"],targetingCoverage:["User direction incorporated"]},rationale:"For review"})}]}]})),{resolve:async()=>["93.184.216.34"],read:async()=>{throw new Error("Website timeout");}});
- const result=await generate({...input,customerUrls:["https://customer.example.com/"]},new AbortController().signal);
- assert.equal(result.definition.name,"Buyers");assert.match(result.definition.unknowns!.join(" "),/could not be read/);assert.equal(result.definition.researchCriteria?.length,1);
+test("unavailable optional customer pages preserve useful generation with a review note", async () => {
+  const generate = createIcpGenerator(
+    config,
+    async () =>
+      new Response(
+        JSON.stringify({
+          status: "completed",
+          model: ICP_MODEL,
+          usage: { input_tokens: 10, output_tokens: 20 },
+          output: [
+            {
+              type: "message",
+              content: [
+                {
+                  type: "output_text",
+                  text: JSON.stringify({
+                    definition: {
+                      name: "Buyers",
+                      description: "Draft",
+                      profileType: "b2b",
+                      researchCriteria: [
+                        "Hypothesis: demand stress; evidence required",
+                      ],
+                      adoptionReadiness: ["Can act on recommendations"],
+                      targetingCoverage: ["User direction incorporated"],
+                    },
+                    rationale: "For review",
+                  }),
+                },
+              ],
+            },
+          ],
+        }),
+      ),
+    {
+      resolve: async () => ["93.184.216.34"],
+      read: async () => {
+        throw new Error("Website timeout");
+      },
+    },
+  );
+  const result = await generate(
+    { ...input, customerUrls: ["https://customer.example.com/"] },
+    new AbortController().signal,
+  );
+  assert.equal(result.definition.name, "Buyers");
+  assert.match(result.definition.unknowns!.join(" "), /could not be read/);
+  assert.equal(result.definition.researchCriteria?.length, 1);
 });
 
-for (const method of ["value-equation-v1", "value-proposition-development-v1"]) {
- for (const failure of [new Error("Public page unavailable or unsupported"),new Error("Public page transport unavailable"),new DOMException("Timed out","TimeoutError")]) {
-  test(`${method}: optional example ${failure.name}/${failure.message} preserves approved offer and full targeting`,async()=>{
-   const instructions="Enterprise targeting and evidence requirements. ".repeat(75);
-   const offer={id:method,revision:1,definition:{name:method,methodology:method}};
-   let calls=0;
-   const generate=createIcpGenerator(config,async(_url,init)=>{
-    calls++;const body=JSON.parse(String(init?.body));const context=JSON.parse(body.input[1].content);
-    assert.equal(context.instructions,instructions);assert.deepEqual(context.offer,offer);
-    assert.deepEqual(context.examples,[{name:"Equans",reason:"Complex offerings"}]);
-    assert.equal(context.customerWebsite.length,1);assert.equal(context.customerWebsite[0].url,"https://available.example.com/");
-    assert.match(context.sourceLimitations.join(" "),/could not be read/);
-    return new Response(JSON.stringify({status:"completed",model:ICP_MODEL,usage:{input_tokens:10,output_tokens:20},output:[{type:"message",content:[{type:"output_text",text:JSON.stringify({definition:{name:"Enterprise buyers",description:"Draft",profileType:"b2b"},rationale:"For review"})}]}]}));
-   },{resolve:async()=>["93.184.216.34"],read:async({url})=>{if(url.includes("unavailable"))throw failure;return {access:"allowed",decodedBytes:20,text:"Public company",title:"Example"};}});
-   const result=await generate({...input,instructions,offer,examples:[{name:"Equans",reason:"Complex offerings"}],customerUrls:["https://unavailable.example.com/","https://available.example.com/"]},new AbortController().signal);
-   assert.equal(calls,1);assert.match(result.definition.unknowns!.join(" "),/unavailable.example.com/);
-  });
- }
+for (const method of [
+  "value-equation-v1",
+  "value-proposition-development-v1",
+]) {
+  for (const failure of [
+    new Error("Public page unavailable or unsupported"),
+    new Error("Public page transport unavailable"),
+    new DOMException("Timed out", "TimeoutError"),
+  ]) {
+    test(`${method}: optional example ${failure.name}/${failure.message} preserves approved offer and full targeting`, async () => {
+      const instructions =
+        "Enterprise targeting and evidence requirements. ".repeat(75);
+      const offer = {
+        id: method,
+        revision: 1,
+        definition: { name: method, methodology: method },
+      };
+      let calls = 0;
+      const generate = createIcpGenerator(
+        config,
+        async (_url, init) => {
+          calls++;
+          const body = JSON.parse(String(init?.body));
+          const context = JSON.parse(body.input[1].content);
+          assert.equal(context.instructions, instructions);
+          assert.deepEqual(context.offer, offer);
+          assert.deepEqual(context.examples, [
+            { name: "Equans", reason: "Complex offerings" },
+          ]);
+          assert.equal(context.customerWebsite.length, 1);
+          assert.equal(
+            context.customerWebsite[0].url,
+            "https://available.example.com/",
+          );
+          assert.match(
+            context.sourceLimitations.join(" "),
+            /could not be read/,
+          );
+          return new Response(
+            JSON.stringify({
+              status: "completed",
+              model: ICP_MODEL,
+              usage: { input_tokens: 10, output_tokens: 20 },
+              output: [
+                {
+                  type: "message",
+                  content: [
+                    {
+                      type: "output_text",
+                      text: JSON.stringify({
+                        definition: {
+                          name: "Enterprise buyers",
+                          description: "Draft",
+                          profileType: "b2b",
+                        },
+                        rationale: "For review",
+                      }),
+                    },
+                  ],
+                },
+              ],
+            }),
+          );
+        },
+        {
+          resolve: async () => ["93.184.216.34"],
+          read: async ({ url }) => {
+            if (url.includes("unavailable")) throw failure;
+            return {
+              access: "allowed",
+              decodedBytes: 20,
+              text: "Public company",
+              title: "Example",
+            };
+          },
+        },
+      );
+      const result = await generate(
+        {
+          ...input,
+          instructions,
+          offer,
+          examples: [{ name: "Equans", reason: "Complex offerings" }],
+          customerUrls: [
+            "https://unavailable.example.com/",
+            "https://available.example.com/",
+          ],
+        },
+        new AbortController().signal,
+      );
+      assert.equal(calls, 1);
+      assert.match(
+        result.definition.unknowns!.join(" "),
+        /unavailable.example.com/,
+      );
+    });
+  }
 }
-test("optional page recovery does not swallow cancellation or security failures",async()=>{
- for(const security of ["Non-public destination","TLS hostname mismatch","Unexpected failure"]){
-  let calls=0;
-  const generate=createIcpGenerator(config,async()=>{calls++;throw Error("must not call");},{resolve:async()=>["93.184.216.34"],read:async()=>{throw Error(security);}});
-  await assert.rejects(generate({...input,customerUrls:["https://customer.example.com/"]},new AbortController().signal));assert.equal(calls,0);
- }
- const controller=new AbortController();let calls=0;
- const generate=createIcpGenerator(config,async()=>{calls++;throw Error("must not call");},{resolve:async()=>["93.184.216.34"],read:async()=>{controller.abort();throw Error("Public page transport unavailable");}});
- await assert.rejects(generate({...input,customerUrls:["https://customer.example.com/"]},controller.signal));assert.equal(calls,0);
+test("optional page recovery does not swallow cancellation or security failures", async () => {
+  for (const security of [
+    "Non-public destination",
+    "TLS hostname mismatch",
+    "Unexpected failure",
+  ]) {
+    let calls = 0;
+    const generate = createIcpGenerator(
+      config,
+      async () => {
+        calls++;
+        throw Error("must not call");
+      },
+      {
+        resolve: async () => ["93.184.216.34"],
+        read: async () => {
+          throw Error(security);
+        },
+      },
+    );
+    await assert.rejects(
+      generate(
+        { ...input, customerUrls: ["https://customer.example.com/"] },
+        new AbortController().signal,
+      ),
+    );
+    assert.equal(calls, 0);
+  }
+  const controller = new AbortController();
+  let calls = 0;
+  const generate = createIcpGenerator(
+    config,
+    async () => {
+      calls++;
+      throw Error("must not call");
+    },
+    {
+      resolve: async () => ["93.184.216.34"],
+      read: async () => {
+        controller.abort();
+        throw Error("Public page transport unavailable");
+      },
+    },
+  );
+  await assert.rejects(
+    generate(
+      { ...input, customerUrls: ["https://customer.example.com/"] },
+      controller.signal,
+    ),
+  );
+  assert.equal(calls, 0);
 });

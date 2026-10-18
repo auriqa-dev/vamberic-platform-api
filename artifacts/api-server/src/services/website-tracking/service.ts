@@ -75,7 +75,9 @@ export async function prepareTracking(
 ) {
   const base = trackingBase();
   if (!base || !draft.ctaUrl) return null;
-  const url = new URL(campaignTrackedUrl(draft.ctaUrl, draft.campaignId, draft.id, testOnly));
+  const url = new URL(
+    campaignTrackedUrl(draft.ctaUrl, draft.campaignId, draft.id, testOnly),
+  );
   const site = await db.collection("events").findOne(
     {
       workspaceId: w,

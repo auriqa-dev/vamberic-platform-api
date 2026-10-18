@@ -132,17 +132,15 @@ async function checkSource(
     row.approvedRevision === reference.revision &&
     row.revision > reference.revision
   ) {
-    const saved = await db
-      .collection("hive_definition_revisions")
-      .findOne(
-        {
-          workspaceId,
-          entityType: "offerings",
-          entityId: reference.id,
-          revision: reference.revision,
-        },
-        { session },
-      );
+    const saved = await db.collection("hive_definition_revisions").findOne(
+      {
+        workspaceId,
+        entityType: "offerings",
+        entityId: reference.id,
+        revision: reference.revision,
+      },
+      { session },
+    );
     if (!saved)
       throw new AgentProposalStale("Approved source snapshot missing");
     row = HiveRevisionSchema.parse(withoutMongoId(saved)).snapshot;
@@ -232,9 +230,10 @@ async function verifyFreshAgentApplications(
     .findOne({ _id: "vapp-v1" } as Document, { session });
   const certifications: SupportApplication[] = [];
   if (
-    ![10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30].includes(
-      ledger?.version ?? 0,
-    )
+    ![
+      10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27,
+      28, 29, 30,
+    ].includes(ledger?.version ?? 0)
   )
     return certifications;
   const rows = await db
@@ -600,7 +599,9 @@ async function verifyFreshAgentApplications(
                 );
           }
         if (
-          [18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30].includes(ledger?.version ?? 0) &&
+          [18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30].includes(
+            ledger?.version ?? 0,
+          ) &&
           resource === "offerings"
         ) {
           const graph = await collectSupportGraph(

@@ -139,7 +139,11 @@ test("email history preserves dates, links participants and does not duplicate",
   const memory = new EnquiryMemoryDb(),
     db = await memory.mongo.database(),
     w = generatePlatformId("workspace"),
-    actor = { type: "human", id: generatePlatformId("person"), issuer: "https://identity.example.com" },
+    actor = {
+      type: "human",
+      id: generatePlatformId("person"),
+      issuer: "https://identity.example.com",
+    },
     session = {} as ClientSession;
   const person = generatePlatformId("person");
   memory
@@ -515,28 +519,85 @@ test("changed name-only and shared-address imports require review even after a p
 });
 
 test("lifecycle labels tolerate export formatting and preserve custom source stages", () => {
-  assert.equal(hubspotLifecycle(' Marketing_Qualified_Lead '), 'marketing_qualified');
-  assert.equal(hubspotLifecycle('sales-qualified-lead'), 'sales_qualified');
-  for (const kind of ['companies','contacts'] as const) {
-    const result=normaliseHubspot({...row,'Company name':'Example','Lifecycle Stage':'Non Responsive','Current Customer':'Yes'},hubspotOptions.parse({kind,timezone:'Europe/London'}));
-    assert.equal(result.originalLifecycle,'Non Responsive');
-    assert.equal(result.lifecycle,'unknown');
-    assert.equal(result.currentCustomer,true);
-    const lead=normaliseHubspot({...row,'Company name':'Example','Lifecycle Stage':'Lead','Current Customer':'Yes'},hubspotOptions.parse({kind,timezone:'Europe/London'}));
-    assert.equal(lead.lifecycle,'lead');
+  assert.equal(
+    hubspotLifecycle(" Marketing_Qualified_Lead "),
+    "marketing_qualified",
+  );
+  assert.equal(hubspotLifecycle("sales-qualified-lead"), "sales_qualified");
+  for (const kind of ["companies", "contacts"] as const) {
+    const result = normaliseHubspot(
+      {
+        ...row,
+        "Company name": "Example",
+        "Lifecycle Stage": "Non Responsive",
+        "Current Customer": "Yes",
+      },
+      hubspotOptions.parse({ kind, timezone: "Europe/London" }),
+    );
+    assert.equal(result.originalLifecycle, "Non Responsive");
+    assert.equal(result.lifecycle, "unknown");
+    assert.equal(result.currentCustomer, true);
+    const lead = normaliseHubspot(
+      {
+        ...row,
+        "Company name": "Example",
+        "Lifecycle Stage": "Lead",
+        "Current Customer": "Yes",
+      },
+      hubspotOptions.parse({ kind, timezone: "Europe/London" }),
+    );
+    assert.equal(lead.lifecycle, "lead");
   }
 });
 test("generic import lifecycle informs contact context without overriding reviewed controls", async () => {
-  const memory = new EnquiryMemoryDb(), db = await memory.mongo.database();
-  const w = generatePlatformId("workspace"), id = generatePlatformId("person");
-  memory.rows("people").push({id,workspaceId:w,firstName:"QA",updatedAt:new Date(),archived:false});
-  memory.rows("events").push({id:generatePlatformId("event"),workspaceId:w,createdAt:new Date(),eventType:"hive_import_contact_context",payload:{personId:id,values:{lifecycle:"customer",originalLifecycle:"Customer"}}});
-  let context = await readContactContext(db,w,id);
-  assert.equal(context.lifecycle,"customer");
-  assert.notEqual(contactActionRestriction(context,"acquisition").decision,"eligible");
-  memory.rows("events").push({id:generatePlatformId("event"),workspaceId:w,createdAt:new Date(),eventType:"contact_context_changed",payload:{subjectId:id,controls:{lifecycle:"opportunity",doNotContact:true,reason:"Reviewed"}}});
-  context = await readContactContext(db,w,id);
-  assert.equal(context.lifecycle,"opportunity");
-  assert.notEqual(contactActionRestriction(context,"acquisition").decision,"eligible");
-  await assert.rejects(readContactContext(db,generatePlatformId("workspace"),id));
+  const memory = new EnquiryMemoryDb(),
+    db = await memory.mongo.database();
+  const w = generatePlatformId("workspace"),
+    id = generatePlatformId("person");
+  memory.rows("people").push({
+    id,
+    workspaceId: w,
+    firstName: "QA",
+    updatedAt: new Date(),
+    archived: false,
+  });
+  memory.rows("events").push({
+    id: generatePlatformId("event"),
+    workspaceId: w,
+    createdAt: new Date(),
+    eventType: "hive_import_contact_context",
+    payload: {
+      personId: id,
+      values: { lifecycle: "customer", originalLifecycle: "Customer" },
+    },
+  });
+  let context = await readContactContext(db, w, id);
+  assert.equal(context.lifecycle, "customer");
+  assert.notEqual(
+    contactActionRestriction(context, "acquisition").decision,
+    "eligible",
+  );
+  memory.rows("events").push({
+    id: generatePlatformId("event"),
+    workspaceId: w,
+    createdAt: new Date(),
+    eventType: "contact_context_changed",
+    payload: {
+      subjectId: id,
+      controls: {
+        lifecycle: "opportunity",
+        doNotContact: true,
+        reason: "Reviewed",
+      },
+    },
+  });
+  context = await readContactContext(db, w, id);
+  assert.equal(context.lifecycle, "opportunity");
+  assert.notEqual(
+    contactActionRestriction(context, "acquisition").decision,
+    "eligible",
+  );
+  await assert.rejects(
+    readContactContext(db, generatePlatformId("workspace"), id),
+  );
 });

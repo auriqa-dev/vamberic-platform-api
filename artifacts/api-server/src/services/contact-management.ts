@@ -84,21 +84,52 @@ async function access(
   return { type: "human" as const, id: r.context.actor.id };
 }
 // Count only recorded communication outcomes, never import/edit events or future meetings.
-export function engagementSummaryPipeline(w: string, kind: RecordKind, now = new Date()): Document[] {
+export function engagementSummaryPipeline(
+  w: string,
+  kind: RecordKind,
+  now = new Date(),
+): Document[] {
   return [
-    { $match: {
-      workspaceId: w, archived: { $ne: true }, occurredAt: { $lte: now },
-      $or: [
-        { eventType: "hubspot_engagement_observed", "source.system": "hubspot" },
-        { "interaction.details.type": "call", "interaction.details.outcome": "connected" },
-        { "interaction.details.type": "email", "interaction.details.outcome": { $in: ["sent", "received"] } },
-        { "interaction.details.type": "meeting", "interaction.details.outcome": "held" },
-        { "interaction.details.type": "communication" },
-      ],
-    } },
-    { $project: { occurredAt: 1, recordIds: kind === "contacts"
-      ? { $setUnion: [{ $ifNull: ["$personIds", []] }, [{ $ifNull: ["$personId", null] }]] }
-      : ["$organisationId"] } },
+    {
+      $match: {
+        workspaceId: w,
+        archived: { $ne: true },
+        occurredAt: { $lte: now },
+        $or: [
+          {
+            eventType: "hubspot_engagement_observed",
+            "source.system": "hubspot",
+          },
+          {
+            "interaction.details.type": "call",
+            "interaction.details.outcome": "connected",
+          },
+          {
+            "interaction.details.type": "email",
+            "interaction.details.outcome": { $in: ["sent", "received"] },
+          },
+          {
+            "interaction.details.type": "meeting",
+            "interaction.details.outcome": "held",
+          },
+          { "interaction.details.type": "communication" },
+        ],
+      },
+    },
+    {
+      $project: {
+        occurredAt: 1,
+        recordIds:
+          kind === "contacts"
+            ? {
+                $setUnion: [
+                  { $ifNull: ["$personIds", []] },
+                  [{ $ifNull: ["$personId", null] }],
+                ],
+              }
+            : ["$organisationId"],
+      },
+    },
     { $unwind: "$recordIds" },
     { $match: { recordIds: { $type: "string" } } },
     { $group: { _id: "$recordIds", lastEngagedAt: { $max: "$occurredAt" } } },
@@ -115,19 +146,33 @@ export function recordPipeline(
   // Read qualifying events once per list request, rather than rescanning them
   // for every imported record. Apply dates before sorting and pagination.
   void kind;
-  const ids = engagements.map(r => r._id);
-  const dates = engagements.map(r => r.lastEngagedAt);
+  const ids = engagements.map((r) => r._id);
+  const dates = engagements.map((r) => r.lastEngagedAt);
   return [
     { $match: { ...filter, workspaceId: w } },
-    { $set: { lastEngagedAt: { $let: {
-      vars: { index: { $indexOfArray: [{ $literal: ids }, "$id"] } },
-      in: { $cond: [{ $gte: ["$$index", 0] }, { $arrayElemAt: [{ $literal: dates }, "$$index"] }, null] },
-    } } } },
+    {
+      $set: {
+        lastEngagedAt: {
+          $let: {
+            vars: { index: { $indexOfArray: [{ $literal: ids }, "$id"] } },
+            in: {
+              $cond: [
+                { $gte: ["$$index", 0] },
+                { $arrayElemAt: [{ $literal: dates }, "$$index"] },
+                null,
+              ],
+            },
+          },
+        },
+      },
+    },
     { $sort: { lastEngagedAt: -1, id: 1 } },
-    { $facet: {
-      items: [{ $skip: offset }, { $limit: limit }],
-      count: [{ $count: "total" }],
-    } },
+    {
+      $facet: {
+        items: [{ $skip: offset }, { $limit: limit }],
+        count: [{ $count: "total" }],
+      },
+    },
   ];
 }
 async function dto(
@@ -142,7 +187,9 @@ async function dto(
     .find(
       {
         workspaceId: w,
-        eventType: { $in: ["hubspot_import_record", "hive_import_contact_context"] },
+        eventType: {
+          $in: ["hubspot_import_record", "hive_import_contact_context"],
+        },
         $or: [{ "payload.personId": row.id }, { "payload.companyId": row.id }],
       },
       { session },
@@ -169,7 +216,8 @@ async function dto(
       controlContext?.payload.controls.lifecycle ??
       (imported.lifecycle === "unknown" && imported.originalLifecycle
         ? imported.originalLifecycle
-        : imported.lifecycle) ?? "",
+        : imported.lifecycle) ??
+      "",
     marketingContactStatus: imported.marketingContactStatus ?? "",
     subscriptionStatus: imported.subscriptionStatus ?? "",
     id: row.id,
@@ -206,7 +254,8 @@ async function dto(
       description: row.description ?? "",
       type: row.type,
       registration: readRegistration(row.source?.reference)?.value ?? "",
-      registrationJurisdiction: readRegistration(row.source?.reference)?.jurisdiction ?? "",
+      registrationJurisdiction:
+        readRegistration(row.source?.reference)?.jurisdiction ?? "",
       registrationType: readRegistration(row.source?.reference)?.type ?? "",
     };
   }
@@ -414,14 +463,18 @@ export function createContactManagement(
         ];
       }
     }
-    const engagements = await db.collection("events")
+    const engagements = await db
+      .collection("events")
       .aggregate(engagementSummaryPipeline(w, kind), { maxTimeMS: 10000 })
       .toArray();
     const [result] = await db
       .collection(collection(kind))
-      .aggregate(recordPipeline(w, kind, filter, q.limit, q.offset, engagements), {
-        maxTimeMS: 10000,
-      })
+      .aggregate(
+        recordPipeline(w, kind, filter, q.limit, q.offset, engagements),
+        {
+          maxTimeMS: 10000,
+        },
+      )
       .toArray();
     let canWrite = true;
     try {
@@ -448,12 +501,23 @@ export function createContactManagement(
     platformIdSchema(prefix(kind)).parse(id);
     const db = await mongo.database();
     await access(db, config, identity, w, kind, "read");
-    const r = await db.collection(collection(kind)).findOne({ workspaceId: w, id, ...visible });
+    const r = await db
+      .collection(collection(kind))
+      .findOne({ workspaceId: w, id, ...visible });
     if (!r) throw new AuthorizationDenied();
-    const engagement = await db.collection("events").find({ $and: [
-      engagementSummaryPipeline(w, kind)[0]!.$match,
-      kind === "contacts" ? { $or: [{ personId: id }, { personIds: id }] } : { organisationId: id },
-    ] }).sort({ occurredAt: -1, id: 1 }).limit(1).next();
+    const engagement = await db
+      .collection("events")
+      .find({
+        $and: [
+          engagementSummaryPipeline(w, kind)[0]!.$match,
+          kind === "contacts"
+            ? { $or: [{ personId: id }, { personIds: id }] }
+            : { organisationId: id },
+        ],
+      })
+      .sort({ occurredAt: -1, id: 1 })
+      .limit(1)
+      .next();
     r.lastEngagedAt = engagement?.occurredAt ?? null;
     return dto(db, w, kind, r);
   }
@@ -497,18 +561,73 @@ export function createContactManagement(
         session,
       );
       const now = await lockIcpWorkspace(db, w, session);
-      if (research && !(await db.collection("events").updateOne({workspaceId:w,id:research.jobId,eventType:"research_job","payload.status":"running","payload.leaseToken":research.leaseToken},{$set:{updatedAt:now}},{session})).matchedCount) throw new ContactConflict("Research was cancelled or superseded.");
-      if(researchCandidateId) {
-        const candidate=await db.collection("events").findOne({workspaceId:w,id:researchCandidateId,eventType:"research_discovery","payload.result.status":kind==="contacts"?"ready":"selected","payload.expiresAt":{$gt:now.toISOString()}},{session});
-        if(!candidate || mode!=="save" || id)throw new ContactConflict("Research candidate changed or expired.");
-        const parent=await db.collection("events").findOne({workspaceId:w,id:candidate.payload.jobId,eventType:"research_job",archived:{$ne:true}},{session});
-        if(!parent || parent.payload.status==="cancelled")throw new ContactConflict("Research was cancelled or removed.");
-        if(candidate.payload.result.kind!==(kind==="contacts"?"person":"organisation"))throw new ContactConflict("Candidate type changed.");
-        if(kind==="contacts"&&candidate.payload.result.emailGrade!=="A+")throw new ContactConflict("A verified A+ business email is required.");
-        const d=candidate.payload.result.details;
-        const f=fields as Record<string,string>;
-        if(kind==="contacts" && (candidate.payload.result.verifiedEmail!==f.email || d.firstName!==f.firstName || d.lastName!==f.lastName || !candidate.payload.result.employmentReview || candidate.payload.result.employmentReview.observedAt < new Date(now.getTime()-30*86400000).toISOString()))throw new ContactConflict("Verified candidate details changed.");
-        if(kind==="organisations" && (d.name!==f.name || d.website!==f.website))throw new ContactConflict("Candidate identity changed.");
+      if (
+        research &&
+        !(
+          await db.collection("events").updateOne(
+            {
+              workspaceId: w,
+              id: research.jobId,
+              eventType: "research_job",
+              "payload.status": "running",
+              "payload.leaseToken": research.leaseToken,
+            },
+            { $set: { updatedAt: now } },
+            { session },
+          )
+        ).matchedCount
+      )
+        throw new ContactConflict("Research was cancelled or superseded.");
+      if (researchCandidateId) {
+        const candidate = await db.collection("events").findOne(
+          {
+            workspaceId: w,
+            id: researchCandidateId,
+            eventType: "research_discovery",
+            "payload.result.status": kind === "contacts" ? "ready" : "selected",
+            "payload.expiresAt": { $gt: now.toISOString() },
+          },
+          { session },
+        );
+        if (!candidate || mode !== "save" || id)
+          throw new ContactConflict("Research candidate changed or expired.");
+        const parent = await db.collection("events").findOne(
+          {
+            workspaceId: w,
+            id: candidate.payload.jobId,
+            eventType: "research_job",
+            archived: { $ne: true },
+          },
+          { session },
+        );
+        if (!parent || parent.payload.status === "cancelled")
+          throw new ContactConflict("Research was cancelled or removed.");
+        if (
+          candidate.payload.result.kind !==
+          (kind === "contacts" ? "person" : "organisation")
+        )
+          throw new ContactConflict("Candidate type changed.");
+        if (kind === "contacts" && candidate.payload.result.emailGrade !== "A+")
+          throw new ContactConflict(
+            "A verified A+ business email is required.",
+          );
+        const d = candidate.payload.result.details;
+        const f = fields as Record<string, string>;
+        if (
+          kind === "contacts" &&
+          (candidate.payload.result.verifiedEmail !== f.email ||
+            d.firstName !== f.firstName ||
+            d.lastName !== f.lastName ||
+            !candidate.payload.result.employmentReview ||
+            candidate.payload.result.employmentReview.observedAt <
+              new Date(now.getTime() - 30 * 86400000).toISOString())
+        )
+          throw new ContactConflict("Verified candidate details changed.");
+        if (
+          kind === "organisations" &&
+          (d.name !== f.name || d.website !== f.website)
+        )
+          throw new ContactConflict("Candidate identity changed.");
       }
       const c = db.collection(collection(kind));
       const old = id
@@ -756,7 +875,22 @@ export function createContactManagement(
           },
           { session },
         );
-      if(researchCandidateId)await db.collection("events").updateOne({workspaceId:w,id:researchCandidateId,eventType:"research_discovery"},{$set:{"payload.result.status":"promoted","payload.result.id":recordId,updatedAt:now}},{session});
+      if (researchCandidateId)
+        await db.collection("events").updateOne(
+          {
+            workspaceId: w,
+            id: researchCandidateId,
+            eventType: "research_discovery",
+          },
+          {
+            $set: {
+              "payload.result.status": "promoted",
+              "payload.result.id": recordId,
+              updatedAt: now,
+            },
+          },
+          { session },
+        );
       await db.collection("events").insertOne(
         EventSchema.parse({
           id: generatePlatformId("event"),
@@ -769,8 +903,12 @@ export function createContactManagement(
           updatedAt: now,
           createdBy: actor,
           payload: {
-            ...(research ? {origin:"research",researchJobId:research.jobId} : {}),
-            ...(researchCandidateId ? {origin:"research_candidate",researchCandidateId} : {}),
+            ...(research
+              ? { origin: "research", researchJobId: research.jobId }
+              : {}),
+            ...(researchCandidateId
+              ? { origin: "research_candidate", researchCandidateId }
+              : {}),
             recordId,
             kind,
             action: mode,

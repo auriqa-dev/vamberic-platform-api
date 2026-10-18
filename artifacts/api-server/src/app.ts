@@ -71,8 +71,14 @@ export function createApp(
   );
   app.use(helmet());
   app.use("/api/v1/public/outcomes", publicOutcomesRouter(config, mongo));
-  app.use("/api/v1/public/interaction", publicInteractionRouter(config, mongo, options.brandImages));
-  app.use("/api/v1/public/tracking", publicWebsiteTrackingRouter(config, mongo));
+  app.use(
+    "/api/v1/public/interaction",
+    publicInteractionRouter(config, mongo, options.brandImages),
+  );
+  app.use(
+    "/api/v1/public/tracking",
+    publicWebsiteTrackingRouter(config, mongo),
+  );
   app.use(
     "/api/v1/public",
     createPublicEnquiriesRouter(
@@ -102,7 +108,15 @@ export function createApp(
   );
   app.use(
     "/api/v1/hvm",
-    createHvmRouter(config, mongo, agents, options.brandImages, options.psuGenerator, options.icpGenerator, options.brandGenerator),
+    createHvmRouter(
+      config,
+      mongo,
+      agents,
+      options.brandImages,
+      options.psuGenerator,
+      options.icpGenerator,
+      options.brandGenerator,
+    ),
   );
   app.use("/api/v1", authorizeOperationalRequest(authority));
   app.use(express.json({ limit: "1mb" }));

@@ -8,9 +8,9 @@ export const templateSettings = z
     layout: z.enum(["personal", "branded"]),
     accentRole: z.enum(["primary", "secondary", "accent"]).default("primary"),
     includeLogo: z.boolean().default(false),
-  logoAlignment: z.enum(["left", "centre", "right"]).default("left"),
-  logoWidth: z.number().int().min(48).max(320).default(160),
-  logoSpacing: z.number().int().min(8).max(64).default(24),
+    logoAlignment: z.enum(["left", "centre", "right"]).default("left"),
+    logoWidth: z.number().int().min(48).max(320).default(160),
+    logoSpacing: z.number().int().min(8).max(64).default(24),
     includeSignature: z.boolean().default(true),
     includeFooter: z.boolean().default(true),
   })
@@ -41,7 +41,9 @@ export function renderTemplate(
 ) {
   const body = draft.content.body;
   const cta = draft.content.ctaText.trim();
-  const url = deliveryUrl || campaignTrackedUrl(draft.ctaUrl, draft.campaignId, draft.id, testOnly);
+  const url =
+    deliveryUrl ||
+    campaignTrackedUrl(draft.ctaUrl, draft.campaignId, draft.id, testOnly);
   if (url) {
     const parsed = new URL(url);
     if (
@@ -69,7 +71,9 @@ export function renderTemplate(
   const urlInBody = !!draft.ctaUrl && body.includes(draft.ctaUrl);
   let bodyHtml = escape(body);
   if (url && urlInBody)
-    bodyHtml = bodyHtml.split(escape(draft.ctaUrl)).join(`<a href="${escape(url)}">${escape(draft.ctaUrl)}</a>`);
+    bodyHtml = bodyHtml
+      .split(escape(draft.ctaUrl))
+      .join(`<a href="${escape(url)}">${escape(draft.ctaUrl)}</a>`);
   else if (url && ctaInBody)
     bodyHtml = bodyHtml.replace(
       escape(cta),
@@ -92,9 +96,7 @@ export function renderTemplate(
   return {
     subject: (testOnly ? "[HVM TEST] " : "") + draft.content.subject,
     text: [
-      url && draft.ctaUrl
-        ? body.split(draft.ctaUrl).join(url)
-        : body,
+      url && draft.ctaUrl ? body.split(draft.ctaUrl).join(url) : body,
       appendCta ? cta : "",
       url && !urlInBody ? url : "",
       ...extras,

@@ -195,9 +195,23 @@ export function createHvmRouter(
     z.object({}).strict().parse(req.query);
     const db = await mongo.database();
     await resolveHvmContext(db, config, req.auth!);
-    const rows = await db.collection("ref_currencies").find({is_active:true}, {projection:{_id:0,code:1,name:1,minorUnits:1}}).sort({code:1}).toArray();
+    const rows = await db
+      .collection("ref_currencies")
+      .find(
+        { is_active: true },
+        { projection: { _id: 0, code: 1, name: 1, minorUnits: 1 } },
+      )
+      .sort({ code: 1 })
+      .toArray();
     const supported = new Set(Intl.supportedValuesOf("currency"));
-    res.json({currencies:rows.map(row=>({code:row.code,name:row.name,minorUnits:row.minorUnits,selectable: supported.has(row.code) && Number.isInteger(row.minorUnits)}))});
+    res.json({
+      currencies: rows.map((row) => ({
+        code: row.code,
+        name: row.name,
+        minorUnits: row.minorUnits,
+        selectable: supported.has(row.code) && Number.isInteger(row.minorUnits),
+      })),
+    });
   });
   router.get("/context", async (req, res) => {
     const resolved = await resolveHvmContext(
@@ -988,7 +1002,10 @@ export function createHvmRouter(
           );
         }
         case "integration-create":
-          if (req.body?.provider === "ga4") throw new Conflict("Use Connect Google Analytics to verify and save a GA4 property");
+          if (req.body?.provider === "ga4")
+            throw new Conflict(
+              "Use Connect Google Analytics to verify and save a GA4 property",
+            );
           return save(
             WorkspaceIntegrationSchema.parse({
               ...integrationInput.parse(req.body),
@@ -1012,7 +1029,10 @@ export function createHvmRouter(
             .strict()
             .parse(req.body);
           const row = await current(input.id, input.expectedUpdatedAt);
-          if (row.provider === "ga4") throw new Conflict("Manage GA4 through its verified connection controls");
+          if (row.provider === "ga4")
+            throw new Conflict(
+              "Manage GA4 through its verified connection controls",
+            );
           if (!HVM_CLIENT_PROVIDERS.includes(row.provider))
             throw new AuthorizationDenied();
           if (

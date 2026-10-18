@@ -286,22 +286,20 @@ test("Library media originals stay private, byte-verified and undeletable while 
     await assert.rejects(() =>
       f.app.download({ ...identity, subject: "foreign" }, f.w, row.id),
     );
-    f.db
-      .rows("events")
-      .push({
-        id: generatePlatformId("event"),
-        workspaceId: f.w,
-        eventType: "content_strategy_record",
-        payload: {
-          record: {
-            id: generatePlatformId("event"),
-            kind: "asset",
-            version: 1,
-            status: "draft",
-            data: { sourceDocumentId: row.id },
-          },
+    f.db.rows("events").push({
+      id: generatePlatformId("event"),
+      workspaceId: f.w,
+      eventType: "content_strategy_record",
+      payload: {
+        record: {
+          id: generatePlatformId("event"),
+          kind: "asset",
+          version: 1,
+          status: "draft",
+          data: { sourceDocumentId: row.id },
         },
-      });
+      },
+    });
     await assert.rejects(
       () =>
         f.app.mutate(identity, f.w, {

@@ -142,21 +142,50 @@ test("optional-null adaptation does not hide malformed required fields or unknow
   assert.equal(GeneratedOfferSchema.safeParse(cleaned).success, false);
 });
 
-
 test("incomplete offer output retains usage and classifies truncation without accepting partial JSON", async () => {
-  const { OfferIncompleteError, safeOfferFailure } = await import("../src/services/offer-architecture/diagnostics");
+  const { OfferIncompleteError, safeOfferFailure } =
+    await import("../src/services/offer-architecture/diagnostics");
   let calls = 0;
-  const gen = createOfferGenerator({apiKey:"fixture",project:"proj_fixture",model:"fixture"},async (_url,init)=>{
-    calls++;
-    assert.match(String(init?.body),/at most two grouped proposals/);
-    return Response.json({status:"incomplete",incomplete_details:{reason:"max_output_tokens"},model:"fixture",usage:{input_tokens:100,output_tokens:9000},output:[{type:"message",content:[{type:"output_text",text:"partial private text"}]}]});
-  });
-  await assert.rejects(gen({context:{},research:false,instructions:"",sourceUrls:[],targetIcpIds:[],targetBuyerProfileIds:[]},AbortSignal.timeout(1000)),error=>{
-    assert.ok(error instanceof OfferIncompleteError);
-    assert.deepEqual(safeOfferFailure(error),{code:"provider_output_limit"});
-    assert.equal(error.usage?.outputTokens,9000);
-    assert.ok(!error.message.includes("private"));
-    return true;
-  });
-  assert.equal(calls,1);
+  const gen = createOfferGenerator(
+    { apiKey: "fixture", project: "proj_fixture", model: "fixture" },
+    async (_url, init) => {
+      calls++;
+      assert.match(String(init?.body), /at most two grouped proposals/);
+      return Response.json({
+        status: "incomplete",
+        incomplete_details: { reason: "max_output_tokens" },
+        model: "fixture",
+        usage: { input_tokens: 100, output_tokens: 9000 },
+        output: [
+          {
+            type: "message",
+            content: [{ type: "output_text", text: "partial private text" }],
+          },
+        ],
+      });
+    },
+  );
+  await assert.rejects(
+    gen(
+      {
+        context: {},
+        research: false,
+        instructions: "",
+        sourceUrls: [],
+        targetIcpIds: [],
+        targetBuyerProfileIds: [],
+      },
+      AbortSignal.timeout(1000),
+    ),
+    (error) => {
+      assert.ok(error instanceof OfferIncompleteError);
+      assert.deepEqual(safeOfferFailure(error), {
+        code: "provider_output_limit",
+      });
+      assert.equal(error.usage?.outputTokens, 9000);
+      assert.ok(!error.message.includes("private"));
+      return true;
+    },
+  );
+  assert.equal(calls, 1);
 });

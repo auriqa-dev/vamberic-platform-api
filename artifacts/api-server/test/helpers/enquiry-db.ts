@@ -29,9 +29,15 @@ function matches(record: Document, filter: Document): boolean {
       typeof expected === "object" &&
       !(expected instanceof Date)
     ) {
-      if ("$gte" in expected) return (actual as string | number) >= expected.$gte;
-      if ("$lte" in expected) return (actual as string | number) <= expected.$lte;
-      if ("$elemMatch" in expected) return Array.isArray(actual) && actual.some(item=>matches(item,expected.$elemMatch));
+      if ("$gte" in expected)
+        return (actual as string | number) >= expected.$gte;
+      if ("$lte" in expected)
+        return (actual as string | number) <= expected.$lte;
+      if ("$elemMatch" in expected)
+        return (
+          Array.isArray(actual) &&
+          actual.some((item) => matches(item, expected.$elemMatch))
+        );
       if ("$gt" in expected) return (actual as string | number) > expected.$gt;
       if ("$lt" in expected) return (actual as string | number) < expected.$lt;
       if ("$ne" in expected) return actual !== expected.$ne;
@@ -91,7 +97,15 @@ export class EnquiryMemoryDb {
           },
           project(value: Record<string, number>) {
             const previous = cursor.toArray;
-            cursor.toArray = async () => (await previous()).map(row => Object.fromEntries(Object.entries(row).filter(([key]) => value[key] === 1 || (key === "_id" && value._id !== 0))));
+            cursor.toArray = async () =>
+              (await previous()).map((row) =>
+                Object.fromEntries(
+                  Object.entries(row).filter(
+                    ([key]) =>
+                      value[key] === 1 || (key === "_id" && value._id !== 0),
+                  ),
+                ),
+              );
             return cursor;
           },
           sort(value: Record<string, number>) {
@@ -120,9 +134,12 @@ export class EnquiryMemoryDb {
         };
         return cursor;
       },
-      findOne: async (filter: Document, options?: {sort?:Record<string,number>}) => {
-        const cursor=this.collection(name).find(filter);
-        if(options?.sort)cursor.sort(options.sort);
+      findOne: async (
+        filter: Document,
+        options?: { sort?: Record<string, number> },
+      ) => {
+        const cursor = this.collection(name).find(filter);
+        if (options?.sort) cursor.sort(options.sort);
         return (await cursor.limit(1).toArray())[0] ?? null;
       },
       bulkWrite: async (operations: Document[]) => {
@@ -181,9 +198,12 @@ export class EnquiryMemoryDb {
       },
       replaceOne: async (filter: Document, replacement: Document) => {
         const rows = this.rows(name);
-        const index = rows.findIndex(row => matches(row, filter));
+        const index = rows.findIndex((row) => matches(row, filter));
         if (index < 0) return { matchedCount: 0, modifiedCount: 0 };
-        rows[index] = { ...replacement, ...(rows[index]._id ? { _id: rows[index]._id } : {}) };
+        rows[index] = {
+          ...replacement,
+          ...(rows[index]._id ? { _id: rows[index]._id } : {}),
+        };
         return { matchedCount: 1, modifiedCount: 1 };
       },
       updateOne: async (filter: Document, update: Document) => {

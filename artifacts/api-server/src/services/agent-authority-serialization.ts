@@ -158,16 +158,33 @@ export async function serializeAgentAuthority(
       // Legacy management authority is labelled "partner" in persisted runs.
       // Direct client administrators have the same management permission but
       // must serialize their own current membership, not a delegated chain.
-      const member=await db.collection("workspace_memberships").findOne({workspaceId:run.workspaceId,
-        "human.type":"human","human.id":run.requester.id,"human.issuer":run.requester.issuer,
-        role:"admin",status:"active",archived:{$ne:true}},{session});
-      if (!member || !WorkspaceMembershipSchema.safeParse(withoutMongoId(member)).success) throw new AuthorizationDenied();
-      anchors.push({collection:"workspace_memberships",id:member.id});
-    } else anchors.push(
-      { collection: "hvm_partner_memberships", id: chain.membership.id },
-      { collection: "hvm_partners", id: chain.partner.id },
-      { collection: "workspace_partner_assignments", id: chain.assignment.id },
-    );
+      const member = await db.collection("workspace_memberships").findOne(
+        {
+          workspaceId: run.workspaceId,
+          "human.type": "human",
+          "human.id": run.requester.id,
+          "human.issuer": run.requester.issuer,
+          role: "admin",
+          status: "active",
+          archived: { $ne: true },
+        },
+        { session },
+      );
+      if (
+        !member ||
+        !WorkspaceMembershipSchema.safeParse(withoutMongoId(member)).success
+      )
+        throw new AuthorizationDenied();
+      anchors.push({ collection: "workspace_memberships", id: member.id });
+    } else
+      anchors.push(
+        { collection: "hvm_partner_memberships", id: chain.membership.id },
+        { collection: "hvm_partners", id: chain.partner.id },
+        {
+          collection: "workspace_partner_assignments",
+          id: chain.assignment.id,
+        },
+      );
   }
   const unique = new Map(anchors.map((a) => [a.collection + ":" + a.id, a]));
   if (unique.size > 100)

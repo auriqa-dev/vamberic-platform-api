@@ -1,13 +1,13 @@
 import {
   OPENAI_TERMINAL_POLICY,
   TERMINAL_QUALIFICATION_DIGEST as runtimeQualification,
-} from "../../../../vamberic-agent-runtime/dist/src/models/openai/terminal-policy.js";
+} from "../../../.integration/vamberic-agent-runtime/dist/src/models/openai/terminal-policy.js";
 import {
   openAITerminalQualification,
   TERMINAL_QUALIFICATION_DIGEST,
 } from "../src/services/psu-terminal-qualification";
-import { preparePsuProduction } from "../../../../vamberic-agent-runtime/dist/src/worker/psu-production.js";
-import { z as runtimeZ } from "../../../../vamberic-agent-runtime/node_modules/zod/index.js";
+import { preparePsuProduction } from "../../../.integration/vamberic-agent-runtime/dist/src/worker/psu-production.js";
+import { z as runtimeZ } from "../../../.integration/vamberic-agent-runtime/node_modules/zod/index.js";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { workspaceAgentFixture } from "./helpers/workspace-agent-v16";
@@ -15,7 +15,7 @@ import { PRODUCT_CLARIFICATION_MANIFEST } from "@workspace/agent-runtime-protoco
 import { composePsuProduction } from "../src/services/psu-production-composition";
 import { createAgentWorkloadAuthority } from "../src/authorization/agent-workload";
 import { PSU_RECONCILIATION_POLICY_DIGEST } from "../src/services/product-service-understanding/execution-policy";
-import { PSU_RECONCILIATION_POLICY_DIGEST as runtimePolicy } from "../../../../vamberic-agent-runtime/dist/src/worker/psu-production.js";
+import { PSU_RECONCILIATION_POLICY_DIGEST as runtimePolicy } from "../../../.integration/vamberic-agent-runtime/dist/src/worker/psu-production.js";
 test("production exact bindings, capacity, USD preparation and fenced slot integrate without Client Agent", async () => {
   assert.equal(runtimePolicy, PSU_RECONCILIATION_POLICY_DIGEST);
   assert.equal(runtimeQualification, TERMINAL_QUALIFICATION_DIGEST);

@@ -1,8 +1,8 @@
 import { provisionQueenClient } from "../src/services/hvm-queen-provision";
 import { workspaceTarget } from "../src/domain/agent-operator";
-import { createPsuGateway } from "../../../../hvm-app/src/data/psu";
-import { losslessEvaluationContext } from "../../../../vamberic-agent-runtime/dist/src/effectiveness/lossless-context.js";
-import { encodeOpenAIRequest } from "../../../../vamberic-agent-runtime/dist/src/models/openai/adapter.js";
+import { createPsuGateway } from "../../../.integration/hvm-app-legacy-psu/src/data/psu";
+import { losslessEvaluationContext } from "../../../.integration/vamberic-agent-runtime/dist/src/effectiveness/lossless-context.js";
+import { encodeOpenAIRequest } from "../../../.integration/vamberic-agent-runtime/dist/src/models/openai/adapter.js";
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
@@ -20,15 +20,15 @@ import { createAgentProposalReview } from "../src/services/agent-proposals";
 import { readCanonicalSupport } from "../src/services/canonical-support";
 import { currentAgentSource } from "../src/services/agent-proposal-freshness";
 import { mutateHiveDefinition } from "../src/services/hive-definitions";
-import { admitHumanFacts } from "../../../../vamberic-agent-runtime/dist/src/agents/product-service-understanding/fact-admission.js";
-import { createProductAgent } from "../../../../vamberic-agent-runtime/dist/src/agents/product-service-understanding/index.js";
+import { admitHumanFacts } from "../../../.integration/vamberic-agent-runtime/dist/src/agents/product-service-understanding/fact-admission.js";
+import { createProductAgent } from "../../../.integration/vamberic-agent-runtime/dist/src/agents/product-service-understanding/index.js";
 
-import { FakeClock } from "../../../../vamberic-agent-runtime/dist/src/runtime/clock.js";
-import { FakeModel } from "../../../../vamberic-agent-runtime/dist/src/models/fake.js";
-import { FakePlatformContext } from "../../../../vamberic-agent-runtime/dist/src/platform/context.js";
-import { ImplementationRegistry } from "../../../../vamberic-agent-runtime/dist/src/registry/registry.js";
-import { MemoryDiagnostics } from "../../../../vamberic-agent-runtime/dist/src/telemetry/diagnostics.js";
-import { executeAttempt } from "../../../../vamberic-agent-runtime/dist/src/runtime/executor.js";
+import { FakeClock } from "../../../.integration/vamberic-agent-runtime/dist/src/runtime/clock.js";
+import { FakeModel } from "../../../.integration/vamberic-agent-runtime/dist/src/models/fake.js";
+import { FakePlatformContext } from "../../../.integration/vamberic-agent-runtime/dist/src/platform/context.js";
+import { ImplementationRegistry } from "../../../.integration/vamberic-agent-runtime/dist/src/registry/registry.js";
+import { MemoryDiagnostics } from "../../../.integration/vamberic-agent-runtime/dist/src/telemetry/diagnostics.js";
+import { executeAttempt } from "../../../.integration/vamberic-agent-runtime/dist/src/runtime/executor.js";
 
 for (const domainName of [
   "Fictional meter report",
@@ -776,10 +776,14 @@ for (const domainName of [
             .rows("offerings")
             .find((r) => r.id === approved.id)!.evidence[0].verification =
             "rejected";
-        if (fault === "membership")
+        if (fault === "membership") {
+          f.db
+            .rows("workspace_memberships")
+            .forEach((r) => (r.status = "ended"));
           f.db
             .rows("hvm_partner_memberships")
             .forEach((r) => (r.status = "revoked"));
+        }
         await assert.rejects(claim(reused.rootRunId));
       }
       f.db.records = structuredClone(beforeReuse);

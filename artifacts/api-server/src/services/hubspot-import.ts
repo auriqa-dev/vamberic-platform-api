@@ -137,8 +137,16 @@ export function hubspotLifecycle(
     other: "other",
   };
   if (mapping[raw]) return mapping[raw];
-  if ((lifecycleStages as readonly string[]).includes(raw.trim().toLowerCase())) return raw.trim().toLowerCase();
-  return standard[raw.trim().toLowerCase().replace(/[_\s-]+/g, " ")] ?? "unknown";
+  if ((lifecycleStages as readonly string[]).includes(raw.trim().toLowerCase()))
+    return raw.trim().toLowerCase();
+  return (
+    standard[
+      raw
+        .trim()
+        .toLowerCase()
+        .replace(/[_\s-]+/g, " ")
+    ] ?? "unknown"
+  );
 }
 export function assessEmailResponse(subject: string, body: string) {
   // Evidence triage only. Never silently mutate people/permissions from a phrase match.

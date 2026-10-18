@@ -1,4 +1,4 @@
-import {reviewedResearchContext} from "../research/evidence-context";
+import { reviewedResearchContext } from "../research/evidence-context";
 import { independentSources } from "./independent-sources";
 import { readGenerationBrandBrief } from "../generation-guidance";
 import { z } from "zod";
@@ -62,7 +62,8 @@ const REQUEST = "psu_generation_requested",
   RESULT = "psu_generation_finished",
   SAVED = "psu_review_saved";
 const timeoutMs = 600000;
-const PROGRESS = "psu_generation_progress", PREVIEW = "psu_generation_preview";
+const PROGRESS = "psu_generation_progress",
+  PREVIEW = "psu_generation_preview";
 export function createPsuApplication(
   config: AppConfig,
   mongo: MongoService,
@@ -396,18 +397,42 @@ export function createPsuApplication(
     const saved = await db
       .collection("events")
       .findOne({ ...filter, eventType: SAVED }, { session });
-    const final = await db.collection("events").findOne({ ...filter, eventType: RESULT }, { session });
-    const result = final ?? await db.collection("events").findOne({ ...filter, eventType: PREVIEW }, { session });
-    const progress = (await db.collection("events").find({...filter, eventType:PROGRESS}, {session})
-      .sort({createdAt:-1,id:-1}).limit(1).toArray())[0];
+    const final = await db
+      .collection("events")
+      .findOne({ ...filter, eventType: RESULT }, { session });
+    const result =
+      final ??
+      (await db
+        .collection("events")
+        .findOne({ ...filter, eventType: PREVIEW }, { session }));
+    const progress = (
+      await db
+        .collection("events")
+        .find({ ...filter, eventType: PROGRESS }, { session })
+        .sort({ createdAt: -1, id: -1 })
+        .limit(1)
+        .toArray()
+    )[0];
     const draft = result
       ? await draftFor(db, row.workspaceId, row.id, result, session)
       : undefined;
     return {
-      ...(progress ? {progress:progress.payload.progress} : {}),
-      ...(result?.payload.researchIncomplete ? {researchIncomplete:true} : {}),
-      ...(result?.payload.researchSources ? {researchSources:independentSources(result.payload.researchSources, row.payload.input.websiteUrls, row.payload.input.workingLabel)} : {}),
-      ...(result?.payload.researchUnavailable ? {researchUnavailable:true} : {}),
+      ...(progress ? { progress: progress.payload.progress } : {}),
+      ...(result?.payload.researchIncomplete
+        ? { researchIncomplete: true }
+        : {}),
+      ...(result?.payload.researchSources
+        ? {
+            researchSources: independentSources(
+              result.payload.researchSources,
+              row.payload.input.websiteUrls,
+              row.payload.input.workingLabel,
+            ),
+          }
+        : {}),
+      ...(result?.payload.researchUnavailable
+        ? { researchUnavailable: true }
+        : {}),
       id: row.id,
       workspaceId: row.workspaceId,
       createdAt: row.createdAt,
@@ -498,20 +523,80 @@ export function createPsuApplication(
         async (progress, partial) => {
           signal.throwIfAborted();
           await mongo.withTransaction!(async (db, session) => {
-            await lock(db,row.workspaceId,session);
-            if (!(await db.collection("events").findOne({workspaceId:row.workspaceId,id:row.id,eventType:REQUEST},{session}))) throw new HiveConflict("Generation removed");
-            if (await db.collection("events").findOne({workspaceId:row.workspaceId,eventType:RESULT,"payload.jobId":row.id},{session})) throw new HiveConflict("Generation finished");
-            await event(db,row.workspaceId,row.payload.human,PROGRESS,{jobId:row.id,progress},session);
+            await lock(db, row.workspaceId, session);
+            if (
+              !(await db.collection("events").findOne(
+                {
+                  workspaceId: row.workspaceId,
+                  id: row.id,
+                  eventType: REQUEST,
+                },
+                { session },
+              ))
+            )
+              throw new HiveConflict("Generation removed");
+            if (
+              await db.collection("events").findOne(
+                {
+                  workspaceId: row.workspaceId,
+                  eventType: RESULT,
+                  "payload.jobId": row.id,
+                },
+                { session },
+              )
+            )
+              throw new HiveConflict("Generation finished");
+            await event(
+              db,
+              row.workspaceId,
+              row.payload.human,
+              PROGRESS,
+              { jobId: row.id, progress },
+              session,
+            );
             if (partial) {
-              const {draft,companyDraft,...rest}=partial;
-              await event(db,row.workspaceId,row.payload.human,PREVIEW,{
-                ...rest,jobId:row.id,preview:true,
-                ...(draft?{draftChunks:await chunks(db,row.workspaceId,row.id,row.payload.human,"previewDraft",WebsiteReviewDraftSchema.parse(draft),session)}:{}),
-                ...(companyDraft?{companyDraftChunks:await chunks(db,row.workspaceId,row.id,row.payload.human,"previewCompanyDraft",CompanyReviewSchema.parse(companyDraft),session)}:{}),
-              },session);
+              const { draft, companyDraft, ...rest } = partial;
+              await event(
+                db,
+                row.workspaceId,
+                row.payload.human,
+                PREVIEW,
+                {
+                  ...rest,
+                  jobId: row.id,
+                  preview: true,
+                  ...(draft
+                    ? {
+                        draftChunks: await chunks(
+                          db,
+                          row.workspaceId,
+                          row.id,
+                          row.payload.human,
+                          "previewDraft",
+                          WebsiteReviewDraftSchema.parse(draft),
+                          session,
+                        ),
+                      }
+                    : {}),
+                  ...(companyDraft
+                    ? {
+                        companyDraftChunks: await chunks(
+                          db,
+                          row.workspaceId,
+                          row.id,
+                          row.payload.human,
+                          "previewCompanyDraft",
+                          CompanyReviewSchema.parse(companyDraft),
+                          session,
+                        ),
+                      }
+                    : {}),
+                },
+                session,
+              );
             }
           });
-          if (partial) preview=partial;
+          if (partial) preview = partial;
         },
       );
       signal.throwIfAborted();
@@ -531,7 +616,9 @@ export function createPsuApplication(
         jobId: row.id,
         ...(preview ?? {}),
         status: preview ? "review" : "failed",
-        ...(preview ? {researchIncomplete:true, preliminaryUsage:preview.usage} : {}),
+        ...(preview
+          ? { researchIncomplete: true, preliminaryUsage: preview.usage }
+          : {}),
         failureCode: generationFailureCode(error),
         ...(error instanceof PsuGenerationFailure && error.validationStage
           ? { validationStage: error.validationStage }
@@ -541,9 +628,20 @@ export function createPsuApplication(
             ? error.usage
             : { status: "unknown" },
       };
-      console.warn(JSON.stringify({event:"psu_generation_failed",workspaceId:row.workspaceId,jobId:row.id,
-        code:payload.failureCode,validationStage:payload.validationStage,previewRetained:!!preview,
-        validationReason:error instanceof PsuGenerationFailure ? error.validationReason : undefined}));
+      console.warn(
+        JSON.stringify({
+          event: "psu_generation_failed",
+          workspaceId: row.workspaceId,
+          jobId: row.id,
+          code: payload.failureCode,
+          validationStage: payload.validationStage,
+          previewRetained: !!preview,
+          validationReason:
+            error instanceof PsuGenerationFailure
+              ? error.validationReason
+              : undefined,
+        }),
+      );
     }
     // No provider work inside a transaction: transaction retries cannot repeat AI calls.
     await mongo.withTransaction!(async (db, session) => {
@@ -566,7 +664,7 @@ export function createPsuApplication(
           jobId: row.id,
           ...(preview ?? {}),
           status: preview ? "review" : "failed",
-          ...(preview ? {researchIncomplete:true} : {}),
+          ...(preview ? { researchIncomplete: true } : {}),
           failureCode: "timed_out",
           usage: payload.usage ?? { status: "unknown" },
         };
@@ -654,11 +752,16 @@ export function createPsuApplication(
       ]);
       return { workspaceId: w, industries, regions };
     },
-    async approvedCompanyContext(identity: AuthenticatedUser, w: string, brandId: string, session?: ClientSession) {
-      const db=await mongo.database();
-      await authority(db,identity,w,"read",session);
-      await requireBrand(db,w,brandId,session);
-      return (await approvedCompany(db,w,brandId,session)) ?? null;
+    async approvedCompanyContext(
+      identity: AuthenticatedUser,
+      w: string,
+      brandId: string,
+      session?: ClientSession,
+    ) {
+      const db = await mongo.database();
+      await authority(db, identity, w, "read", session);
+      await requireBrand(db, w, brandId, session);
+      return (await approvedCompany(db, w, brandId, session)) ?? null;
     },
     async company(identity: AuthenticatedUser, w: string, brandId: string) {
       const db = await mongo.database();
@@ -1087,7 +1190,12 @@ export function createPsuApplication(
             definition: await companyValue(db, w, currentCompany, session),
             approval: "not_approved",
           };
-        context.sharedResearch=await reviewedResearchContext(db,w,input.brandId,input.offeringId?[input.offeringId]:[]);
+        context.sharedResearch = await reviewedResearchContext(
+          db,
+          w,
+          input.brandId,
+          input.offeringId ? [input.offeringId] : [],
+        );
         context.approvedBrandBrief = await readGenerationBrandBrief(
           db,
           config,

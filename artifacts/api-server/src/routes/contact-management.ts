@@ -26,11 +26,15 @@ export function createContactManagementRouter(
     next();
   });
   const context = createContactContext(config, mongo);
-  r.get("/workspaces/:workspaceId/organisations/:id/dossier",async(req,res)=>{
-    const w=String(req.params.workspaceId),db=await mongo.database();
-    await contactContextAccess(db,config,req.auth!,w,"read");
-    res.json(await readOrganisationDossier(db,w,String(req.params.id)));
-  });
+  r.get(
+    "/workspaces/:workspaceId/organisations/:id/dossier",
+    async (req, res) => {
+      const w = String(req.params.workspaceId),
+        db = await mongo.database();
+      await contactContextAccess(db, config, req.auth!, w, "read");
+      res.json(await readOrganisationDossier(db, w, String(req.params.id)));
+    },
+  );
   r.get("/workspaces/:workspaceId/email-history/unlinked", async (req, res) =>
     res.json(
       await context.unlinked(
@@ -151,12 +155,16 @@ export function createContactManagementRouter(
           : e instanceof ContactConflict || e instanceof HiveConflict
             ? 409
             : 503;
-    if (status === 503) logger.error({
-      operation: "contact-management",
-      method: _req.method,
-      errorType: e instanceof Error ? e.name : "UnknownError",
-      databaseCode: typeof e?.code === "number" ? e.code : undefined,
-    }, "Contact record request failed");
+    if (status === 503)
+      logger.error(
+        {
+          operation: "contact-management",
+          method: _req.method,
+          errorType: e instanceof Error ? e.name : "UnknownError",
+          databaseCode: typeof e?.code === "number" ? e.code : undefined,
+        },
+        "Contact record request failed",
+      );
     res.status(status).json({
       error: {
         message:

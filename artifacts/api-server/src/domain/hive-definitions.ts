@@ -86,7 +86,13 @@ export const OFFERING_LIST_FIELDS = [
   "regulatoryContext",
   "unknowns",
 ] as const;
-export const ICP_PREPARATION_FIELDS = ["essentialFit", "desirableFit", "evidenceRequirements", "refreshCriteria", "unknownHandling"] as const;
+export const ICP_PREPARATION_FIELDS = [
+  "essentialFit",
+  "desirableFit",
+  "evidenceRequirements",
+  "refreshCriteria",
+  "unknownHandling",
+] as const;
 export const ICP_LIST_FIELDS = [
   "researchCriteria",
   "adoptionReadiness",
