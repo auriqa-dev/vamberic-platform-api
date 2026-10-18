@@ -378,9 +378,11 @@ export async function readCampaignJourney(
   const fingerprint = journeyHash({
     campaignVersion: campaign.payload.version,
     status: campaign.payload.status,
-    recipients: recipients.map(
-      ({ evidence: _displayEvidence, ...review }) => review,
-    ),
+    recipients: recipients.map(({ evidence, ...review }) => {
+      // Display history may grow after dispatch without changing reviewed authority.
+      void evidence;
+      return review;
+    }),
     exclusions: p?.excludedOrganisations ?? [],
     policies: policies.approved,
     drafts,
