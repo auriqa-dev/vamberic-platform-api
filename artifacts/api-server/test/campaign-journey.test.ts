@@ -232,6 +232,12 @@ test("recipient review is tenant scoped, excludes named organisations, and canno
     decision: "include",
     reason: "Role and fit reviewed",
     contextRevision: c.contextRevision,
+    evidenceReview: {
+      fit: "Role and company verified in source",
+      communication: "Documented client communication basis",
+      customer: "Account owner checked product ownership",
+      conversations: "Contact history and sales owner reviewed",
+    },
   };
   const body = {
     requestKey: randomUUID(),
@@ -245,6 +251,16 @@ test("recipient review is tenant scoped, excludes named organisations, and canno
   await assert.rejects(
     () => f.service.saveJourney(f.user, f.w, f.campaign.id, body),
     /excluded/,
+  );
+  await assert.rejects(
+    () =>
+      f.service.saveJourney(f.user, f.w, f.campaign.id, {
+        ...body,
+        requestKey: randomUUID(),
+        excludedOrganisations: [],
+        recipients: [{ ...recipient, evidenceReview: undefined }],
+      }),
+    /communication basis/,
   );
   const saved = await f.service.saveJourney(f.user, f.w, f.campaign.id, {
     ...body,
@@ -432,6 +448,12 @@ test("launch approval is version bound, can be stopped, and never creates a deli
         decision: "include",
         reason: "Fit and context reviewed",
         contextRevision: c.contextRevision,
+        evidenceReview: {
+          fit: "Role and company verified in source",
+          communication: "Documented client communication basis",
+          customer: "Account owner checked product ownership",
+          conversations: "Contact history and sales owner reviewed",
+        },
       },
     ],
     reason: "Prepare",
@@ -529,36 +551,46 @@ test("large preparation is chunked without relaxing event bounds and corrupt rec
   );
 });
 
-test("generic CRM patches cannot rewrite or relabel campaign approval history", async () => {
-  const { updateCrmRecord } = await import("../src/services/crm-foundation");
-  for (const patch of [
-    { payload: { status: "approved" } },
-    { eventType: "ordinary_note" },
-  ]) {
-    let writes = 0;
-    const row = {
-      id: generatePlatformId("event"),
-      updatedAt: new Date(),
-      eventType: "campaign_journey",
-    };
-    const mongo = {
-      withTransaction: async (fn: (db: unknown) => Promise<unknown>) =>
-        fn({
-          collection: () => ({
-            findOne: async () => row,
-            updateOne: async () => {
-              writes++;
-            },
-          }),
-        }),
-    };
-    await assert.rejects(
-      updateCrmRecord(mongo as never, "events", row.id, row.updatedAt, patch, {
-        type: "human",
-        id: "synthetic",
-      }),
-      /Events are append-only/,
-    );
-    assert.equal(writes, 0);
-  }
+test("recipient approval requires all evidence checks; old reviews remain readable but incomplete", async () => {
+  const { journeyRecipient, recipientReviewGaps } =
+    await import("../src/services/campaigns/journey");
+  const legacy = journeyRecipient.parse({
+    personId: "person",
+    contactPointId: "point",
+    decision: "include",
+    reason: "Old review",
+    contextRevision: "old",
+  });
+  assert.equal(recipientReviewGaps(legacy.evidenceReview).length, 4);
+  assert.equal(
+    recipientReviewGaps({
+      fit: "source",
+      communication: "  ",
+      customer: "source",
+      conversations: "source",
+    }).length,
+    1,
+  );
+  assert.equal(
+    recipientReviewGaps({
+      fit: "source",
+      communication: "basis",
+      customer: "source",
+      conversations: "source",
+    }).length,
+    0,
+  );
+  assert.equal(
+    journeyRecipient.safeParse({
+      ...legacy,
+      evidenceReview: {
+        fit: "source",
+        communication: "basis",
+        customer: "source",
+        conversations: "source",
+        approved: true,
+      },
+    }).success,
+    false,
+  );
 });

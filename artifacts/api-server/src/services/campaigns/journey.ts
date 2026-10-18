@@ -10,6 +10,33 @@ import {
 import { readApprovedContactStrategies } from "../contact-strategy/current";
 import { campaignReadiness, campaignSetup } from "./model";
 
+export const recipientChecks = z
+  .object({
+    fit: z.string().trim().max(1500).default(""),
+    communication: z.string().trim().max(1500).default(""),
+    customer: z.string().trim().max(1500).default(""),
+    conversations: z.string().trim().max(1500).default(""),
+  })
+  .strict();
+export function recipientReviewGaps(review?: z.infer<typeof recipientChecks>) {
+  return (
+    [
+      ["fit", "Record audience fit and its source"],
+      ["communication", "Record the communication basis and its source"],
+      [
+        "customer",
+        "Confirm customer and existing-account status with evidence",
+      ],
+      [
+        "conversations",
+        "Review contact history, active conversations and ownership",
+      ],
+    ] as const
+  )
+    .filter(([key]) => !review?.[key]?.trim())
+    .map(([, label]) => label);
+}
+
 export const journeyRecipient = z
   .object({
     personId: z.string().min(1),
@@ -17,6 +44,7 @@ export const journeyRecipient = z
     decision: z.enum(["review", "include", "exclude"]),
     reason: z.string().trim().min(1).max(2000),
     contextRevision: z.string(),
+    evidenceReview: recipientChecks.optional(),
   })
   .strict();
 export const journeyMutation = z
@@ -158,8 +186,30 @@ export async function recipientEvidence(
       person?.name ||
       [person?.firstName, person?.lastName].filter(Boolean).join(" ") ||
       "Contact",
+    evidence: {
+      role: person?.title ?? "",
+      subscriptionStatus: ctx.subscriptionStatus || "Unknown",
+      marketingContactStatus: ctx.marketingContactStatus || "Unknown",
+      sourceFields: Object.fromEntries(
+        Object.entries(ctx.sourceFields)
+          .filter(([key]) =>
+            /email|engagement|source|customer|contract|sales|member/i.test(key),
+          )
+          .slice(0, 30)
+          .map(([key, value]) => [key, String(value).slice(0, 500)]),
+      ),
+      history: ctx.interactions.slice(0, 10).map((e) => ({
+        date: e.date,
+        subject: String(e.subject).slice(0, 300),
+        direction: e.direction,
+      })),
+      points: ctx.points.filter((p) => p.type === "email"),
+    },
     organisations: current.map((r) => r.organisationName),
     contextRevision: journeyHash({
+      incomingHistory: ctx.interactions.filter(
+        (e) => e.direction === "inbound",
+      ),
       person: {
         name: person?.name,
         firstName: person?.firstName,
@@ -219,6 +269,7 @@ export async function readCampaignJourney(
       recipients.push({
         ...r,
         ...evidence,
+        reviewGaps: recipientReviewGaps(r.evidenceReview),
         stale:
           r.contextRevision !== evidence.contextRevision ||
           p?.campaignVersion !== campaign.payload.version,
@@ -227,6 +278,8 @@ export async function readCampaignJourney(
       recipients.push({
         ...r,
         name: "Unavailable contact",
+        evidence: undefined,
+        reviewGaps: recipientReviewGaps(r.evidenceReview),
         organisations: [],
         points: [],
         lifecycle: "unknown",
@@ -296,7 +349,14 @@ export async function readCampaignJourney(
     blockers.push("Review and approve campaign setup.");
   if (!included.length)
     blockers.push("Review and include at least one recipient.");
-  if (included.some((r) => r.stale || r.blockers.length))
+  if (
+    included.some(
+      (r) =>
+        r.stale ||
+        r.blockers.length ||
+        recipientReviewGaps(r.evidenceReview).length,
+    )
+  )
     blockers.push("Resolve recipient restrictions or stale reviews.");
   if (!connection) blockers.push("Connect the sender mailbox in Integrations.");
   if (policies.missingApproval.length || !policies.approved.length)
@@ -318,7 +378,9 @@ export async function readCampaignJourney(
   const fingerprint = journeyHash({
     campaignVersion: campaign.payload.version,
     status: campaign.payload.status,
-    recipients,
+    recipients: recipients.map(
+      ({ evidence: _displayEvidence, ...review }) => review,
+    ),
     exclusions: p?.excludedOrganisations ?? [],
     policies: policies.approved,
     drafts,
@@ -383,7 +445,8 @@ export async function assertCampaignLaunch(
         r.contactPointId === pointId &&
         r.decision === "include" &&
         !r.stale &&
-        !r.blockers.length,
+        !r.blockers.length &&
+        !recipientReviewGaps(r.evidenceReview).length,
     )
   )
     throw new HiveConflict(

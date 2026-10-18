@@ -1,3 +1,4 @@
+import { recipientReviewGaps } from "./journey";
 import { contactContextAccess, readContactContext } from "../contact-context";
 import {
   readCampaignJourney,
@@ -918,7 +919,10 @@ export function createCampaignService(
         db,
         user,
         w,
-        input.action === "approve_launch" ? "approve" : "update",
+        input.action === "approve_launch" ||
+          input.recipients?.some((r) => r.decision === "include")
+          ? "approve"
+          : "update",
         session,
       );
       await contactContextAccess(db, config, user, w, "update", session);
@@ -995,10 +999,12 @@ export function createCampaignService(
           );
           if (
             r.decision === "include" &&
-            (e.contextRevision !== r.contextRevision || e.blockers.length)
+            (e.contextRevision !== r.contextRevision ||
+              e.blockers.length ||
+              recipientReviewGaps(r.evidenceReview).length)
           )
             throw new HiveConflict(
-              `${e.name}: ${e.blockers.join(". ") || "Contact changed; review again."}`,
+              `${e.name}: ${[...e.blockers, ...recipientReviewGaps(r.evidenceReview)].join(". ") || "Contact changed; review again."}`,
             );
         }
       const ga = await db.collection("workspace_integrations").findOne(
