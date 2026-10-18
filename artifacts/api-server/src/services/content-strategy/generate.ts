@@ -1,3 +1,9 @@
+import {
+  isRecipientNoteInput,
+  recipientProposalReply,
+  encodeRecipientProposal,
+  RECIPIENT_NOTE_INSTRUCTIONS,
+} from "./recipient-proposal";
 import { INTERACTION_INSTRUCTIONS } from "../interaction/model";
 import { EMAIL_INSTRUCTIONS } from "../email-content/model";
 import { NBA_INSTRUCTIONS } from "../nba/model";
@@ -129,6 +135,11 @@ export function contentGeneratorFromEnvironment(
     project = process.env.HVM_PSU_OPENAI_PROJECT;
   if (!key || !project) return undefined;
   return async (task, input) => {
+    const recipientNotes =
+      task === "workspace_henry" && isRecipientNoteInput(input);
+    const responseSchema = recipientNotes
+      ? recipientProposalReply
+      : resultSchemas[task];
     const model = activeOpenAIModel(
       task === "workspace_henry" ||
         task === "henry" ||
@@ -184,6 +195,7 @@ export function contentGeneratorFromEnvironment(
                         : task === "research"
                           ? RESEARCH_INSTRUCTIONS
                           : CONTENT_INSTRUCTIONS) +
+                (recipientNotes ? "\n" + RECIPIENT_NOTE_INSTRUCTIONS : "") +
                 "\nTask: " +
                 task,
             },
@@ -194,7 +206,7 @@ export function contentGeneratorFromEnvironment(
               type: "json_schema",
               name: `content_${task}`,
               strict: true,
-              schema: outputSchema(resultSchemas[task]),
+              schema: outputSchema(responseSchema),
             },
           },
         }),
@@ -290,10 +302,11 @@ export function contentGeneratorFromEnvironment(
         phase = "invalid_json";
         const parsed = parseProviderJson(text);
         phase = "result_contract";
+        const result = responseSchema.parse(
+          omitOptionalNulls(parsed, responseSchema),
+        );
         return {
-          result: resultSchemas[task].parse(
-            omitOptionalNulls(parsed, resultSchemas[task]),
-          ),
+          result: recipientNotes ? encodeRecipientProposal(result) : result,
           usage,
         };
       } catch (error) {

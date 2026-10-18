@@ -1,3 +1,4 @@
+import { logger } from "../../lib/logger";
 import { getOfferMethodology } from "../../domain/offer-methodologies";
 import { resolveHvmContext } from "../hvm-context";
 import { createContactStrategies } from "../contact-strategy/application";
@@ -27,20 +28,25 @@ import {
 export function validateHenryProposal(screen: HenryScreen, raw: unknown) {
   const reply = workspaceHenryReply.parse(raw);
   let omitted = false;
+  const rejected: Record<string, number> = {};
   if (reply.actionId && !screen.actions.some((a) => a.id === reply.actionId)) {
     reply.actionId = "";
     omitted = true;
   }
   reply.changes = reply.changes.filter((change) => {
     const field = screen.editor?.fields.find((f) => f.key === change.key);
+    let rejection = "unknown_or_duplicate_field";
     try {
       if (
         !field ||
         reply.changes.filter((c) => c.key === change.key).length !== 1
       )
         throw new Error();
-      const before: unknown = JSON.parse(field.value),
-        after: unknown = JSON.parse(change.value);
+      rejection = "invalid_editor_encoding";
+      const before: unknown = JSON.parse(field.value);
+      rejection = "invalid_proposal_encoding";
+      const after: unknown = JSON.parse(change.value);
+      rejection = "invalid_shape_or_unsafe_value";
       if (screen.editor?.key.startsWith("offer-review:")) {
         if (
           !Array.isArray(after) ||
@@ -67,14 +73,22 @@ export function validateHenryProposal(screen: HenryScreen, raw: unknown) {
         throw new Error();
       return true;
     } catch {
+      rejected[rejection] = (rejected[rejection] || 0) + 1;
       omitted = true;
       return false;
     }
   });
+  if (Object.keys(rejected).length)
+    logger.warn(
+      { operation: "henry_proposal_validation", rejected },
+      "Henry suggestions rejected",
+    );
   if (omitted)
     reply.reply =
       reply.reply.slice(0, 11600) +
-      "\n\nSome suggestions did not match the current form and were left out. The remaining suggestions are available for review; nothing has been saved or approved.";
+      (reply.changes.length
+        ? "\n\nSome suggestions did not match the current form and were left out. The remaining suggestions are available for review; nothing has been saved or approved."
+        : "\n\nNo editable suggestions passed the current form checks; they were left out. Nothing has been saved or approved.");
   return reply;
 }
 async function context(
