@@ -58,6 +58,8 @@ jobs:
           role-to-assume: arn:aws:iam::755905325223:role/VambericGitHubApiDeployRole
           aws-region: eu-west-2
           allowed-account-ids: "755905325223"
+      - name: Acquire shared API and worker release lock
+        run: node scripts/deploy/lock.mjs acquire
       - name: Check image ownership and deployment prerequisites
         run: node scripts/deploy/release.mjs preflight
       - uses: aws-actions/amazon-ecr-login@v2
@@ -67,6 +69,9 @@ jobs:
         run: node scripts/deploy/release.mjs deploy
       - name: Verify API health and MongoDB readiness
         run: node scripts/deploy/release.mjs health
+      - name: Release owned coordination lock
+        if: success()
+        run: node scripts/deploy/lock.mjs release
 
   report:
     if: always()
