@@ -1,0 +1,15 @@
+# Controlled target transitions at canonical approval
+
+Approved principle, implemented 2 October 2026:
+
+> Controlled target transitions may be recognized through exact provenance; independent source staleness is never excused by that transition.
+
+This is a generic Platform rule in `agent-proposal-freshness.ts`, invoked by the existing Hive canonical approval service. It is not Product/Service-specific. The ordinary exported `currentAgentSource` and proposal-application checks accept no historical-transition capability.
+
+For a required Effectiveness application, canonical approval verifies the persisted applied disposition, exact current draft identity/revision/hash/update token and candidate bytes, exact completed maker/revision Run and immutable Candidate Result, current case Candidate, completed evaluator Run/Result, applicable criteria/policy/request and a recomputed deterministic PASS. It verifies the original update target's exact reference and proposal grant/consumed lineage, active Definition/profile pins, and all Candidate/evaluator Result identities in the bounded case history. Only then does private recursive traversal recognize that exact original target inside those proven Result owners. Other references use ordinary current-source freshness. Current actor authorization and transaction/authority serialization remain in the canonical mutation service.
+
+The draft comparison uses the persisted row before the approval operation updates its timestamp. The recorded application timestamp is mandatory: an edit and content revert does not restore eligibility. Same-looking content, another proposal, missing provenance, a different Candidate/Evaluation, historical independent sources and changes to the current draft fail closed. This grants neither source-read authority nor permission to apply or approve. PASS is never canonical approval or execution authority.
+
+Existing Hive revision lifecycle remains intact: only an approved revision can explicitly start a new draft revision. Old applications do not confer an exception on that new revision. There is no latest-version substitution, automatic rebase, arbitrary historical reference, worker assertion or public option to request this exemption. The prior direct-target treatment for legacy v10 non-Effectiveness applications is unchanged.
+
+Verification: `test/controlled-target-transition.test.ts` has 13 passing cases covering the exact controlled A → C → E → P → B path through the actual proposal handler and canonical approval, unchanged B/current independent dependencies, ordinary historical rejection, edited/reverted B, different proposal, Candidate/Evaluation mismatch, non-PASS case, original target and Result-lineage mismatch, independent staleness and missing application hash. The three original prerequisite characterization regressions remain unchanged and pass. Existing recursive traversal bounds/cycle and authority suites also pass. Product cross-repository tests exercise attributed input, separate revision/evaluator Runs, exact support imports, application and approval using this shared rule.

@@ -1,0 +1,7 @@
+{
+  "id": "finding:synthetic-1",
+  "kind": "evidence_backed_finding",
+  "statement": "Synthetic finding",
+  "evidenceIds": ["evidence:synthetic-1"],
+  "lineageIds": ["consumed:eb35eac17448164bb5505e1d368a9d6ef7f28898"]
+}

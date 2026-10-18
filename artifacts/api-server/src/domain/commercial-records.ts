@@ -1,3 +1,4 @@
+import { executionSerializationFields } from "./execution-serialization";
 import { z } from "zod";
 import {
   basePersistenceSchema,
@@ -74,6 +75,7 @@ export const CapabilitySchema = basePersistenceSchema
 /** Offer scope is intentionally not accepted before a formal Offer identity exists. */
 export const CapabilityInstanceSchema = basePersistenceSchema
   .extend({
+    ...executionSerializationFields,
     id: platformIdSchema("capinstance"),
     ...scopeFields,
     capabilityId: platformIdSchema("capability"),

@@ -127,6 +127,7 @@ const forbidden = new Set([
   "updatedBy",
   "schemaVersion",
   "_crmReferenceRevision",
+  "executionSerial",
 ]);
 function objectSchema(collection: CrmWriteCollection): z.AnyZodObject {
   let schema: z.ZodTypeAny = CRM_SCHEMAS[collection];
@@ -424,7 +425,65 @@ async function write(
   if (existing && collection === "events")
     throw new CrmFoundationError("PROTECTED_VALUE", "Events are append-only");
   const actor = crmActorSchema.parse(actorInput);
+  if (
+    collection === "crm_workspaces" &&
+    input &&
+    typeof input === "object" &&
+    "billingExemption" in input
+  )
+    throw new CrmFoundationError(
+      "PROTECTED_VALUE",
+      "Billing governance requires the Empress operation",
+    );
   const patch = crmPatchSchema(collection).parse(input);
+  if (
+    patch.source &&
+    ["hubspot", "hvm_contact_context"].includes(patch.source.system)
+  )
+    throw new CrmFoundationError(
+      "PROTECTED_VALUE",
+      "Use the reviewed import or contact-context operation",
+    );
+  if (
+    collection === "events" &&
+    [
+      "canonical_support_certified",
+      "psu_generation_requested",
+      "psu_generation_finished",
+      "psu_review_saved",
+      "psu_content_chunk",
+      "hvm_queen_client_provisioned",
+      "workspace_billing_exemption_changed",
+      "nba_decision",
+      "nba_claim",
+      "nba_frontier",
+      "nba_capability_result",
+      "email_content_record",
+      "email_content_generation",
+      "content_strategy_record",
+      "content_strategy_scope",
+      "content_strategy_generation",
+      "content_strategy_handoff",
+      "contact_strategy_definition",
+    "contact_strategy_changed",
+      "contact_strategy_interpretation",
+      "contact_strategy_assessed",
+      "hubspot_engagement_observed",
+      "hubspot_email_link_reviewed",
+      "hubspot_import_results",
+      "hubspot_import_record",
+      "hubspot_source_field",
+      "hubspot_email_history",
+      "contact_context_changed",
+      "hive_import_completed",
+    ].includes(String(patch.eventType))
+  )
+    throw new CrmFoundationError(
+      "PROTECTED_VALUE",
+      "Reserved Platform approval event",
+    );
+  if (collection === "events" && /^(business_outcome_|performance_|ga4_|interaction_|website_tracking_|measurement_|nba_measurement_|communication)/.test(String(patch.eventType || "")))
+    throw new CrmFoundationError("PROTECTED_VALUE", "Use the dedicated reviewed operation for interaction and communication records");
   if (!mongo.withTransaction)
     throw new CrmFoundationError(
       "TRANSACTIONS_REQUIRED",
@@ -438,6 +497,8 @@ async function write(
           { session },
         )
       : undefined;
+    if (collection === "events" && previous && /^(business_outcome_|performance_|ga4_|interaction_|website_tracking_|measurement_|nba_measurement_|communication)/.test(String(previous.eventType)))
+      throw new CrmFoundationError("PROTECTED_VALUE", "Use the dedicated reviewed operation for interaction and communication records");
     if (existing && !previous)
       throw new CrmFoundationError(
         "CONFLICT",
@@ -451,6 +512,15 @@ async function write(
       throw new CrmFoundationError(
         "PROTECTED_VALUE",
         "Original source evidence cannot be replaced",
+      );
+    if (
+      previous &&
+      collection === "events" &&
+      ["hubspot", "hvm_contact_context"].includes(previous.source?.system)
+    )
+      throw new CrmFoundationError(
+        "PROTECTED_VALUE",
+        "Imported evidence and contact restrictions require their reviewed operation",
       );
     if (previous && collection === "contact_points")
       for (const key of ["type", "value", "normalizedValue"]) {

@@ -1,3 +1,8 @@
+import {
+  grantPermits,
+  type AgentOperationGrant,
+  type AgentTarget,
+} from "../domain/agent-operator";
 import { isPlatformId } from "../domain/ids";
 
 export type Application = "vapp" | "hvmapp" | "system" | `product:${string}`;
@@ -5,6 +10,26 @@ export type Actor =
   | Readonly<{ type: "human"; id: string; issuer: string }>
   | Readonly<{ type: "agent" | "system"; id: string }>;
 export const RESOURCES = [
+  "content_strategy",
+  "action_types",
+  "action_definitions",
+  "contact_strategy_policies",
+  "agent_operator_assignments",
+  "agent_runs",
+  "agent_definitions",
+  "integration_providers",
+  "swarm_templates",
+  "commercial_policies",
+  "methodology_availability",
+  "client_agents",
+  "client_swarms",
+  "pricing_recommendations",
+  "swarm_agreements",
+  "agreement_approvals",
+
+  "offer_designs",
+  "offers",
+  "offer_revisions",
   "offerings",
   "ideal_customer_profiles",
   "buyer_profiles",
@@ -41,6 +66,69 @@ export const RESOURCES = [
   "import_batches",
 ] as const;
 export type ResourceType = (typeof RESOURCES)[number];
+
+/** Scope validity precedes every human/workload grant. Legacy dual-scope
+ * resources retain their existing Vapp-internal/HVM-workspace semantics.
+ */
+export const RESOURCE_SCOPES = {
+  content_strategy: "workspace",
+  action_types: "global",
+  action_definitions: "workspace",
+  contact_strategy_policies: "workspace",
+  agent_operator_assignments: "workspace",
+  agent_runs: "workspace",
+  agent_definitions: "global",
+  integration_providers: "global",
+  swarm_templates: "global",
+  commercial_policies: "global",
+  methodology_availability: "global",
+  client_agents: "workspace",
+  client_swarms: "workspace",
+  pricing_recommendations: "workspace",
+  swarm_agreements: "workspace",
+  agreement_approvals: "global",
+  offer_designs: "legacy_internal_or_workspace",
+  offers: "legacy_internal_or_workspace",
+  offer_revisions: "legacy_internal_or_workspace",
+  offerings: "legacy_internal_or_workspace",
+  ideal_customer_profiles: "legacy_internal_or_workspace",
+  buyer_profiles: "legacy_internal_or_workspace",
+  hive_definition_revisions: "legacy_internal_or_workspace",
+  workspace_memberships: "legacy_internal_or_workspace",
+  brands: "legacy_internal_or_workspace",
+  brand_kits: "legacy_internal_or_workspace",
+  hvm_partners: "legacy_internal_or_workspace",
+  hvm_partner_memberships: "legacy_internal_or_workspace",
+  workspace_integrations: "legacy_internal_or_workspace",
+  workspace_partner_assignments: "legacy_internal_or_workspace",
+  capabilities: "legacy_internal_or_workspace",
+  capability_instances: "legacy_internal_or_workspace",
+  commercial_packages: "legacy_internal_or_workspace",
+  commercial_charges: "legacy_internal_or_workspace",
+  products: "legacy_internal_or_workspace",
+  people: "legacy_internal_or_workspace",
+  contact_points: "legacy_internal_or_workspace",
+  organisations: "legacy_internal_or_workspace",
+  organisation_relationships: "legacy_internal_or_workspace",
+  product_relationships: "legacy_internal_or_workspace",
+  opportunities: "legacy_internal_or_workspace",
+  events: "legacy_internal_or_workspace",
+  crm_tasks: "legacy_internal_or_workspace",
+  campaigns: "legacy_internal_or_workspace",
+  crm_leads: "legacy_internal_or_workspace",
+  marketing_permissions: "legacy_internal_or_workspace",
+  entitlements: "legacy_internal_or_workspace",
+  subscriptions: "legacy_internal_or_workspace",
+  external_references: "legacy_internal_or_workspace",
+  crm_pipelines: "legacy_internal_or_workspace",
+  crm_workspaces: "legacy_internal_or_workspace",
+  transactions: "legacy_internal_or_workspace",
+  import_batches: "legacy_internal_or_workspace",
+} as const satisfies Record<
+  ResourceType,
+  "global" | "workspace" | "legacy_internal_or_workspace"
+>;
+
 export type Action =
   | "read"
   | "create"
@@ -60,6 +148,7 @@ export interface AuthorizationContext {
 }
 /** Server-resolved membership contract, not a browser claim or persistence schema. */
 export interface WorkspaceMembership {
+  basis?: "partner" | "client";
   actor: Actor;
   application: Application;
   workspaceId: string;
@@ -99,6 +188,13 @@ export function createAuthorizationAuthority(config: {
   }[];
   memberships?: readonly WorkspaceMembership[];
   serviceGrants?: readonly ServiceGrant[];
+  operatorGrants?: readonly {
+    actor: Extract<Actor, { type: "human" }>;
+    workspaceId: string;
+    membershipId: string;
+    grant: AgentOperationGrant;
+  }[];
+  empressHumans?: readonly { issuer: string; id: string }[];
 }) {
   // Snapshot configuration: later mutation of a caller-owned object cannot grant access.
   const trusted = structuredClone(config);
@@ -137,7 +233,24 @@ export function createAuthorizationAuthority(config: {
       !isPlatformId(resource.workspaceId, "workspace")
     )
       return false;
+    const scope = RESOURCE_SCOPES[resource.type];
+    if (
+      (scope === "global" && resource.workspaceId !== undefined) ||
+      (scope === "workspace" && resource.workspaceId === undefined)
+    )
+      return false;
     const { actor, application } = context;
+    // This projection is human-only and supports only review and approval.
+    if (
+      resource.type === "agreement_approvals" &&
+      (actor.type !== "human" || !["read", "approve"].includes(action))
+    )
+      return false;
+    if (
+      ["agent_operator_assignments", "agent_runs"].includes(resource.type) &&
+      actor.type !== "human"
+    )
+      return false;
     if (actor.type !== "human") {
       return (trusted.serviceGrants ?? []).some(
         (g) =>
@@ -149,6 +262,30 @@ export function createAuthorizationAuthority(config: {
             ? resource.workspaceId === undefined
             : isPlatformId(g.scope.workspaceId, "workspace") &&
               g.scope.workspaceId === resource.workspaceId),
+      );
+    }
+    if (scope !== "legacy_internal_or_workspace") {
+      if (application !== "hvmapp" || actor.type !== "human") return false;
+      const empress = (trusted.empressHumans ?? []).some(
+        (h) => h.id === actor.id && h.issuer === actor.issuer,
+      );
+      if (scope === "global") return empress;
+      // Direct client administrators operate their own workspace as its Queen.
+      // Global Empress authority remains separately checked above.
+      return (trusted.memberships ?? []).some(
+        (m) =>
+          (m.basis === "partner" ||
+            (m.basis === "client" && m.role === "admin")) &&
+          m.application === application &&
+          m.status === "active" &&
+          m.workspaceId === resource.workspaceId &&
+          sameActor(m.actor, actor) &&
+          ["admin", "onboarder"].includes(m.role) &&
+          (resource.type === "agent_operator_assignments"
+            ? ["read", "manage"].includes(action)
+            : resource.type === "agent_runs"
+              ? ["read", "create", "update"].includes(action)
+              : ["read", "create", "update", "approve"].includes(action)),
       );
     }
     if (application === "vapp") return resource.workspaceId === undefined;
@@ -164,9 +301,15 @@ export function createAuthorizationAuthority(config: {
           ? action === "read"
           : m.role === "admin"
             ? action === "read" ||
+              (["offerings", "campaigns"].includes(resource.type) && action === "delete") ||
               ([
+                "campaigns",
+                "offer_designs",
+                "offers",
                 "offerings",
                 "ideal_customer_profiles",
+                "people",
+                "organisations",
                 "buyer_profiles",
                 "brands",
                 "brand_kits",
@@ -181,8 +324,13 @@ export function createAuthorizationAuthority(config: {
                 ["read", "create", "update"].includes(action) &&
                 (action === "read" ||
                   [
+                    "campaigns",
+                "offer_designs",
+                    "offers",
                     "offerings",
                     "ideal_customer_profiles",
+                    "people",
+                    "organisations",
                     "buyer_profiles",
                     "brands",
                     "brand_kits",
@@ -219,6 +367,66 @@ export function createAuthorizationAuthority(config: {
       )
         throw new AuthorizationDenied();
       return issue(actor, application);
+    },
+    authorizeAgentOperation(
+      context: AuthorizationContext,
+      request: {
+        workspaceId: string;
+        target: AgentTarget;
+        operation: string;
+        action: "request" | "read" | "respond" | "cancel";
+        requester?: Actor;
+        membershipId?: string;
+        grantId?: string;
+      },
+      now: Date,
+    ) {
+      if (
+        request.target.kind === "workspace_agent" &&
+        request.target.workspaceId !== request.workspaceId
+      )
+        return undefined;
+      if (
+        !issued.has(context) ||
+        context.application !== "hvmapp" ||
+        context.actor.type !== "human"
+      )
+        return undefined;
+      if (
+        authorize(
+          context,
+          request.action === "request"
+            ? "create"
+            : request.action === "read"
+              ? "read"
+              : "update",
+          { type: "agent_runs", workspaceId: request.workspaceId },
+        )
+      )
+        return { basis: "partner" as const };
+      if (
+        request.action !== "request" &&
+        (!request.requester ||
+          !sameActor(context.actor, request.requester) ||
+          !request.membershipId ||
+          !request.grantId)
+      )
+        return undefined;
+      const found = (trusted.operatorGrants ?? []).find(
+        (g) =>
+          sameActor(g.actor, context.actor) &&
+          g.workspaceId === request.workspaceId &&
+          (!request.membershipId || request.membershipId === g.membershipId) &&
+          (!request.grantId || request.grantId === g.grant.id) &&
+          grantPermits(g.grant, request.target, request.operation, now),
+      );
+      return found
+        ? {
+            basis: "client" as const,
+            membershipId: found.membershipId,
+            grantId: found.grant.id,
+          }
+        : undefined;
     },
     authorize,
     scopeFilter(

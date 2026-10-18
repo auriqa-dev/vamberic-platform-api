@@ -2,7 +2,7 @@ import { INTERNAL_SCOPE } from "../authorization/policy";
 import { readProduct } from "../domain/product-migration";
 import { Router, type IRouter } from "express";
 import { GetDashboardSummaryResponse } from "@workspace/api-zod";
-import { getDomainCollections } from "../db";
+import { getDomainCollections } from "../db/runtime-collections";
 import type { MongoService } from "../services/mongo";
 
 export function createDashboardRouter(mongo: MongoService): IRouter {

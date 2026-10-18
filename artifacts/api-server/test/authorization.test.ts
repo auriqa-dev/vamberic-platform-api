@@ -3,6 +3,7 @@ import { test } from "node:test";
 import {
   createAuthorizationAuthority,
   RESOURCES,
+  RESOURCE_SCOPES,
   AuthorizationDenied,
   type AuthorizationContext,
   type WorkspaceMembership,
@@ -53,7 +54,10 @@ test("Vapp explicitly authorizes internal resources and denies every workspace o
       "delete",
       "delete-preview",
     ] as const) {
-      assert.equal(authority.authorize(vapp, action, { type }), true);
+      assert.equal(
+        authority.authorize(vapp, action, { type }),
+        RESOURCE_SCOPES[type] === "legacy_internal_or_workspace",
+      );
       assert.equal(
         authority.authorize(vapp, action, { type, workspaceId }),
         false,

@@ -1,3 +1,4 @@
+import { BrandExpressionSchema } from "./brand-expression";
 import { z } from "zod";
 import {
   basePersistenceSchema,
@@ -127,6 +128,7 @@ export const BrandKitRecordSchema = humanBase
     status: z.enum(["draft", "approved", "retired"]),
     approvedAt: z.date().optional(),
     approvedBy: partnerHumanSchema.optional(),
+    expression: BrandExpressionSchema.optional(),
     assets: z.array(BrandAssetSchema).max(100).default([]),
     colours: z.array(colour).max(100).default([]),
     typography: z.array(typography).max(20).default([]),
@@ -206,6 +208,18 @@ export const BrandKitRecordSchema = humanBase
       })
       .strict()
       .optional(),
+    chatPersonality: z.object({
+      displayName: text(100).optional(),
+      avatarAssetId: text(100).optional(),
+      role: text(1000).optional(),
+      greeting: text(1000).optional(),
+      manner: text(2000).optional(),
+      responseGuidance: text(1000).optional(),
+      questionsGuidance: text(1000).optional(),
+      uncertaintyWording: text(1000).optional(),
+      handoffWording: text(1000).optional(),
+      openingQuestions: z.array(text(300)).max(6).optional(),
+    }).strict().optional(),
     emailDefaults: z
       .object({
         fromDisplayName: text(200).optional(),

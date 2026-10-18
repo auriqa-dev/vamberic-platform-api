@@ -111,12 +111,14 @@ export function crmReader(c: DomainCollections) {
       .sort({ createdAt: -1, id: 1 })
       .toArray();
     return Promise.all(
-      relationships.map(async (r) => ({
-        id: r.id,
-        product: await reference("products", r.productId),
-        status: r.status,
-        acquisitionSource: r.acquisitionSource,
-      })),
+      relationships
+        .filter((r) => "productId" in r)
+        .map(async (r) => ({
+          id: r.id,
+          product: await reference("products", r.productId),
+          status: r.status,
+          acquisitionSource: r.acquisitionSource,
+        })),
     );
   }
   async function opportunities(filter: Filter<Opportunity>) {

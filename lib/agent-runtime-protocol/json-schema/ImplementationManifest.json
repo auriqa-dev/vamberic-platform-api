@@ -1,0 +1,93 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "implementation": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "^[a-z][a-z0-9_]*$"
+        },
+        "version": { "type": "integer", "minimum": 1, "maximum": 1000000 }
+      },
+      "required": ["key", "version"],
+      "additionalProperties": false
+    },
+    "compatibleDefinitions": {
+      "minItems": 1,
+      "maxItems": 30,
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "pattern": "^[a-z][a-z0-9_]*$"
+          },
+          "version": { "type": "integer", "minimum": 1, "maximum": 1000000 }
+        },
+        "required": ["key", "version"],
+        "additionalProperties": false
+      }
+    },
+    "protocolVersions": {
+      "minItems": 1,
+      "maxItems": 10,
+      "type": "array",
+      "items": { "type": "string", "enum": ["1.1", "1.2"] }
+    },
+    "operations": {
+      "minItems": 1,
+      "maxItems": 20,
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 64,
+        "pattern": "^[a-z][a-z0-9_]*$"
+      }
+    },
+    "resultSchemaVersions": {
+      "minItems": 1,
+      "maxItems": 10,
+      "type": "array",
+      "items": { "type": "integer", "minimum": 1, "maximum": 1000000 }
+    },
+    "checkpointSchemaVersions": {
+      "minItems": 1,
+      "maxItems": 10,
+      "type": "array",
+      "items": { "type": "integer", "minimum": 1, "maximum": 1000000 }
+    },
+    "instruction": {
+      "type": "object",
+      "properties": {
+        "version": { "type": "integer", "minimum": 1, "maximum": 1000000 },
+        "hash": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+      },
+      "required": ["version", "hash"],
+      "additionalProperties": false
+    },
+    "buildDigest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "manifestDigest": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+  },
+  "required": [
+    "implementation",
+    "compatibleDefinitions",
+    "protocolVersions",
+    "operations",
+    "resultSchemaVersions",
+    "checkpointSchemaVersions",
+    "instruction",
+    "buildDigest",
+    "manifestDigest"
+  ],
+  "additionalProperties": false,
+  "x-protocol-version": "1.2",
+  "x-runtime-validation": "Zod plus canonicalJson is authoritative. JSON Schema omits digest, byte/depth, scope, chronology, completeness and cross-reference refinements."
+}

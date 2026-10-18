@@ -1,3 +1,4 @@
+import { executionSerializationFields } from "./execution-serialization";
 import { z } from "zod";
 import {
   basePersistenceSchema,
@@ -22,6 +23,7 @@ export const PARTNER_ASSIGNMENT_STATUSES = ["active", "ended"] as const;
 export const HvmPartnerSchema = basePersistenceSchema
   .omit({ workspaceId: true })
   .extend({
+    ...executionSerializationFields,
     id: platformIdSchema("partner"),
     displayName: z.string().trim().min(1).max(200),
     status: z.enum(PARTNER_STATUSES),
@@ -45,6 +47,7 @@ export const HvmPartnerSchema = basePersistenceSchema
 /** Responsibility only. Permissions and client entitlements remain separate. */
 export const WorkspacePartnerAssignmentSchema = basePersistenceSchema
   .extend({
+    ...executionSerializationFields,
     id: platformIdSchema("partnerassignment"),
     workspaceId: platformIdSchema("workspace"),
     partnerId: platformIdSchema("partner"),
@@ -94,6 +97,7 @@ export const partnerHumanSchema = z
 export const HvmPartnerMembershipSchema = basePersistenceSchema
   .omit({ workspaceId: true })
   .extend({
+    ...executionSerializationFields,
     id: platformIdSchema("partnermembership"),
     partnerId: platformIdSchema("partner"),
     human: partnerHumanSchema,

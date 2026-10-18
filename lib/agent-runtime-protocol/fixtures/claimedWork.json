@@ -1,0 +1,154 @@
+{
+  "protocolVersion": "1.1",
+  "runId": "run:synthetic-1",
+  "attemptId": "attempt:synthetic-1",
+  "generation": 1,
+  "fence": 1,
+  "lease": {
+    "id": "lease:synthetic-1",
+    "workerId": "worker:synthetic-1",
+    "expiresAt": "2026-10-01T10:00:00.000Z"
+  },
+  "workspaceId": "workspace_00000000000000000000000001",
+  "clientId": "org_00000000000000000000000001",
+  "operation": "exercise",
+  "definition": {
+    "id": "agentdefinition_00000000000000000000000001",
+    "key": "internal_fake_definition",
+    "version": 1
+  },
+  "implementation": {
+    "key": "internal_fake",
+    "version": 2,
+    "manifestDigest": "1d4554beb212572ba3ac19a05cb8a73f1b8929626d714199f9567c12e9e7524a",
+    "buildDigest": "6c0ecae75cd1fb85bfcd724f7daa4f1b956beb6bf561e2d242dbec1c92c57fa9"
+  },
+  "clientAgent": {
+    "id": "clientagent_00000000000000000000000001",
+    "revision": 1,
+    "configuration": {
+      "scenario": "success",
+      "context": {
+        "reference": {
+          "resourceType": "synthetic_record",
+          "id": "synthetic:record-1",
+          "workspaceId": "workspace_00000000000000000000000001",
+          "revision": 3,
+          "contentHash": "28fa7241afd19bea76f207bf1f24bba1e83abe784dc86a946226fe1556da8f46"
+        },
+        "fields": ["label"]
+      },
+      "model": {
+        "provider": "fake_provider",
+        "model": "fake_model",
+        "purpose": "summarize"
+      },
+      "tool": {
+        "key": "fake_paid_read",
+        "version": 1,
+        "operation": "inspect",
+        "class": "cost_incurring_read",
+        "provider": "fake_provider",
+        "bindingId": "integration_00000000000000000000000001"
+      },
+      "useModel": true,
+      "useTool": true
+    }
+  },
+  "context": {
+    "references": [
+      {
+        "reference": {
+          "resourceType": "synthetic_record",
+          "id": "synthetic:record-1",
+          "workspaceId": "workspace_00000000000000000000000001",
+          "revision": 3,
+          "contentHash": "28fa7241afd19bea76f207bf1f24bba1e83abe784dc86a946226fe1556da8f46"
+        },
+        "fields": ["label"]
+      }
+    ],
+    "snapshots": []
+  },
+  "input": { "subject": "Synthetic example" },
+  "resultSchemaVersion": 2,
+  "checkpointSchemaVersion": 2,
+  "grant": {
+    "id": "grant:synthetic-1",
+    "version": 1,
+    "runId": "run:synthetic-1",
+    "workspaceId": "workspace_00000000000000000000000001",
+    "expiresAt": "2026-10-01T10:00:00.000Z",
+    "resources": [
+      {
+        "reference": {
+          "resourceType": "synthetic_record",
+          "id": "synthetic:record-1",
+          "workspaceId": "workspace_00000000000000000000000001",
+          "revision": 3,
+          "contentHash": "28fa7241afd19bea76f207bf1f24bba1e83abe784dc86a946226fe1556da8f46"
+        },
+        "fields": ["label"]
+      }
+    ],
+    "proposalTargets": [
+      {
+        "kind": "update",
+        "targetKind": "synthetic_record",
+        "reference": {
+          "resourceType": "synthetic_record",
+          "id": "synthetic:record-1",
+          "workspaceId": "workspace_00000000000000000000000001",
+          "revision": 3,
+          "contentHash": "28fa7241afd19bea76f207bf1f24bba1e83abe784dc86a946226fe1556da8f46"
+        }
+      }
+    ],
+    "tools": [
+      {
+        "key": "fake_paid_read",
+        "version": 1,
+        "operation": "inspect",
+        "class": "cost_incurring_read",
+        "provider": "fake_provider",
+        "bindingId": "integration_00000000000000000000000001"
+      }
+    ],
+    "bindings": ["integration_00000000000000000000000001"],
+    "models": [
+      {
+        "provider": "fake_provider",
+        "model": "fake_model",
+        "purpose": "summarize"
+      }
+    ],
+    "budgets": {
+      "deadline": "2026-10-01T10:00:00.000Z",
+      "modelCalls": 3,
+      "toolCalls": 3,
+      "providerCalls": [{ "provider": "fake_provider", "calls": 6 }],
+      "cost": { "currency": "GBP", "amount": "0.10" }
+    }
+  },
+  "traceId": "trace:synthetic-1",
+  "lineage": [
+    {
+      "id": "lineage:requested-1",
+      "role": "requested",
+      "purpose": "Synthetic context",
+      "source": {
+        "kind": "resource",
+        "reference": {
+          "resourceType": "synthetic_record",
+          "id": "synthetic:record-1",
+          "workspaceId": "workspace_00000000000000000000000001",
+          "revision": 3,
+          "contentHash": "28fa7241afd19bea76f207bf1f24bba1e83abe784dc86a946226fe1556da8f46"
+        }
+      },
+      "observedAt": "2026-10-01T09:00:00.000Z",
+      "fetchedAt": "2026-10-01T09:00:00.000Z",
+      "fields": ["label"]
+    }
+  ]
+}

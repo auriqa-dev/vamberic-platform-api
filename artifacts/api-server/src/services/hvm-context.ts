@@ -31,7 +31,8 @@ export function humanClients(config: AppConfig) {
   ];
 }
 export function withoutMongoId(row: Document) {
-  const { _id, ...rest } = row;
+  const { _id, executionSerial, ...rest } = row;
+  void executionSerial;
   void _id;
   return rest;
 }
@@ -51,8 +52,13 @@ export async function resolveHvmContext(
   const ledger = await db
     .collection("schema_versions")
     .findOne({ _id: "vapp-v1" } as Document, { session });
-  if (![5, 6].includes(ledger?.version))
-    throw new Error("HVM requires reviewed/applied schema v5 or v6");
+  if (
+    ![
+      5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30].includes(ledger?.version)
+  )
+    throw new Error(
+      "HVM requires reviewed/applied schema v5, v6, v7, v8, v9 or v10",
+    );
   const human = {
     type: "human",
     id: identity.subject,
@@ -75,6 +81,9 @@ export async function resolveHvmContext(
   const clientContexts: { workspaceId: string; role: "admin" | "member" }[] =
     [];
   const grants: WorkspaceMembership[] = [];
+  const operatorGrants: NonNullable<
+    Parameters<typeof createAuthorizationAuthority>[0]["operatorGrants"]
+  >[number][] = [];
   const workspaces = new Map<string, { id: string; name: string }>();
   async function workspace(id: string) {
     const row = await db
@@ -128,6 +137,7 @@ export async function resolveHvmContext(
         actor: human,
         application: "hvmapp",
         workspaceId: parsed.data.workspaceId,
+        basis: "partner",
         role: membership.data.role === "owner" ? "admin" : "onboarder",
         status: "active",
       });
@@ -143,6 +153,13 @@ export async function resolveHvmContext(
     const parsed = WorkspaceMembershipSchema.safeParse(withoutMongoId(row));
     if (!parsed.success || !(await workspace(parsed.data.workspaceId)))
       continue;
+    for (const grant of parsed.data.agentOperationGrants ?? [])
+      operatorGrants.push({
+        actor: human,
+        workspaceId: parsed.data.workspaceId,
+        membershipId: parsed.data.id,
+        grant,
+      });
     clientContexts.push({
       workspaceId: parsed.data.workspaceId,
       role: parsed.data.role,
@@ -152,12 +169,18 @@ export async function resolveHvmContext(
       application: "hvmapp",
       workspaceId: parsed.data.workspaceId,
       status: "active",
+      basis: "client",
       role: parsed.data.role === "admin" ? "admin" : "viewer",
     });
   }
   const authority = createAuthorizationAuthority({
     humanClients: humanClients(config),
     memberships: grants,
+    operatorGrants,
+    empressHumans: (config.empressSubjects ?? []).map((id) => ({
+      id,
+      issuer: config.cognito.issuer,
+    })),
   });
   const context = authority.authenticatedHuman(identity);
   return {
@@ -166,6 +189,12 @@ export async function resolveHvmContext(
     response: {
       application: "hvmapp",
       human,
+      // Discovery only: use the same global policy check as operating services.
+      platform: {
+        empress: authority.authorize(context, "manage", {
+          type: "agent_definitions",
+        }),
+      },
       partners: partnerContexts,
       clients: clientContexts,
       workspaces: [...workspaces.values()].map((w) => ({

@@ -16,7 +16,7 @@ import {
   GetOpportunityResponse,
 } from "@workspace/api-zod";
 import type { Person, Organisation, Opportunity } from "../domain";
-import { getDomainCollections } from "../db";
+import { getDomainCollections } from "../db/runtime-collections";
 import { crmReader, literalSearch } from "../services/crm";
 import type { MongoService } from "../services/mongo";
 

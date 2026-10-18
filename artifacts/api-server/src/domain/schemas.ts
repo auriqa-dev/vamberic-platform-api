@@ -1015,8 +1015,39 @@ export const CampaignInsertSchema = insertSchema(
 export const CampaignUpdateSchema = updateSchema(CampaignRecordSchema);
 export const ImportInsertSchema = insertSchema(ImportSchema);
 export const ImportUpdateSchema = updateSchema(ImportSchema);
-export const EventInsertSchema =
-  insertSchema(EventRecordSchema).superRefine(eventIntegrity);
+export const EventInsertSchema = insertSchema(EventRecordSchema)
+  .superRefine(eventIntegrity)
+  .superRefine((value, context) => {
+    if (
+      [
+        "client_onboarding_changed",
+        "canonical_support_certified",
+        "psu_generation_requested",
+        "psu_generation_finished",
+        "psu_review_saved",
+        "psu_content_chunk",
+        "hvm_queen_client_provisioned",
+        "workspace_billing_exemption_changed",
+        "nba_decision",
+        "nba_claim",
+        "nba_frontier",
+        "nba_capability_result",
+        "email_content_record",
+      "email_content_generation",
+      "content_strategy_record",
+      "content_strategy_generation",
+      "content_strategy_handoff",
+      "contact_strategy_definition",
+    "contact_strategy_changed",
+        "contact_strategy_interpretation",
+        "contact_strategy_assessed",
+      ].includes(value.eventType) || /^(campaign_|business_outcome_|performance_|ga4_|interaction_|website_tracking_|measurement_|nba_measurement_|communication)/.test(value.eventType)
+    )
+      context.addIssue({
+        code: "custom",
+        message: "Reserved Platform approval event",
+      });
+  });
 export const TransactionInsertSchema = insertSchema(
   TransactionRecordSchema,
 ).superRefine(requireCustomerIdentity);

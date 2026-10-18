@@ -1,0 +1,17 @@
+{
+  "name": "@workspace/agent-runtime-protocol",
+  "version": "1.2.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./contracts/index.d.ts",
+      "import": "./contracts/index.js"
+    },
+    "./fixtures/*": "./fixtures/*.json",
+    "./json-schema/*": "./json-schema/*.json"
+  },
+  "dependencies": {
+    "zod": "4.6.5"
+  }
+}

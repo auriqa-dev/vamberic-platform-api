@@ -20,7 +20,7 @@ import {
   websiteDomain,
   type PublicEnquiry,
 } from "../domain/public-enquiry";
-import { getDomainCollections } from "../db";
+import { getDomainCollections } from "../db/runtime-collections";
 import { assertEnquiryIndexes } from "../db/enquiry-indexes";
 import type { MongoService } from "./mongo";
 import type { EnquirySubmittedNotification } from "../notifications/enquiry-email";

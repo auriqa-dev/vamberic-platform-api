@@ -1,0 +1,322 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "kind": { "type": "string", "const": "effectiveness_evaluation" },
+    "schemaVersion": { "type": "number", "const": 1 },
+    "candidate": {
+      "type": "object",
+      "properties": {
+        "caseId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$"
+        },
+        "revision": { "type": "integer", "minimum": 1, "maximum": 3 },
+        "runId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$"
+        },
+        "attemptId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$"
+        },
+        "resultId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$"
+        },
+        "envelopeDigest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "contentDigest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "selector": {
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "kind": { "type": "string", "const": "domain_output" }
+              },
+              "required": ["kind"],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "kind": { "type": "string", "const": "proposal" },
+                "proposalId": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 100,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$"
+                }
+              },
+              "required": ["kind", "proposalId"],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "kind": { "type": "string", "const": "artifact" },
+                "artifactId": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 100,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$"
+                }
+              },
+              "required": ["kind", "artifactId"],
+              "additionalProperties": false
+            }
+          ]
+        }
+      },
+      "required": [
+        "caseId",
+        "revision",
+        "runId",
+        "attemptId",
+        "resultId",
+        "envelopeDigest",
+        "contentDigest",
+        "selector"
+      ],
+      "additionalProperties": false
+    },
+    "criteriaDigest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "policy": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "^[a-z][a-z0-9_]*$"
+        },
+        "version": { "type": "integer", "minimum": 1, "maximum": 1000000 },
+        "digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+      },
+      "required": ["key", "version", "digest"],
+      "additionalProperties": false
+    },
+    "requestKey": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$"
+    },
+    "instruction": {
+      "type": "object",
+      "properties": {
+        "version": { "type": "integer", "minimum": 1, "maximum": 1000000 },
+        "hash": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "key": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "^[a-z][a-z0-9_]*$"
+        }
+      },
+      "required": ["version", "hash", "key"],
+      "additionalProperties": false
+    },
+    "assessments": {
+      "minItems": 1,
+      "maxItems": 40,
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "criterionId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "pattern": "^[a-z][a-z0-9_]*$"
+          },
+          "outcome": {
+            "type": "string",
+            "enum": ["pass", "fail", "uncertain", "not_applicable"]
+          },
+          "method": {
+            "type": "string",
+            "enum": ["deterministic", "judgement"]
+          },
+          "methodKey": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "pattern": "^[a-z][a-z0-9_]*$"
+          },
+          "rationale": { "type": "string", "minLength": 1, "maxLength": 2000 },
+          "evidenceIds": {
+            "maxItems": 20,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$"
+            }
+          },
+          "findingIds": {
+            "maxItems": 20,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$"
+            }
+          },
+          "lineageIds": {
+            "maxItems": 20,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$"
+            }
+          },
+          "gapIds": {
+            "maxItems": 20,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$"
+            }
+          },
+          "provenance": {
+            "oneOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "kind": { "type": "string", "const": "deterministic" },
+                  "check": {
+                    "type": "object",
+                    "properties": {
+                      "key": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 64,
+                        "pattern": "^[a-z][a-z0-9_]*$"
+                      },
+                      "version": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 1000000
+                      },
+                      "digest": {
+                        "type": "string",
+                        "pattern": "^[a-f0-9]{64}$"
+                      }
+                    },
+                    "required": ["key", "version", "digest"],
+                    "additionalProperties": false
+                  }
+                },
+                "required": ["kind", "check"],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": { "type": "string", "const": "model" },
+                  "invocationIds": {
+                    "maxItems": 20,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 100,
+                      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$"
+                    }
+                  }
+                },
+                "required": ["kind", "invocationIds"],
+                "additionalProperties": false
+              }
+            ]
+          }
+        },
+        "required": [
+          "criterionId",
+          "outcome",
+          "method",
+          "methodKey",
+          "rationale",
+          "evidenceIds",
+          "findingIds",
+          "lineageIds",
+          "gapIds",
+          "provenance"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "defects": {
+      "maxItems": 40,
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "criterionId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "pattern": "^[a-z][a-z0-9_]*$"
+          },
+          "findingId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$"
+          },
+          "type": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "pattern": "^[a-z][a-z0-9_]*$"
+          },
+          "location": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "pattern": "^[a-z][a-z0-9_]*$"
+          },
+          "requirement": { "type": "string", "minLength": 1, "maxLength": 2000 }
+        },
+        "required": [
+          "criterionId",
+          "findingId",
+          "type",
+          "location",
+          "requirement"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "summary": { "type": "string", "minLength": 1, "maxLength": 2000 }
+  },
+  "required": [
+    "kind",
+    "schemaVersion",
+    "candidate",
+    "criteriaDigest",
+    "policy",
+    "requestKey",
+    "instruction",
+    "assessments",
+    "defects",
+    "summary"
+  ],
+  "additionalProperties": false,
+  "x-protocol-version": "1.2",
+  "x-runtime-validation": "Zod plus canonicalJson is authoritative. JSON Schema omits digest, byte/depth, scope, chronology, completeness and cross-reference refinements."
+}

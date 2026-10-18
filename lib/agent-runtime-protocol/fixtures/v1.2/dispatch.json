@@ -1,0 +1,9 @@
+{
+  "protocolVersion": "1.2",
+  "environment": "test",
+  "runId": "run:synthetic-1",
+  "generation": 1,
+  "dispatchId": "dispatch:synthetic-1",
+  "notBefore": "2026-10-01T09:00:00.000Z",
+  "traceId": "trace:synthetic-1"
+}

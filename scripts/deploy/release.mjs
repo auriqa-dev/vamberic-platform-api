@@ -7,7 +7,7 @@ export const stackName = "VambericDevApi";
 export const repository =
   "755905325223.dkr.ecr.eu-west-2.amazonaws.com/vamberic-dev-api";
 const service = "vamberic-dev-api";
-const parameter = "ApiImageTag";
+export const parameter = "ApiImageDigest";
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const summary = (text) => {
   console.log(text);
@@ -181,11 +181,19 @@ export function validateTag(tag) {
   );
   return tag;
 }
+export function validateDigest(digest) {
+  assert.match(
+    digest ?? "",
+    /^sha256:[a-f0-9]{64}$/,
+    "Expected an immutable SHA-256 image digest",
+  );
+  return digest;
+}
 export function validateTemplate(template) {
   assert.equal(
     template.Parameters?.[parameter]?.Type,
     "String",
-    "Infrastructure prerequisite missing: ApiImageTag parameter",
+    "Infrastructure prerequisite missing: ApiImageDigest parameter",
   );
   assert.equal(
     template.Transform,
@@ -220,9 +228,11 @@ export function validateTemplate(template) {
     (c) => c.Name === "api",
   );
   assert.equal(container.length, 1);
-  // CDK emits an Fn::Join with a registry import and this parameter as the final tag.
+  // The image parameter is restricted to the existing API repository.
   const image = container[0].Image;
-  assert.deepEqual(image?.["Fn::Join"]?.[1]?.at(-1), { Ref: parameter });
+  assert.deepEqual(image, {
+    "Fn::Join": ["", [`${repository}@`, { Ref: parameter }]],
+  });
   const clone = structuredClone(template);
   delete clone.Parameters[parameter];
   delete clone.Resources[taskId].Properties.ContainerDefinitions.find(
@@ -338,17 +348,28 @@ function preflight() {
 async function deploy() {
   const { stack, ids, previous } = preflight();
   const tag = validateTag(process.env.GITHUB_SHA);
+  const digest = validateDigest(
+    aws(
+      "ecr",
+      "describe-images",
+      "--repository-name",
+      service,
+      "--image-ids",
+      `imageTag=${tag}`,
+    ).imageDetails[0].imageDigest,
+  );
+  const image = `${repository}@${digest}`;
   summary(
-    `Previous task definition: ${previous}\nRequested image: ${repository}:${tag}`,
+    `Previous task definition: ${previous}\nRequested commit: ${tag}\nRequested image: ${image}`,
   );
   if (
     stack.Parameters.find((p) => p.ParameterKey === parameter)
-      .ParameterValue !== tag
+      .ParameterValue !== digest
   ) {
     const name = `app-${tag}-${process.env.GITHUB_RUN_ID}-${process.env.GITHUB_RUN_ATTEMPT}`;
     const parameters = stack.Parameters.map((p) =>
       p.ParameterKey === parameter
-        ? { ParameterKey: parameter, ParameterValue: tag }
+        ? { ParameterKey: parameter, ParameterValue: digest }
         : { ParameterKey: p.ParameterKey, UsePreviousValue: true },
     );
     aws(
@@ -446,7 +467,7 @@ async function deploy() {
   ).taskDefinition;
   assert.equal(
     task.containerDefinitions.find((c) => c.name === "api").image,
-    `${repository}:${tag}`,
+    image,
   );
   const tasks = aws(
     "ecs",
@@ -466,19 +487,11 @@ async function deploy() {
     ...tasks,
   );
   assert.equal(running.failures?.length ?? 0, 0);
-  const digest = aws(
-    "ecr",
-    "describe-images",
-    "--repository-name",
-    service,
-    "--image-ids",
-    `imageTag=${tag}`,
-  ).imageDetails[0].imageDigest;
   for (const t of running.tasks) {
     assert.equal(t.taskDefinitionArn, expected);
     assert.equal(t.lastStatus, "RUNNING");
     const c = t.containers.find((c) => c.name === "api");
-    assert.equal(c.image, `${repository}:${tag}`);
+    assert.equal(c.image, image);
     assert.equal(c.imageDigest, digest);
   }
   summary(`New task definition: ${expected}\nVerified image digest: ${digest}`);

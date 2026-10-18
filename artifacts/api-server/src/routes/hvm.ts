@@ -1,3 +1,40 @@
+import { businessOutcomesRouter } from "./business-outcomes";
+import { createPerformanceRouter } from "./performance";
+import { interactionRouter } from "./interaction";
+import { websiteTrackingRouter } from "./website-tracking";
+import { createCommunicationsRouter } from "./communications";
+import { createNbaRouter } from "./nba";
+import { createGa4Router } from "./ga4";
+import { createMailboxRouter } from "./mailbox";
+import { createLushaRouter } from "./lusha";
+import { createCampaignRouter } from "./campaigns";
+import { createResearchRouter } from "./research";
+import { createContentStrategyRouter } from "./content-strategy";
+import { createContactStrategyRouter } from "./contact-strategy";
+import { createResearchDocumentsRouter } from "./research-documents";
+import { createBrandExpressionRouter } from "./brand-expression";
+import type { BrandGenerator } from "../services/brand-expression/generate";
+import {
+  ExpressionContentSchema,
+  ExpressionDimensionSchema,
+} from "../domain/brand-expression";
+import { readOnboardingBrandDomain } from "../services/onboarding-brand-domain";
+import { createContactManagementRouter } from "./contact-management";
+import { createIcpRouter } from "./icp";
+import type { IcpGenerator } from "../services/icp/generate";
+import { createPsuRouter } from "./psu";
+import type { PsuGenerator } from "../services/psu/generate";
+import { createBrandImagesRouter } from "./brand-images";
+import { createBrandImageStore } from "../services/brand-images";
+import { createClientOnboardingRouter } from "./client-onboarding";
+import { OnboardingConflict } from "../services/client-onboarding";
+import {
+  provisionQueenClient,
+  QueenProvisionConflict,
+} from "../services/hvm-queen-provision";
+import { createAgentSubsystem } from "../services/agent-subsystem";
+import { createOperatingRouter } from "./operating";
+import { createOffersRouter } from "./offers";
 import { createHiveDefinitionsRouter } from "./hive-definitions";
 import { Router, json, type ErrorRequestHandler } from "express";
 import { z, ZodError } from "zod";
@@ -17,6 +54,7 @@ import {
   BrandKitSchema,
   WorkspaceIntegrationSchema,
   WorkspaceMembershipSchema,
+  WorkspacePartnerAssignmentSchema,
   partnerHumanSchema,
   platformIdSchema,
   generatePlatformId,
@@ -57,6 +95,7 @@ const kitInput = BrandKitRecordSchema.pick({
   descriptions: true,
   imageryGuidance: true,
   emailDefaults: true,
+  chatPersonality: true,
 })
   .partial()
   .strict();
@@ -74,7 +113,20 @@ const pick = (row: Document, keys: string[]) =>
   Object.fromEntries(
     keys.filter((k) => row[k] !== undefined).map((k) => [k, row[k]]),
   );
-export function createHvmRouter(config: AppConfig, mongo: MongoService) {
+export function createHvmRouter(
+  config: AppConfig,
+  mongo: MongoService,
+  agents = createAgentSubsystem(config, mongo),
+  brandImages = config.brandImages
+    ? createBrandImageStore(
+        config.brandImages.bucket,
+        config.brandImages.region,
+      )
+    : undefined,
+  psuGenerator?: PsuGenerator,
+  icpGenerator?: IcpGenerator,
+  brandGenerator?: BrandGenerator,
+) {
   const router = Router();
   router.use((req, res, next) => {
     res.setHeader("Cache-Control", "no-store");
@@ -88,8 +140,65 @@ export function createHvmRouter(config: AppConfig, mongo: MongoService) {
     }
     next();
   });
+  router.use(createResearchDocumentsRouter(config, mongo));
+  router.use(createBrandImagesRouter(config, mongo, brandImages));
+  // Import batches are bounded to 700 KB by the uploader. Parse these before
+  // the normal 256 KB application limit, with room for the request envelope.
+  router.use(
+    "/workspaces/:workspaceId/icp/imports",
+    json({ limit: "1mb", strict: true, inflate: false }),
+  );
   router.use(json({ limit: "256kb", strict: true, inflate: false }));
+  router.use(createClientOnboardingRouter(config, mongo));
+  router.use(createPsuRouter(config, mongo, psuGenerator));
+  router.use(createIcpRouter(config, mongo, icpGenerator));
+  router.use(createMailboxRouter(config, mongo));
+  router.use(createGa4Router(config, mongo));
+  router.use(businessOutcomesRouter(config, mongo));
+  router.use(createPerformanceRouter(config, mongo));
+  router.use(createCommunicationsRouter(config, mongo));
+  router.use(websiteTrackingRouter(config, mongo));
+  router.use(interactionRouter(config, mongo));
+  router.use(createLushaRouter(config, mongo));
+  router.use(createResearchRouter(config, mongo));
+  router.use(createCampaignRouter(config, mongo));
+  router.use(createNbaRouter(config, mongo, agents.nba));
+  router.use(createContactStrategyRouter(config, mongo));
+  router.use(createContentStrategyRouter(config, mongo));
+  router.use(createBrandExpressionRouter(config, mongo, brandGenerator));
+  router.use(createContactManagementRouter(config, mongo));
   router.use(createHiveDefinitionsRouter(config, mongo));
+  router.use(createOffersRouter(config, mongo));
+  router.use(createOperatingRouter(config, mongo));
+  router.use(agents.operators);
+  router.use(agents.human);
+  router.post("/partners/:partnerId/clients", async (req, res) => {
+    z.object({}).strict().parse(req.query);
+    try {
+      res
+        .status(201)
+        .json(
+          await provisionQueenClient(
+            config,
+            mongo,
+            req.auth!,
+            req.params.partnerId,
+            req.body,
+          ),
+        );
+    } catch (error) {
+      if (error instanceof QueenProvisionConflict) throw new Conflict();
+      throw error;
+    }
+  });
+  router.get("/reference-data/currencies", async (req, res) => {
+    z.object({}).strict().parse(req.query);
+    const db = await mongo.database();
+    await resolveHvmContext(db, config, req.auth!);
+    const rows = await db.collection("ref_currencies").find({is_active:true}, {projection:{_id:0,code:1,name:1,minorUnits:1}}).sort({code:1}).toArray();
+    const supported = new Set(Intl.supportedValuesOf("currency"));
+    res.json({currencies:rows.map(row=>({code:row.code,name:row.name,minorUnits:row.minorUnits,selectable: supported.has(row.code) && Number.isInteger(row.minorUnits)}))});
+  });
   router.get("/context", async (req, res) => {
     const resolved = await resolveHvmContext(
       await mongo.database(),
@@ -174,25 +283,38 @@ export function createHvmRouter(config: AppConfig, mongo: MongoService) {
           }),
         },
       });
-    } else if (req.params.view === "brands")
+    } else if (req.params.view === "brands") {
+      const brands = await list(db, "brands", {
+        ...scope,
+        archived: { $ne: true },
+      });
       res.json({
-        brands: (
-          await list(db, "brands", { ...scope, archived: { $ne: true } })
-        ).map((b) =>
-          pick(b, [
-            "id",
-            "workspaceId",
-            "organisationId",
-            "name",
-            "slug",
-            "status",
-            "primaryDomain",
-            "description",
-            "updatedAt",
-          ]),
+        brands: await Promise.all(
+          brands.map(async (b) => ({
+            ...pick(b, [
+              "id",
+              "workspaceId",
+              "organisationId",
+              "name",
+              "slug",
+              "status",
+              "primaryDomain",
+              "description",
+              "updatedAt",
+            ]),
+            ...(b.primaryDomain
+              ? {}
+              : {
+                  primaryDomain: await readOnboardingBrandDomain(
+                    db,
+                    workspaceId,
+                    b.id,
+                  ),
+                }),
+          })),
         ),
       });
-    else if (req.params.view === "integrations")
+    } else if (req.params.view === "integrations")
       res.json({
         integrations: (await list(db, "workspace_integrations", scope))
           .filter((i) => HVM_CLIENT_PROVIDERS.includes(i.provider))
@@ -217,20 +339,35 @@ export function createHvmRouter(config: AppConfig, mongo: MongoService) {
         status: "active",
         archived: { $ne: true },
       });
+      const workspace = await db
+        .collection("crm_workspaces")
+        .findOne({ id: workspaceId, archived: { $ne: true } });
       res.json({
+        workspaceId,
+        updatedAt: workspace?.updatedAt,
+        management: assignments.length ? "queen" : "client",
+        canManage: resolved.authority.authorize(resolved.context, "manage", {
+          type: "workspace_memberships",
+          workspaceId,
+        }),
+        canChangeManagement: resolved.response.clients.some(
+          (c) => c.workspaceId === workspaceId && c.role === "admin",
+        ),
+        currentHuman: resolved.response.human,
         memberships: memberships.map((m) =>
           pick(m, [
             "id",
             "role",
             "status",
             "personId",
+            "human",
             "joinedAt",
             "endedAt",
             "updatedAt",
           ]),
         ),
         partnerAssignments: assignments.map((a) =>
-          pick(a, ["id", "partnerId", "role", "status"]),
+          pick(a, ["id", "partnerId", "role", "status", "updatedAt"]),
         ),
       });
     } else if (req.params.view === "enquiries")
@@ -346,6 +483,10 @@ export function createHvmRouter(config: AppConfig, mongo: MongoService) {
       "brand-update": { resource: "brands", action: "update" },
       "kit-create": { resource: "brand_kits", action: "create" },
       "kit-update": { resource: "brand_kits", action: "update" },
+      "kit-save": { resource: "brand_kits", action: "update" },
+      "kit-expression-remove": { resource: "brand_kits", action: "update" },
+      "kit-expression-save": { resource: "brand_kits", action: "update" },
+      "kit-expression-approve": { resource: "brand_kits", action: "approve" },
       "kit-approve": { resource: "brand_kits", action: "approve" },
       "kit-retire": { resource: "brand_kits", action: "approve" },
       "integration-create": {
@@ -364,6 +505,7 @@ export function createHvmRouter(config: AppConfig, mongo: MongoService) {
         resource: "workspace_memberships",
         action: "manage",
       },
+      "management-change": { resource: "crm_workspaces", action: "update" },
       "member-revoke": { resource: "workspace_memberships", action: "manage" },
     };
     const op = operations[req.params.operation];
@@ -552,6 +694,191 @@ export function createHvmRouter(config: AppConfig, mongo: MongoService) {
             false,
           );
         }
+        case "kit-save": {
+          // One immediate, versioned save: keep other sections and images intact.
+          for (const action of ["create", "approve"] as const)
+            resolved.authority.scopeFilter(resolved.context, action, {
+              type: "brand_kits",
+              workspaceId,
+            });
+          const input = z
+            .object({
+              brandId: platformIdSchema("brand"),
+              expectedKitId: platformIdSchema("brandkit").nullable(),
+              expectedUpdatedAt: expected.optional(),
+              content: kitInput.refine(
+                (v) => Object.keys(v).length === 1,
+                "Save one section at a time",
+              ),
+            })
+            .strict()
+            .parse(req.body);
+          const active = await collection
+            .find(
+              {
+                workspaceId,
+                brandId: input.brandId,
+                status: "approved",
+                archived: { $ne: true },
+              },
+              options,
+            )
+            .limit(2)
+            .toArray();
+          const previous = active[0];
+          if (
+            active.length > 1 ||
+            (previous?.id ?? null) !== input.expectedKitId ||
+            previous?.updatedAt.toISOString() !== input.expectedUpdatedAt
+          )
+            throw new Conflict("Brand Kit changed; reload before saving");
+          const kit = BrandKitSchema.parse({
+            ...(previous ? withoutMongoId(previous) : {}),
+            ...input.content,
+            ...base,
+            id: generatePlatformId("brandkit"),
+            brandId: input.brandId,
+            status: "approved",
+            approvedAt: now,
+            approvedBy: actor,
+            archived: false,
+            archivedAt: undefined,
+          });
+          await kitReferences(kit);
+          if (previous)
+            await collection.updateOne(
+              { id: previous.id, workspaceId, status: "approved" },
+              { $set: { status: "retired", updatedAt: now, updatedBy: actor } },
+              options,
+            );
+          return save(kit, true);
+        }
+        case "kit-expression-remove":
+        case "kit-expression-save":
+        case "kit-expression-approve": {
+          const ledger = await db
+            .collection("schema_versions")
+            .findOne({ _id: "vapp-v1" } as Document, options);
+          if (![25, 26, 27, 28, 29, 30].includes(ledger?.version))
+            throw new Conflict("Brand Kit upgrade is not available yet");
+          const input = z
+            .object({
+              brandId: platformIdSchema("brand"),
+              expectedKitId: platformIdSchema("brandkit").nullable(),
+              expectedUpdatedAt: expected.optional(),
+              dimension: ExpressionDimensionSchema,
+              target: z.enum(["draft", "approved"]).optional(),
+              content: z.unknown().optional(),
+              originalDescription: z.string().max(4000).default(""),
+              sourceGenerationId: platformIdSchema("event").optional(),
+            })
+            .strict()
+            .parse(req.body);
+          const active = await collection
+            .find(
+              {
+                workspaceId,
+                brandId: input.brandId,
+                status: "approved",
+                archived: { $ne: true },
+              },
+              options,
+            )
+            .limit(2)
+            .toArray();
+          const previous = active[0];
+          if (
+            active.length > 1 ||
+            (previous?.id ?? null) !== input.expectedKitId ||
+            previous?.updatedAt.toISOString() !== input.expectedUpdatedAt
+          )
+            throw new Conflict("Brand Kit changed; reload before saving");
+          if (!previous)
+            resolved.authority.scopeFilter(resolved.context, "create", {
+              type: "brand_kits",
+              workspaceId,
+            });
+          const expression = structuredClone(previous?.expression ?? {});
+          const state = expression[input.dimension] ?? {};
+          if (req.params.operation === "kit-expression-save") {
+            const content = ExpressionContentSchema.shape[
+              input.dimension
+            ].parse(input.content);
+            let proposal;
+            if (input.sourceGenerationId) {
+              const source = await db.collection("events").findOne(
+                {
+                  id: input.sourceGenerationId,
+                  workspaceId,
+                  eventType: "brand_expression_generation",
+                  "payload.brandId": input.brandId,
+                  "payload.status": "completed",
+                  "payload.input.mode": "interpret",
+                },
+                options,
+              );
+              if (!source)
+                throw new Conflict("Interpretation is not available");
+              proposal = source.payload.result?.settings?.[input.dimension];
+              if (
+                !proposal ||
+                source.payload.input.description !== input.originalDescription
+              )
+                throw new Conflict("Interpretation source changed");
+            }
+            state.draft = {
+              content,
+              originalDescription: input.originalDescription,
+              ...(proposal
+                ? {
+                    proposedContent: proposal,
+                    sourceGenerationId: input.sourceGenerationId,
+                  }
+                : {}),
+              savedAt: now,
+              savedBy: actor,
+            };
+          } else if (req.params.operation === "kit-expression-remove") {
+            if (!input.target || !state[input.target])
+              throw new Conflict("Settings changed; reload before deleting");
+            if (input.target === "approved")
+              resolved.authority.scopeFilter(resolved.context, "approve", {
+                type: "brand_kits",
+                workspaceId,
+              });
+            delete state[input.target];
+          } else {
+            if (!state.draft)
+              throw new Conflict("Save a draft before approval");
+            state.approved = {
+              ...state.draft,
+              approvedAt: now,
+              approvedBy: actor,
+            };
+            delete state.draft;
+          }
+          expression[input.dimension] = state;
+          const kit = BrandKitSchema.parse({
+            ...(previous ? withoutMongoId(previous) : {}),
+            ...base,
+            id: generatePlatformId("brandkit"),
+            brandId: input.brandId,
+            status: "approved",
+            approvedAt: now,
+            approvedBy: previous?.approvedBy ?? actor,
+            expression,
+            archived: false,
+            archivedAt: undefined,
+          });
+          await kitReferences(kit);
+          if (previous)
+            await collection.updateOne(
+              { id: previous.id, workspaceId, status: "approved" },
+              { $set: { status: "retired", updatedAt: now, updatedBy: actor } },
+              options,
+            );
+          return save(kit, true);
+        }
         case "kit-create": {
           const input = z
             .object({
@@ -661,6 +988,7 @@ export function createHvmRouter(config: AppConfig, mongo: MongoService) {
           );
         }
         case "integration-create":
+          if (req.body?.provider === "ga4") throw new Conflict("Use Connect Google Analytics to verify and save a GA4 property");
           return save(
             WorkspaceIntegrationSchema.parse({
               ...integrationInput.parse(req.body),
@@ -684,6 +1012,7 @@ export function createHvmRouter(config: AppConfig, mongo: MongoService) {
             .strict()
             .parse(req.body);
           const row = await current(input.id, input.expectedUpdatedAt);
+          if (row.provider === "ga4") throw new Conflict("Manage GA4 through its verified connection controls");
           if (!HVM_CLIENT_PROVIDERS.includes(row.provider))
             throw new AuthorizationDenied();
           if (
@@ -703,6 +1032,116 @@ export function createHvmRouter(config: AppConfig, mongo: MongoService) {
             }),
             false,
           );
+        }
+        case "management-change": {
+          if (
+            !resolved.response.clients.some(
+              (c) => c.workspaceId === workspaceId && c.role === "admin",
+            )
+          )
+            throw new AuthorizationDenied();
+          const input = z
+            .object({
+              management: z.enum(["client", "queen"]),
+              partnerId: platformIdSchema("partner").optional(),
+              expectedUpdatedAt: expected,
+              confirm: z.literal(true),
+            })
+            .strict()
+            .parse(req.body);
+          if (input.expectedUpdatedAt !== previousWorkspaceUpdate)
+            throw new Conflict(
+              "Workspace changed; reload before changing access",
+            );
+          if (input.management === "queen") {
+            if (
+              !input.partnerId ||
+              !(await db.collection("hvm_partners").findOne(
+                {
+                  id: input.partnerId,
+                  status: "active",
+                  archived: { $ne: true },
+                },
+                options,
+              ))
+            )
+              throw new Conflict("Partner is unavailable");
+            if (
+              !(await db.collection("hvm_partner_memberships").findOne(
+                {
+                  partnerId: input.partnerId,
+                  role: "owner",
+                  status: "active",
+                  archived: { $ne: true },
+                },
+                options,
+              ))
+            )
+              throw new Conflict("Partner needs an active owner");
+          } else if (input.partnerId)
+            throw new Conflict(
+              "Client-managed workspaces do not require a Partner",
+            );
+          const assignments = await list(
+            db,
+            "workspace_partner_assignments",
+            { workspaceId, status: "active", archived: { $ne: true } },
+            session,
+          );
+          const retained = assignments.find(
+            (a) =>
+              input.management === "queen" &&
+              a.partnerId === input.partnerId &&
+              a.role === "primary",
+          );
+          for (const assignment of assignments) {
+            if (assignment.id === retained?.id) continue;
+            const ended = WorkspacePartnerAssignmentSchema.parse({
+              ...assignment,
+              status: "ended",
+              endedAt: now,
+              updatedAt: now,
+              updatedBy: actor,
+            });
+            await db
+              .collection("workspace_partner_assignments")
+              .updateOne(
+                { id: assignment.id, workspaceId, status: "active" },
+                { $set: ended },
+                options,
+              );
+          }
+          if (input.management === "queen" && !retained)
+            await db.collection("workspace_partner_assignments").insertOne(
+              WorkspacePartnerAssignmentSchema.parse({
+                ...base,
+                id: generatePlatformId("partnerassignment"),
+                partnerId: input.partnerId,
+                role: "primary",
+                status: "active",
+                assignedAt: now,
+                assignedBy: { type: "human", id: actor.id },
+              }),
+              options,
+            );
+          await db.collection("events").insertOne(
+            EventSchema.parse({
+              ...base,
+              id: generatePlatformId("event"),
+              eventType: "workspace_management_changed",
+              occurredAt: now,
+              actor,
+              payload: {
+                management: input.management,
+                partnerId: input.partnerId ?? null,
+                endedAssignmentIds: assignments
+                  .filter((a) => a.id !== retained?.id)
+                  .map((a) => a.id),
+              },
+            }),
+            options,
+          );
+          return { id: workspaceId, updatedAt: now };
         }
         case "member-provision": {
           const input = z
@@ -749,6 +1188,22 @@ export function createHvmRouter(config: AppConfig, mongo: MongoService) {
             .strict()
             .parse(req.body);
           const row = await current(input.id, input.expectedUpdatedAt);
+          if (row.role === "admin" && row.status === "active") {
+            const admins = await collection
+              .find(
+                {
+                  workspaceId,
+                  role: "admin",
+                  status: "active",
+                  archived: { $ne: true },
+                },
+                options,
+              )
+              .limit(2)
+              .toArray();
+            if (admins.length < 2)
+              throw new Conflict("Keep at least one client administrator");
+          }
           if (row.human.id === actor.id && row.human.issuer === actor.issuer)
             throw new Conflict(
               "Self-revocation requires another administrator",
@@ -778,7 +1233,9 @@ export function createHvmRouter(config: AppConfig, mongo: MongoService) {
         ? 404
         : error instanceof ZodError || error?.type === "entity.parse.failed"
           ? 400
-          : error instanceof Conflict || error?.code === 11000
+          : error instanceof Conflict ||
+              error instanceof OnboardingConflict ||
+              error?.code === 11000
             ? 409
             : 503;
     res.status(status).json({

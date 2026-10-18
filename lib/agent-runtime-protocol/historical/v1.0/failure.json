@@ -1,0 +1,47 @@
+{
+  "protocolVersion": "1.0",
+  "resultSchemaVersion": 1,
+  "runId": "run:synthetic-1",
+  "attemptId": "attempt:synthetic-1",
+  "generation": 1,
+  "fence": 1,
+  "submissionId": "submission:fc3236c8a55c5c7dfc50a06052d4fe07d39341fb",
+  "payloadDigest": "5b233c20ac2e282501d2a22596d6e3068e28a6d4301f651f20432e640e78e323",
+  "implementation": {
+    "key": "internal_fake",
+    "version": 1,
+    "manifestDigest": "9e7e951ff64105b33b757c5ad19f17cc0f044684cc73c68691f7ea4f5b26ee08",
+    "buildDigest": "92b88de21b5f13dfb763e7aefea32dacdb15cf42625f8e1048569fd8857fef70"
+  },
+  "instruction": {
+    "version": 1,
+    "hash": "5a8541c9c71fea0c684cadf646e13c5439497ee18e14153fe84db13e17515622"
+  },
+  "traceId": "trace:synthetic-1",
+  "startedAt": "2026-10-01T09:00:00.000Z",
+  "endedAt": "2026-10-01T09:00:00.000Z",
+  "outcome": {
+    "kind": "failure",
+    "completeness": {
+      "kind": "partial",
+      "omissions": ["Execution did not finish."],
+      "reason": "Provider temporarily unavailable."
+    },
+    "content": {
+      "findings": [],
+      "evidence": [],
+      "assumptions": [],
+      "unknowns": [],
+      "proposals": [],
+      "artifacts": [],
+      "warnings": [],
+      "lineage": []
+    },
+    "error": {
+      "code": "provider_transient",
+      "message": "Provider temporarily unavailable.",
+      "retryable": true
+    }
+  },
+  "usage": []
+}

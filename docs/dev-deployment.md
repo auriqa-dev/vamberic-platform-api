@@ -1,5 +1,7 @@
 # Dev API and Vapp releases
 
+> 18 October 2026: the live image no longer consumes the legacy tag parameter described below. See [HVM automation reconciliation](hvm-automation-reconciliation.md) for the prepared digest contract, source differences and approval gates. These changes are not deployed; do not execute the historical rollout instructions as a reconciliation shortcut.
+
 ## Rollout status
 
 The replacement workflow is **Deploy dev API and Vapp** (`.github/workflows/deploy-dev.yml`). It replaces the two manual workflows **Build and push development image** and **Deploy Vapp frontend**.

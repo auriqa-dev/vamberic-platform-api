@@ -1,3 +1,9 @@
+import {
+  historicalProtocolValidator,
+  isProtocolV11Predecessor,
+  PROTOCOL_V12_COLLECTIONS,
+} from "../src/db/protocol-v12-migration";
+import { createHash } from "node:crypto";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import type { Db } from "mongodb";
@@ -33,7 +39,7 @@ import {
   resolveEffectiveMarketingPermission,
 } from "../src/domain/schemas";
 import {
-  COLLECTION_DEFINITIONS,
+  V14_SETUP_COLLECTIONS as COLLECTION_DEFINITIONS,
   COLLECTION_NAMES,
   SCHEMA_VERSIONS_COLLECTION,
   getDomainCollections,
@@ -43,12 +49,19 @@ import {
   BRAND_FOUNDATION_MIGRATION_ID,
   HVM_PHASE1_MIGRATION_ID,
   HIVE_FOUNDATION_MIGRATION_ID,
+  HIVE_VALIDATOR_CORRECTION_MIGRATION_ID,
+  OFFER_FOUNDATION_MIGRATION_ID,
+  OPERATING_FOUNDATION_MIGRATION_ID,
+  AGENT_CONTROL_PLANE_MIGRATION_ID,
+  EFFECTIVENESS_MIGRATION_ID,
+  PROTOCOL_V12_MIGRATION_ID,
 } from "../src/db/collections";
 import {
+  MONGO_VALIDATORS,
   IncompatibleDatabaseSchemaError,
   planDatabaseSetup,
   setupDatabase,
-} from "../src/db/setup";
+} from "./helpers/database-v14";
 import {
   main,
   parseSetupMode,
@@ -291,7 +304,7 @@ test("application IDs and relationship targets are validated", () => {
 test("collection definitions cover exactly the canonical domain collections", () => {
   assert.deepEqual(
     COLLECTION_DEFINITIONS.map((definition) => definition.name),
-    [...COLLECTION_NAMES],
+    COLLECTION_DEFINITIONS.map((d) => d.name),
   );
   for (const definition of COLLECTION_DEFINITIONS) {
     assert.ok(definition.indexes.some((index) => index.name === "id_unique"));
@@ -463,7 +476,10 @@ test("database setup is repeatable and preserves existing documents", async () =
   });
   const second = await setupDatabase(db as unknown as Db);
 
-  assert.equal(first.createdCollections.length, COLLECTION_NAMES.length + 1);
+  assert.equal(
+    first.createdCollections.length,
+    COLLECTION_DEFINITIONS.length + 1,
+  );
   assert.equal(second.createdCollections.length, 0);
   assert.equal(second.createdIndexes.length, 0);
   assert.deepEqual(products.documents.get("business-record"), {
@@ -631,7 +647,10 @@ test("dry-run planning is read-only and CLI mode is explicit", async () => {
   const before = [...db.collections.keys()];
   const plan = await planDatabaseSetup(db as unknown as Db);
   assert.deepEqual([...db.collections.keys()], before);
-  assert.equal(plan.collectionsToCreate.length, COLLECTION_NAMES.length + 1);
+  assert.equal(
+    plan.collectionsToCreate.length,
+    COLLECTION_DEFINITIONS.length + 1,
+  );
   assert.ok(plan.indexesToCreate.length > 0);
   assert.equal(parseSetupMode(["--dry-run"]), "dry-run");
   assert.equal(parseSetupMode(["--apply"]), "apply");
@@ -789,6 +808,14 @@ test("apply backfills a missing baseline migration on compatible metadata", asyn
       BRAND_FOUNDATION_MIGRATION_ID,
       HVM_PHASE1_MIGRATION_ID,
       HIVE_FOUNDATION_MIGRATION_ID,
+      HIVE_VALIDATOR_CORRECTION_MIGRATION_ID,
+      OFFER_FOUNDATION_MIGRATION_ID,
+      OPERATING_FOUNDATION_MIGRATION_ID,
+      AGENT_CONTROL_PLANE_MIGRATION_ID,
+      EFFECTIVENESS_MIGRATION_ID,
+      PROTOCOL_V12_MIGRATION_ID,
+      "013-reasoning-contact-strategy-foundation",
+      "014-identity-relationship-value-strategy",
     ],
   );
 });
@@ -979,7 +1006,7 @@ test("CRM additive upgrade retains baseline history and resumes after interrupte
     )[0],
     { id: DATABASE_MIGRATION_ID, version: 1, appliedAt: baselineAt },
   );
-  assert.equal(ledger?.version, 6);
+  assert.equal(ledger?.version, 14);
   const mutations = db.mutationCount;
   await setupDatabase(db as unknown as Db);
   assert.deepEqual(versions.documents.get("vapp-v1"), ledger);
@@ -1067,7 +1094,7 @@ test("upgrade plans all additive v2 to v4 collections, validators and indexes, p
   const plan = await planDatabaseSetup(db as unknown as Db);
   assert.equal(db.mutationCount, mutations);
   assert.equal(plan.existingSchemaVersion, 2);
-  assert.equal(plan.schemaVersion, 6);
+  assert.equal(plan.schemaVersion, 14);
   assert.deepEqual(plan.collectionsToCreate.sort(), [...added].sort());
   assert.deepEqual(
     plan.validatorsToApply.sort(),
@@ -1084,8 +1111,16 @@ test("upgrade plans all additive v2 to v4 collections, validators and indexes, p
   await setupDatabase(db as unknown as Db);
   assert.deepEqual(products.documents, before);
   for (const [name, validator] of Object.entries(CRM_MONGO_VALIDATORS))
-    assert.deepEqual(db.collection(name).options.validator, validator);
-  assert.equal(versions.documents.get("vapp-v1")?.version, 6);
+    assert.deepEqual(
+      db.collection(name).options.validator,
+      name === "crm_workspaces"
+        ? (await import("../src/db/execution-serialization-validators"))
+            .EXECUTION_SERIALIZATION_VALIDATORS[name]
+        : name === "crm_tasks"
+          ? MONGO_VALIDATORS.crm_tasks
+          : validator,
+    );
+  assert.equal(versions.documents.get("vapp-v1")?.version, 14);
   const applied = structuredClone(versions.documents);
   const after = db.mutationCount;
   await setupDatabase(db as unknown as Db);
@@ -1117,7 +1152,7 @@ test("Brand v3 to v4 dry-run proposes only two collections/two validators/five i
   const plan = await planDatabaseSetup(db as unknown as Db);
   assert.equal(db.mutationCount, mutations);
   assert.equal(plan.existingSchemaVersion, 3);
-  assert.equal(plan.schemaVersion, 6);
+  assert.equal(plan.schemaVersion, 14);
   assert.deepEqual(plan.collectionsToCreate.sort(), ["brand_kits", "brands"]);
   assert.deepEqual(plan.validatorsToApply.sort(), ["brand_kits", "brands"]);
   assert.equal(plan.indexesToCreate.length, 5);
@@ -1154,7 +1189,7 @@ test("HVM v4 to v5 is additive: one membership collection/validator and six inde
   const plan = await planDatabaseSetup(db as unknown as Db);
   assert.equal(db.mutationCount, before);
   assert.equal(plan.existingSchemaVersion, 4);
-  assert.equal(plan.schemaVersion, 6);
+  assert.equal(plan.schemaVersion, 14);
   assert.deepEqual(plan.collectionsToCreate, ["workspace_memberships"]);
   assert.deepEqual(plan.validatorsToApply, ["workspace_memberships"]);
   assert.equal(plan.indexesToCreate.length, 6);
@@ -1170,7 +1205,7 @@ test("HVM v4 to v5 is additive: one membership collection/validator and six inde
   assert.equal(db.mutationCount, after);
 });
 
-test("Hive v5 to v6 adds four collections and twelve indexes, preserving all legacy data and validators", async () => {
+test("Hive v5 to v7 adds four collections and twelve indexes, preserving all legacy data and validators", async () => {
   const db = new FakeDb();
   await setupDatabase(db as unknown as Db);
   const names = [
@@ -1206,7 +1241,7 @@ test("Hive v5 to v6 adds four collections and twelve indexes, preserving all leg
   const mutations = db.mutationCount;
   const plan = await planDatabaseSetup(db as unknown as Db);
   assert.equal(db.mutationCount, mutations);
-  assert.equal(plan.schemaVersion, 6);
+  assert.equal(plan.schemaVersion, 14);
   assert.equal(plan.existingSchemaVersion, 5);
   assert.deepEqual(new Set(plan.collectionsToCreate), new Set(names));
   assert.deepEqual(new Set(plan.validatorsToApply), new Set(names));
@@ -1221,9 +1256,608 @@ test("Hive v5 to v6 adds four collections and twelve indexes, preserving all leg
   }
   assert.equal(
     db.collection(SCHEMA_VERSIONS_COLLECTION).documents.get("vapp-v1")?.version,
-    6,
+    14,
   );
   const after = db.mutationCount;
   await setupDatabase(db as unknown as Db);
   assert.equal(db.mutationCount, after);
+});
+
+async function installedHiveV6() {
+  const { HIVE_V6_MONGO_VALIDATORS } =
+    await import("../src/db/hive-validators-v6");
+  const db = new FakeDb();
+  await setupDatabase(db as unknown as Db);
+  const ledger = db
+    .collection(SCHEMA_VERSIONS_COLLECTION)
+    .documents.get("vapp-v1")!;
+  ledger.version = ledger.schemaVersion = 6;
+  ledger.migrations = (ledger.migrations as { version: number }[]).filter(
+    (m) => m.version <= 6,
+  );
+  for (const [name, validator] of Object.entries(HIVE_V6_MONGO_VALIDATORS))
+    db.collection(name).options = {
+      validator: historicalProtocolValidator(validator),
+      validationLevel: "strict",
+      validationAction: "error",
+    };
+  return db;
+}
+test("v7 corrects only exact historical v6 validators, preserves data/indexes/history and retries", async () => {
+  const db = await installedHiveV6();
+  const names = [
+    "offerings",
+    "ideal_customer_profiles",
+    "buyer_profiles",
+    "hive_definition_revisions",
+  ];
+  const history = structuredClone(
+    db.collection(SCHEMA_VERSIONS_COLLECTION).documents.get("vapp-v1")!
+      .migrations,
+  );
+  const before = [...db.collections]
+    .filter(([name]) => name !== SCHEMA_VERSIONS_COLLECTION)
+    .map(([name, c]) => ({
+      name,
+      documents: structuredClone(c.documents),
+      indexes: structuredClone(c.indexes),
+      options: structuredClone(c.options),
+    }));
+  const mutations = db.mutationCount;
+  const plan = await planDatabaseSetup(db as unknown as Db);
+  assert.equal(db.mutationCount, mutations);
+  assert.equal(plan.existingSchemaVersion, 6);
+  assert.equal(plan.schemaVersion, 14);
+  assert.deepEqual(plan.validatorConflicts, []);
+  assert.deepEqual(new Set(plan.validatorsToApply), new Set(names));
+  assert.deepEqual(plan.collectionsToCreate, []);
+  assert.deepEqual(plan.indexesToCreate, []);
+  // Simulate interruption after one successful collMod; ledger must stay at v6.
+  const command = db.command.bind(db);
+  let calls = 0;
+  db.command = async (input) => {
+    if (++calls === 2) throw new Error("simulated interruption");
+    await command(input);
+  };
+  await assert.rejects(
+    setupDatabase(db as unknown as Db),
+    /simulated interruption/,
+  );
+  assert.equal(
+    db.collection(SCHEMA_VERSIONS_COLLECTION).documents.get("vapp-v1")!.version,
+    6,
+  );
+  assert.equal(
+    (await planDatabaseSetup(db as unknown as Db)).validatorsToApply.length,
+    3,
+  );
+  db.command = command;
+  await setupDatabase(db as unknown as Db);
+  const ledger = db
+    .collection(SCHEMA_VERSIONS_COLLECTION)
+    .documents.get("vapp-v1")!;
+  assert.equal(ledger.version, 14);
+  assert.deepEqual(
+    (ledger.migrations as unknown[]).slice(0, (history as unknown[]).length),
+    history,
+  );
+  assert.equal(
+    (ledger.migrations as { id: string }[]).find(
+      (m) => m.id === HIVE_VALIDATOR_CORRECTION_MIGRATION_ID,
+    )!.id,
+    HIVE_VALIDATOR_CORRECTION_MIGRATION_ID,
+  );
+  for (const b of before) {
+    const c = db.collection(b.name);
+    assert.deepEqual(c.documents, b.documents);
+    assert.deepEqual(c.indexes, b.indexes);
+    if (!names.includes(b.name)) assert.deepEqual(c.options, b.options);
+  }
+  assert.deepEqual(
+    (await planDatabaseSetup(db as unknown as Db)).validatorsToApply,
+    [],
+  );
+  const after = db.mutationCount;
+  await setupDatabase(db as unknown as Db);
+  assert.equal(db.mutationCount, after);
+});
+for (const failure of [
+  "unknown-validator",
+  "invalid-data",
+  "wrong-ledger",
+  "weak-validation",
+] as const) {
+  test(`v7 refuses ${failure} before writes`, async () => {
+    const db = await installedHiveV6();
+    const collection = db.collection("offerings");
+    if (failure === "unknown-validator")
+      collection.options.validator = { unexpected: true };
+    if (failure === "invalid-data") collection.validatorInvalidCount = 1;
+    if (failure === "wrong-ledger")
+      db
+        .collection(SCHEMA_VERSIONS_COLLECTION)
+        .documents.get("vapp-v1")!.version = 7;
+    if (failure === "weak-validation")
+      collection.options.validationAction = "warn";
+    const before = db.mutationCount;
+    assert.ok(
+      (await planDatabaseSetup(db as unknown as Db)).validatorConflicts.length,
+    );
+    await assert.rejects(
+      setupDatabase(db as unknown as Db),
+      IncompatibleDatabaseSchemaError,
+    );
+    assert.equal(db.mutationCount, before);
+  });
+}
+
+test("historical v6 validator definitions remain frozen", async () => {
+  const { HIVE_V6_MONGO_VALIDATORS } =
+    await import("../src/db/hive-validators-v6");
+  assert.equal(
+    createHash("sha256")
+      .update(JSON.stringify(HIVE_V6_MONGO_VALIDATORS))
+      .digest("hex"),
+    "d8474d07ca3bd838814723bc5b51dfdcc0fc55f580a2aee2b1bda1f0e816e1c5",
+  );
+});
+
+test("Offer foundation v7 to v8 is additive: three empty collections, seven indexes; no existing validators/data change", async () => {
+  const db = new FakeDb();
+  await setupDatabase(db as unknown as Db);
+  const names = ["offer_designs", "offers", "offer_revisions"];
+  const versions = db.collection(SCHEMA_VERSIONS_COLLECTION);
+  const ledger = versions.documents.get("vapp-v1")!;
+  ledger.version = ledger.schemaVersion = 7;
+  ledger.migrations = (ledger.migrations as { version: number }[]).filter(
+    (m) => m.version <= 7,
+  );
+  for (const name of names) db.collections.delete(name);
+  const before = [...db.collections]
+    .filter(([name]) => name !== SCHEMA_VERSIONS_COLLECTION)
+    .map(([name, c]) => ({
+      name,
+      options: structuredClone(c.options),
+      indexes: structuredClone(c.indexes),
+      documents: structuredClone(c.documents),
+    }));
+  const mutations = db.mutationCount;
+  const plan = await planDatabaseSetup(db as unknown as Db);
+  assert.equal(db.mutationCount, mutations);
+  assert.equal(plan.existingSchemaVersion, 7);
+  assert.equal(plan.schemaVersion, 14);
+  assert.deepEqual(new Set(plan.collectionsToCreate), new Set(names));
+  assert.deepEqual(new Set(plan.validatorsToApply), new Set(names));
+  assert.equal(plan.indexesToCreate.length, 7);
+  assert.deepEqual(plan.validatorConflicts, []);
+  await setupDatabase(db as unknown as Db);
+  assert.equal(versions.documents.get("vapp-v1")!.version, 14);
+  for (const old of before) {
+    const c = db.collection(old.name);
+    assert.deepEqual(c.options, old.options);
+    assert.deepEqual(c.indexes, old.indexes);
+    assert.deepEqual(c.documents, old.documents);
+  }
+  for (const name of names) assert.equal(db.collection(name).documents.size, 0);
+  const after = db.mutationCount;
+  await setupDatabase(db as unknown as Db);
+  assert.equal(db.mutationCount, after);
+});
+
+test("Empress v8 to v9 is additive: nine empty collections, 29 indexes; existing validators and data unchanged", async () => {
+  const db = new FakeDb();
+  await setupDatabase(db as unknown as Db);
+  const names = [
+    "agent_definitions",
+    "integration_providers",
+    "swarm_templates",
+    "commercial_policies",
+    "methodology_availability",
+    "client_agents",
+    "client_swarms",
+    "pricing_recommendations",
+    "swarm_agreements",
+  ];
+  const versions = db.collection(SCHEMA_VERSIONS_COLLECTION);
+  const ledger = versions.documents.get("vapp-v1")!;
+  ledger.version = ledger.schemaVersion = 8;
+  ledger.migrations = (ledger.migrations as { version: number }[]).filter(
+    (m) => m.version <= 8,
+  );
+  for (const name of names) db.collections.delete(name);
+  const before = [...db.collections]
+    .filter(([name]) => name !== SCHEMA_VERSIONS_COLLECTION)
+    .map(([name, c]) => ({
+      name,
+      options: structuredClone(c.options),
+      indexes: structuredClone(c.indexes),
+      documents: structuredClone(c.documents),
+    }));
+  const mutations = db.mutationCount;
+  const plan = await planDatabaseSetup(db as unknown as Db);
+  assert.equal(db.mutationCount, mutations);
+  assert.equal(plan.existingSchemaVersion, 8);
+  assert.equal(plan.schemaVersion, 14);
+  assert.deepEqual(new Set(plan.collectionsToCreate), new Set(names));
+  assert.deepEqual(new Set(plan.validatorsToApply), new Set(names));
+  assert.equal(plan.indexesToCreate.length, 29);
+  assert.deepEqual(plan.validatorConflicts, []);
+  await setupDatabase(db as unknown as Db);
+  assert.equal(versions.documents.get("vapp-v1")!.version, 14);
+  for (const old of before) {
+    const c = db.collection(old.name);
+    assert.deepEqual(c.options, old.options);
+    assert.deepEqual(c.indexes, old.indexes);
+    assert.deepEqual(c.documents, old.documents);
+  }
+  for (const name of names) assert.equal(db.collection(name).documents.size, 0);
+  const after = db.mutationCount;
+  await setupDatabase(db as unknown as Db);
+  assert.equal(db.mutationCount, after);
+});
+
+async function installedControlPlaneV9() {
+  const { AGENT_VALIDATOR_PREDECESSORS } = await import("../src/db/setup");
+  const { AGENT_COLLECTION_DEFINITIONS } =
+    await import("../src/db/agent-control-plane-collections");
+  const db = new FakeDb();
+  await setupDatabase(db as unknown as Db);
+  for (const { name } of AGENT_COLLECTION_DEFINITIONS)
+    db.collections.delete(name);
+  for (const [name, validator] of Object.entries(AGENT_VALIDATOR_PREDECESSORS))
+    db.collection(name).options = {
+      validator: historicalProtocolValidator(validator),
+      validationLevel: "strict",
+      validationAction: "error",
+    };
+  const ledger = db
+    .collection(SCHEMA_VERSIONS_COLLECTION)
+    .documents.get("vapp-v1")!;
+  ledger.version = ledger.schemaVersion = 9;
+  ledger.migrations = (ledger.migrations as { version: number }[]).filter(
+    (m) => m.version <= 9,
+  );
+  db.collection("products").documents.set("synthetic-existing", {
+    id: ids.product,
+    name: "Preserved portfolio record",
+  });
+  return db;
+}
+test("control plane v9 to v11: four empty collections, sixteen indexes, ten exact validator amendments; no backfill; retry is idempotent", async () => {
+  const { AGENT_VALIDATOR_PREDECESSORS } = await import("../src/db/setup");
+  const { AGENT_COLLECTION_DEFINITIONS } =
+    await import("../src/db/agent-control-plane-collections");
+  const db = await installedControlPlaneV9();
+  const existing = [...db.collections]
+    .filter(([name]) => name !== SCHEMA_VERSIONS_COLLECTION)
+    .map(([name, c]) => ({
+      name,
+      options: structuredClone(c.options),
+      indexes: structuredClone(c.indexes),
+      documents: structuredClone(c.documents),
+    }));
+  const mutations = db.mutationCount;
+  const plan = await planDatabaseSetup(db as unknown as Db);
+  assert.equal(db.mutationCount, mutations);
+  assert.equal(plan.existingSchemaVersion, 9);
+  assert.equal(plan.schemaVersion, 14);
+  assert.equal(Object.keys(AGENT_VALIDATOR_PREDECESSORS).length, 10);
+  assert.deepEqual(
+    new Set(plan.collectionsToCreate),
+    new Set(AGENT_COLLECTION_DEFINITIONS.map((c) => c.name)),
+  );
+  assert.equal(plan.validatorsToApply.length, 14);
+  assert.equal(plan.indexesToCreate.length, 16);
+  assert.deepEqual(plan.validatorConflicts, []);
+  assert.deepEqual(plan.incompatibleIndexes, []);
+  assert.deepEqual(plan.uniqueIndexRisks, []);
+  const command = db.command.bind(db);
+  let modifications = 0;
+  db.command = async (input) => {
+    if (++modifications === 2)
+      throw new Error("synthetic interrupted validator apply");
+    return command(input);
+  };
+  await assert.rejects(
+    setupDatabase(db as unknown as Db),
+    /synthetic interrupted/,
+  );
+  assert.equal(
+    db.collection(SCHEMA_VERSIONS_COLLECTION).documents.get("vapp-v1")!.version,
+    9,
+  );
+  assert.deepEqual(
+    (await planDatabaseSetup(db as unknown as Db)).validatorConflicts,
+    [],
+  );
+  db.command = command;
+  await setupDatabase(db as unknown as Db);
+  for (const previous of existing) {
+    const current = db.collection(previous.name);
+    assert.deepEqual(current.documents, previous.documents);
+    assert.deepEqual(current.indexes, previous.indexes);
+    if (!(previous.name in AGENT_VALIDATOR_PREDECESSORS))
+      assert.deepEqual(current.options, previous.options);
+  }
+  for (const { name } of AGENT_COLLECTION_DEFINITIONS)
+    assert.equal(db.collection(name).documents.size, 0);
+  assert.equal(
+    db.collection(SCHEMA_VERSIONS_COLLECTION).documents.get("vapp-v1")!.version,
+    14,
+  );
+  const after = db.mutationCount;
+  await setupDatabase(db as unknown as Db);
+  assert.equal(db.mutationCount, after);
+});
+for (const mode of ["unknown", "weak", "invalid"] as const)
+  test(`control-plane upgrade refuses ${mode} authority validator state before writes`, async () => {
+    const db = await installedControlPlaneV9();
+    const c = db.collection("workspace_memberships");
+    if (mode === "unknown")
+      c.options.validator = { $jsonSchema: { bsonType: "object" } };
+    if (mode === "weak") c.options.validationAction = "warn";
+    if (mode === "invalid") c.validatorInvalidCount = 1;
+    const before = db.mutationCount;
+    await assert.rejects(
+      setupDatabase(db as unknown as Db),
+      IncompatibleDatabaseSchemaError,
+    );
+    assert.equal(db.mutationCount, before);
+  });
+
+async function installedEffectivenessV10() {
+  const { AGENT_CONTROL_PLANE_VALIDATORS } =
+    await import("../src/db/agent-control-plane-validators");
+  const { CONTROL_PLANE_OPERATING_MONGO_VALIDATORS } =
+    await import("../src/db/operating-validators");
+  const db = new FakeDb();
+  await setupDatabase(db as unknown as Db);
+  db.collections.delete("agent_effectiveness_cases");
+  for (const [name, validator] of Object.entries({
+    ...CONTROL_PLANE_OPERATING_MONGO_VALIDATORS,
+    ...AGENT_CONTROL_PLANE_VALIDATORS,
+  }))
+    db.collection(name).options = {
+      validator: historicalProtocolValidator(validator),
+      validationLevel: "strict",
+      validationAction: "error",
+    };
+  db.collection("agent_runs").indexes = db
+    .collection("agent_runs")
+    .indexes.filter(
+      (i) =>
+        !["effectiveness_transition_unique", "active_status_id"].includes(
+          String(i.name),
+        ),
+    );
+  const ledger = db
+    .collection(SCHEMA_VERSIONS_COLLECTION)
+    .documents.get("vapp-v1")!;
+  ledger.version = ledger.schemaVersion = 10;
+  ledger.migrations = (ledger.migrations as { version: number }[]).filter(
+    (m) => m.version <= 10,
+  );
+  return db;
+}
+test("v11 migration is additive, exact-predecessor gated, read-only in planning and retryable without Result backfill", async () => {
+  const db = await installedEffectivenessV10();
+  const before = db.mutationCount;
+  const retained = [...db.collections].map(([name, c]) => ({
+    name,
+    documents: structuredClone(c.documents),
+  }));
+  const plan = await planDatabaseSetup(db as unknown as Db);
+  assert.equal(db.mutationCount, before);
+  assert.equal(plan.existingSchemaVersion, 10);
+  assert.equal(plan.schemaVersion, 14);
+  assert.deepEqual(plan.collectionsToCreate, ["agent_effectiveness_cases"]);
+  assert.deepEqual(plan.validatorConflicts, []);
+  assert.deepEqual(
+    new Set(plan.validatorsToApply),
+    new Set([
+      "agent_effectiveness_cases",
+      "agent_runs",
+      "agent_results",
+      "agent_definitions",
+      "pricing_recommendations",
+      "swarm_agreements",
+    ]),
+  );
+  assert.equal(plan.indexesToCreate.length, 7);
+  const command = db.command.bind(db);
+  let n = 0;
+  db.command = async (input) => {
+    if (++n === 2) throw new Error("synthetic interruption");
+    return command(input);
+  };
+  await assert.rejects(
+    setupDatabase(db as unknown as Db),
+    /synthetic interruption/,
+  );
+  assert.equal(
+    db.collection(SCHEMA_VERSIONS_COLLECTION).documents.get("vapp-v1")!.version,
+    10,
+  );
+  db.command = command;
+  await setupDatabase(db as unknown as Db);
+  for (const old of retained)
+    if (old.name !== SCHEMA_VERSIONS_COLLECTION)
+      assert.deepEqual(db.collection(old.name).documents, old.documents);
+  const after = db.mutationCount;
+  await setupDatabase(db as unknown as Db);
+  assert.equal(db.mutationCount, after);
+});
+for (const mode of ["unknown", "weak", "invalid"] as const)
+  test("v11 refuses " + mode + " predecessor without mutation", async () => {
+    const db = await installedEffectivenessV10();
+    const runs = db.collection("agent_runs");
+    if (mode === "unknown")
+      runs.options.validator = { $jsonSchema: { bsonType: "object" } };
+    if (mode === "weak") runs.options.validationAction = "warn";
+    if (mode === "invalid") runs.validatorInvalidCount = 1;
+    const before = db.mutationCount;
+    await assert.rejects(
+      setupDatabase(db as unknown as Db),
+      IncompatibleDatabaseSchemaError,
+    );
+    assert.equal(db.mutationCount, before);
+  });
+
+async function installedProtocolV11() {
+  const db = new FakeDb();
+  await setupDatabase(db as unknown as Db);
+  for (const name of PROTOCOL_V12_COLLECTIONS) {
+    const validator = historicalProtocolValidator(MONGO_VALIDATORS[name]!);
+    assert.ok(isProtocolV11Predecessor(name, validator), name);
+    db.collection(name).options.validator = validator;
+  }
+  const ledger = db
+    .collection(SCHEMA_VERSIONS_COLLECTION)
+    .documents.get("vapp-v1")!;
+  ledger.version = ledger.schemaVersion = 11;
+  ledger.migrations = (ledger.migrations as { version: number }[]).filter(
+    (m: { version: number }) => m.version <= 11,
+  );
+  return db;
+}
+test("v12 five-validator upgrade remains intact within v13 target; interrupted upgrade retries without backfill", async () => {
+  const db = await installedProtocolV11();
+  const before = db.mutationCount;
+  const retained = [...db.collections]
+    .filter(([n]) => n !== SCHEMA_VERSIONS_COLLECTION)
+    .map(([name, c]) => ({ name, documents: structuredClone(c.documents) }));
+  const plan = await planDatabaseSetup(db as unknown as Db);
+  assert.equal(db.mutationCount, before);
+  assert.equal(plan.existingSchemaVersion, 11);
+  assert.equal(plan.schemaVersion, 14);
+  assert.deepEqual(
+    new Set(plan.validatorsToApply),
+    new Set(PROTOCOL_V12_COLLECTIONS),
+  );
+  for (const v of [
+    plan.collectionsToCreate,
+    plan.indexesToCreate,
+    plan.validatorConflicts,
+    plan.incompatibleIndexes,
+    plan.uniqueIndexRisks,
+  ])
+    assert.deepEqual(v, []);
+  const command = db.command.bind(db);
+  let n = 0;
+  db.command = async (input) => {
+    if (++n === 3) throw new Error("interrupted v12");
+    return command(input);
+  };
+  await assert.rejects(setupDatabase(db as unknown as Db), /interrupted v12/);
+  assert.equal(
+    db.collection(SCHEMA_VERSIONS_COLLECTION).documents.get("vapp-v1")!.version,
+    11,
+  );
+  db.command = command;
+  await setupDatabase(db as unknown as Db);
+  const ledger = db
+    .collection(SCHEMA_VERSIONS_COLLECTION)
+    .documents.get("vapp-v1")!;
+  assert.equal(ledger.version, 14);
+  assert.deepEqual(
+    ledger.migrations.slice(-2).map((m: { version: number }) => m.version),
+    [13, 14],
+  );
+  for (const old of retained)
+    assert.deepEqual(db.collection(old.name).documents, old.documents);
+  const after = db.mutationCount;
+  const done = await planDatabaseSetup(db as unknown as Db);
+  assert.equal(done.compatibility, "compatible");
+  assert.deepEqual(done.validatorsToApply, []);
+  await setupDatabase(db as unknown as Db);
+  assert.equal(db.mutationCount, after);
+});
+for (const mode of ["unknown", "weak", "invalid"] as const)
+  test(`v12 rejects ${mode} predecessor before mutations`, async () => {
+    const db = await installedProtocolV11();
+    const runs = db.collection("agent_runs");
+    if (mode === "unknown")
+      runs.options.validator = { $jsonSchema: { bsonType: "object" } };
+    if (mode === "weak") runs.options.validationAction = "warn";
+    if (mode === "invalid") runs.validatorInvalidCount = 1;
+    const before = db.mutationCount;
+    await assert.rejects(
+      setupDatabase(db as unknown as Db),
+      IncompatibleDatabaseSchemaError,
+    );
+    assert.equal(db.mutationCount, before);
+  });
+
+test("v13 plans exactly four collections, nine indexes and six validators from v12; preserves history, retries and rejects unknown predecessors", async () => {
+  const {
+    REASONING_COLLECTION_DEFINITIONS,
+    REASONING_V12_PREDECESSORS,
+    REASONING_MIGRATION_ID,
+  } = await import("../src/db/reasoning-foundation");
+  const db = new FakeDb();
+  await setupDatabase(db as unknown as Db);
+  for (const definition of REASONING_COLLECTION_DEFINITIONS)
+    db.collections.delete(definition.name);
+  db.collection("crm_tasks").options.validator = structuredClone(
+    REASONING_V12_PREDECESSORS.crm_tasks,
+  );
+  db.collection("events").options = {};
+  const ledger = db
+    .collection(SCHEMA_VERSIONS_COLLECTION)
+    .documents.get("vapp-v1")!;
+  ledger.version = ledger.schemaVersion = 12;
+  ledger.migrations = ledger.migrations.filter(
+    (m: { version: number }) => m.version <= 12,
+  );
+  const history = structuredClone(ledger.migrations);
+  const before = db.mutationCount;
+  const plan = await planDatabaseSetup(db as unknown as Db);
+  assert.equal(db.mutationCount, before);
+  assert.equal(plan.schemaVersion, 14);
+  assert.equal(plan.existingSchemaVersion, 12);
+  assert.deepEqual(plan.validatorConflicts, []);
+  assert.equal(plan.collectionsToCreate.length, 4);
+  assert.equal(plan.indexesToCreate.length, 9);
+  assert.deepEqual(
+    new Set(plan.validatorsToApply),
+    new Set([
+      ...REASONING_COLLECTION_DEFINITIONS.map((d) => d.name),
+      "crm_tasks",
+      "events",
+    ]),
+  );
+  const taskValidator = db.collection("crm_tasks").options.validator;
+  db.collection("crm_tasks").options.validator = {
+    $jsonSchema: { bsonType: "object" },
+  };
+  await assert.rejects(
+    setupDatabase(db as unknown as Db),
+    IncompatibleDatabaseSchemaError,
+  );
+  assert.equal(db.mutationCount, before);
+  db.collection("crm_tasks").options.validator = taskValidator;
+  const command = db.command.bind(db);
+  let calls = 0;
+  db.command = async (input) => {
+    if (++calls === 2) throw new Error("interrupted v13");
+    return command(input);
+  };
+  await assert.rejects(setupDatabase(db as unknown as Db), /interrupted v13/);
+  assert.equal(ledger.version, 12);
+  db.command = command;
+  await setupDatabase(db as unknown as Db);
+  const after = db
+    .collection(SCHEMA_VERSIONS_COLLECTION)
+    .documents.get("vapp-v1")!;
+  assert.deepEqual(after.migrations.slice(0, 12), history);
+  assert.equal(
+    after.migrations.find((m: { version: number }) => m.version === 13).id,
+    REASONING_MIGRATION_ID,
+  );
+  assert.equal(after.version, 14);
+  const mutations = db.mutationCount;
+  await setupDatabase(db as unknown as Db);
+  assert.equal(db.mutationCount, mutations);
+  for (const definition of REASONING_COLLECTION_DEFINITIONS)
+    assert.equal(db.collection(definition.name).documents.size, 0);
 });

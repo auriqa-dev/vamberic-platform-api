@@ -4,29 +4,40 @@ import { COLLECTION_DEFINITIONS } from "../../src/db/collections";
 import type { MongoService } from "../../src/services/mongo";
 
 function valueAt(record: Document, path: string): unknown {
-  return path
-    .split(".")
-    .reduce<unknown>(
-      (value, key) =>
-        value && typeof value === "object"
-          ? (value as Document)[key]
-          : undefined,
-      record,
-    );
+  function read(value: unknown, parts: string[]): unknown {
+    if (!parts.length) return value;
+    if (Array.isArray(value))
+      return value.flatMap((item) => {
+        const result = read(item, parts);
+        return Array.isArray(result) ? result : [result];
+      });
+    if (!value || typeof value !== "object") return undefined;
+    return read((value as Document)[parts[0]!], parts.slice(1));
+  }
+  return read(record, path.split("."));
 }
+
 function matches(record: Document, filter: Document): boolean {
   return Object.entries(filter).every(([key, expected]) => {
     if (key === "$or")
       return expected.some((item: Document) => matches(record, item));
     const actual = valueAt(record, key);
+    if (expected instanceof RegExp)
+      return typeof actual === "string" && expected.test(actual);
     if (
       expected &&
       typeof expected === "object" &&
       !(expected instanceof Date)
     ) {
+      if ("$gte" in expected) return (actual as string | number) >= expected.$gte;
+      if ("$lte" in expected) return (actual as string | number) <= expected.$lte;
+      if ("$elemMatch" in expected) return Array.isArray(actual) && actual.some(item=>matches(item,expected.$elemMatch));
+      if ("$gt" in expected) return (actual as string | number) > expected.$gt;
+      if ("$lt" in expected) return (actual as string | number) < expected.$lt;
       if ("$ne" in expected) return actual !== expected.$ne;
       if ("$exists" in expected)
         return (actual !== undefined) === expected.$exists;
+      if ("$nin" in expected) return !expected.$nin.includes(actual);
       if ("$in" in expected)
         return Array.isArray(actual)
           ? actual.some((item) => expected.$in.includes(item))
@@ -69,12 +80,18 @@ export class EnquiryMemoryDb {
         let offset = 0;
         let sort: Record<string, number> = {};
         const cursor = {
+          next: async () => (await cursor.toArray())[0] ?? null,
           limit(value: number) {
             limit = value;
             return cursor;
           },
           skip(value: number) {
             offset = value;
+            return cursor;
+          },
+          project(value: Record<string, number>) {
+            const previous = cursor.toArray;
+            cursor.toArray = async () => (await previous()).map(row => Object.fromEntries(Object.entries(row).filter(([key]) => value[key] === 1 || (key === "_id" && value._id !== 0))));
             return cursor;
           },
           sort(value: Record<string, number>) {
@@ -103,8 +120,29 @@ export class EnquiryMemoryDb {
         };
         return cursor;
       },
-      findOne: async (filter: Document) => {
-        return this.rows(name).find((row) => matches(row, filter)) ?? null;
+      findOne: async (filter: Document, options?: {sort?:Record<string,number>}) => {
+        const cursor=this.collection(name).find(filter);
+        if(options?.sort)cursor.sort(options.sort);
+        return (await cursor.limit(1).toArray())[0] ?? null;
+      },
+      bulkWrite: async (operations: Document[]) => {
+        let matchedCount = 0;
+        for (const operation of operations) {
+          if (!operation.updateOne)
+            throw new Error("Unsupported test bulk operation");
+          matchedCount += (
+            await this.collection(name).updateOne(
+              operation.updateOne.filter,
+              operation.updateOne.update,
+            )
+          ).matchedCount;
+        }
+        return { matchedCount };
+      },
+      insertMany: async (records: Document[]) => {
+        for (const record of records)
+          await this.collection(name).insertOne(record);
+        return { acknowledged: true, insertedCount: records.length };
       },
       insertOne: async (record: Document) => {
         if (this.failCollection === name)
@@ -135,6 +173,19 @@ export class EnquiryMemoryDb {
         this.rows(name).push(record);
         return { acknowledged: true };
       },
+      updateMany: async (filter: Document, update: Document) => {
+        const rows = this.rows(name).filter((row) => matches(row, filter));
+        for (const row of rows)
+          await this.collection(name).updateOne({ id: row.id }, update);
+        return { matchedCount: rows.length, modifiedCount: rows.length };
+      },
+      replaceOne: async (filter: Document, replacement: Document) => {
+        const rows = this.rows(name);
+        const index = rows.findIndex(row => matches(row, filter));
+        if (index < 0) return { matchedCount: 0, modifiedCount: 0 };
+        rows[index] = { ...replacement, ...(rows[index]._id ? { _id: rows[index]._id } : {}) };
+        return { matchedCount: 1, modifiedCount: 1 };
+      },
       updateOne: async (filter: Document, update: Document) => {
         const record = this.rows(name).find((row) => matches(row, filter));
         if (!record) return { matchedCount: 0 };
@@ -146,8 +197,19 @@ export class EnquiryMemoryDb {
         }
         for (const [key, value] of Object.entries(update.$inc ?? {}))
           record[key] = (record[key] ?? 0) + Number(value);
-        for (const key of Object.keys(update.$unset ?? {})) delete record[key];
+        for (const path of Object.keys(update.$unset ?? {})) {
+          const keys = path.split(".");
+          let target: Document | undefined = record;
+          for (const key of keys.slice(0, -1)) target = target?.[key];
+          if (target) delete target[keys.at(-1)!];
+        }
         return { matchedCount: 1 };
+      },
+      deleteOne: async (filter: Document) => {
+        const index = this.rows(name).findIndex((row) => matches(row, filter));
+        if (index < 0) return { deletedCount: 0 };
+        this.rows(name).splice(index, 1);
+        return { deletedCount: 1 };
       },
       deleteMany: async (filter: Document) => {
         if (this.failDeleteCollection === name)

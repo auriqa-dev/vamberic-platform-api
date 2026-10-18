@@ -1,0 +1,23 @@
+{
+  "id": "usage:14fbf96451ed31b77d0bf947b65b55daed637327",
+  "runId": "run:synthetic-1",
+  "attemptId": "attempt:synthetic-1",
+  "workspaceId": "workspace_00000000000000000000000001",
+  "clientAgentId": "clientagent_00000000000000000000000001",
+  "invocationId": "call:fa05de6a4ba23dd2beb5edee728efcec0d6ab1d8",
+  "category": "model",
+  "provider": "fake_provider",
+  "model": "fake_model",
+  "operation": "summarize",
+  "quantities": [{ "unit": "calls", "quantity": "1" }],
+  "startedAt": "2026-10-01T09:00:00.000Z",
+  "endedAt": "2026-10-01T09:00:00.002Z",
+  "durationMs": 2,
+  "cost": {
+    "status": "estimated",
+    "amount": "0.001",
+    "currency": "GBP",
+    "source": "fake_rate",
+    "rateCardVersion": "1"
+  }
+}

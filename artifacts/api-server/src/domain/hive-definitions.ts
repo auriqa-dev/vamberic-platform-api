@@ -86,7 +86,11 @@ export const OFFERING_LIST_FIELDS = [
   "regulatoryContext",
   "unknowns",
 ] as const;
+export const ICP_PREPARATION_FIELDS = ["essentialFit", "desirableFit", "evidenceRequirements", "refreshCriteria", "unknownHandling"] as const;
 export const ICP_LIST_FIELDS = [
+  "researchCriteria",
+  "adoptionReadiness",
+  "targetingCoverage",
   "characteristics",
   "problems",
   "desiredOutcomes",
@@ -154,12 +158,34 @@ export const OfferingContentSchema = z
       .max(2048)
       .url()
       .refine((v) => {
-        const u = new URL(v);
-        return (
-          ["http:", "https:"].includes(u.protocol) && !u.username && !u.password
-        );
+        // Zod refinements can run even when .url() has already failed.
+        try {
+          const u = new URL(v);
+          return (
+            ["http:", "https:"].includes(u.protocol) &&
+            !u.username &&
+            !u.password
+          );
+        } catch {
+          return false;
+        }
       })
       .optional(),
+    offeringTypeExplanation: text().optional(),
+    offeringTypeOtherDetail: text().optional(),
+    technologyRole: z
+      .enum([
+        "the_offering",
+        "core_component",
+        "delivery_enabler",
+        "internal_only",
+        "not_material",
+        "unknown",
+      ])
+      .optional(),
+    technologyRoleExplanation: text().optional(),
+    implementationExplanation: text().optional(),
+    buyerNextSteps: z.array(text()).max(40).optional(),
     whatItIs: text(10000).optional(),
     whatCustomerBuys: text(10000).optional(),
     deliveryModes: z.array(z.enum(DELIVERY_MODES)).max(13).optional(),
@@ -177,6 +203,7 @@ export const IcpContentSchema = z
     ...common,
     profileType: z.enum(["b2b", "b2c", "d2c"]),
     ...lists(ICP_LIST_FIELDS),
+    ...lists(ICP_PREPARATION_FIELDS),
     accountProfile: z.object(lists(ACCOUNT_LIST_FIELDS)).strict().optional(),
     consumerProfile: z.object(lists(CONSUMER_LIST_FIELDS)).strict().optional(),
   })
@@ -254,12 +281,19 @@ export const OfferingRecordSchema = basePersistenceSchema
     definition: OfferingContentSchema,
   })
   .strict();
+export const IcpOfferContextSchema = z
+  .object({
+    id: platformIdSchema("offer"),
+    revision: z.number().int().positive(),
+  })
+  .strict();
 export const IcpRecordSchema = basePersistenceSchema
   .extend({
     ...metadata,
     id: platformIdSchema("icp"),
     offeringId: platformIdSchema("offering"),
     definition: IcpContentSchema,
+    offer: IcpOfferContextSchema.optional(),
   })
   .strict();
 export const BuyerRecordSchema = basePersistenceSchema
@@ -298,6 +332,7 @@ export function definitionHash(row: {
   brandId?: string;
   offeringId?: string;
   idealCustomerProfileId?: string;
+  offer?: { id: string; revision: number };
 }) {
   return semanticHash({
     definition: row.definition,
@@ -305,6 +340,7 @@ export function definitionHash(row: {
     brandId: row.brandId,
     offeringId: row.offeringId,
     idealCustomerProfileId: row.idealCustomerProfileId,
+    offer: row.offer,
   });
 }
 function integrity(v: HiveDefinition, ctx: z.RefinementCtx) {

@@ -18,7 +18,7 @@ import {
   generatePlatformId,
   type Product,
 } from "../domain";
-import { getDomainCollections } from "../db";
+import { getDomainCollections } from "../db/runtime-collections";
 import type { MongoService } from "../services/mongo";
 
 function productResponse(product: Product) {

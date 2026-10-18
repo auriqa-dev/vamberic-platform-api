@@ -1,3 +1,10 @@
+import {
+  canonicalDigest,
+  CERTIFICATE_EVENT,
+  SupportCertificateSchema,
+  type SupportApplication,
+} from "../domain/canonical-support";
+import { requireFreshAgentApplications } from "./agent-proposal-freshness";
 import { z } from "zod";
 import type { Db, ClientSession, Document } from "mongodb";
 import type { AppConfig } from "../config";
@@ -12,6 +19,7 @@ import {
   partnerHumanSchema,
 } from "../domain";
 import {
+  IcpOfferContextSchema,
   HIVE_CONTENT_SCHEMAS,
   HIVE_RECORD_SCHEMAS,
   HIVE_PREFIXES,
@@ -48,8 +56,12 @@ async function requireSchema(db: Db, session?: ClientSession) {
   const ledger = await db
     .collection("schema_versions")
     .findOne({ _id: "vapp-v1" } as Document, { session });
-  if (ledger?.version !== 6)
-    throw new Error("Hive requires reviewed/applied schema v6");
+  if (
+    ![
+      6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24,
+      25, 26, 27, 28, 29, 30].includes(ledger?.version)
+  )
+    throw new Error("Hive requires reviewed/applied schema v6, v7, v8 or v9");
 }
 async function authorized(
   db: Db,
@@ -105,6 +117,30 @@ export async function readHiveDefinitions(
   const db = await mongo.database();
   await authorized(db, config, identity, workspaceId, kind, "read");
   if (id) platformIdSchema(HIVE_PREFIXES[kind]).parse(id);
+  async function view(row: Document) {
+    const record = HIVE_RECORD_SCHEMAS[kind].parse(withoutMongoId(row));
+    if (kind !== "ideal_customer_profiles") return record;
+    const link = "offer" in record ? record.offer : undefined;
+    const current = link
+      ? await db
+          .collection("offers")
+          .findOne({
+            workspaceId,
+            id: link.id,
+            offeringId: row.offeringId,
+            archived: false,
+          })
+      : null;
+    return {
+      ...record,
+      offerLinkStatus: !link
+        ? "unlinked"
+        : current?.approvedRevision === link.revision
+          ? "current"
+          : "stale",
+    };
+  }
+
   if (revision !== undefined) {
     z.number().int().positive().parse(revision);
     const row = await db
@@ -116,7 +152,7 @@ export async function readHiveDefinitions(
   if (id) {
     const row = await db.collection(kind).findOne({ workspaceId, id });
     if (!row) throw new AuthorizationDenied();
-    return HIVE_RECORD_SCHEMAS[kind].parse(withoutMongoId(row));
+    return view(row);
   }
   const filter = {
     workspaceId,
@@ -135,9 +171,7 @@ export async function readHiveDefinitions(
     .limit(query.limit + 1)
     .toArray();
   return {
-    items: rows
-      .slice(0, query.limit)
-      .map((row) => HIVE_RECORD_SCHEMAS[kind].parse(withoutMongoId(row))),
+    items: await Promise.all(rows.slice(0, query.limit).map(view)),
     hasMore: rows.length > query.limit,
     limit: query.limit,
     offset: query.offset,
@@ -152,6 +186,7 @@ export async function mutateHiveDefinition(
   kind: HiveKind,
   operation: HiveOperation,
   raw: unknown,
+  observations: z.infer<typeof HiveEvidenceInputSchema>[] = [],
 ) {
   const content = HIVE_CONTENT_SCHEMAS[kind];
   const common = {
@@ -169,14 +204,20 @@ export async function mutateHiveDefinition(
                   offeringId: platformIdSchema("offering"),
                   ...(kind === "buyer_profiles"
                     ? { idealCustomerProfileId: platformIdSchema("icp") }
-                    : {}),
+                    : { offer: IcpOfferContextSchema.optional() }),
                 }),
           })
           .strict()
           .parse(raw)
       : operation === "update"
         ? z
-            .object({ ...common, definition: content })
+            .object({
+              ...common,
+              definition: content,
+              ...(kind === "ideal_customer_profiles"
+                ? { offer: IcpOfferContextSchema.optional() }
+                : {}),
+            })
             .strict()
             .parse(raw)
         : operation === "observe"
@@ -267,9 +308,12 @@ export async function mutateHiveDefinition(
                 offeringId: body.offeringId,
                 ...(kind === "buyer_profiles"
                   ? { idealCustomerProfileId: body.idealCustomerProfileId }
-                  : {}),
+                  : body.offer
+                    ? { offer: body.offer }
+                    : {}),
               }),
         };
+    let certifiedApplications: SupportApplication[] = [];
     if (operation === "revise") {
       if (row.status !== "approved")
         throw new HiveConflict(
@@ -283,7 +327,34 @@ export async function mutateHiveDefinition(
       if (row.status !== "draft")
         throw new HiveConflict("Only drafts may be edited");
       row.definition = body.definition;
+      if (kind === "ideal_customer_profiles" && body.offer)
+        row.offer = body.offer;
     } else if (operation === "approve") {
+      if (kind === "ideal_customer_profiles" && row.offer) {
+        const offer = await db
+          .collection("offers")
+          .findOne(
+            {
+              workspaceId,
+              id: row.offer.id,
+              offeringId: row.offeringId,
+              archived: false,
+            },
+            options,
+          );
+        if (offer?.approvedRevision !== row.offer.revision)
+          throw new HiveConflict(
+            "The approved offer changed; review and link its current revision before approving",
+          );
+      }
+
+      certifiedApplications = await requireFreshAgentApplications(
+        db,
+        workspaceId,
+        kind,
+        previous!,
+        session,
+      );
       if (row.status !== "draft")
         throw new HiveConflict("Only drafts may be approved");
       row.status = "approved";
@@ -331,6 +402,24 @@ export async function mutateHiveDefinition(
         kind,
         row,
       );
+    if (observations.length) {
+      if (operation !== "create")
+        throw new HiveConflict("Initial observations require a new draft");
+      row.evidence = observations.map((value) => {
+        const evidence = HiveEvidenceInputSchema.parse(value);
+        const observedAt = new Date(evidence.observedAt);
+        if (observedAt > now) throw new HiveConflict("Future observation");
+        content.parse({ ...row.definition, [evidence.field]: evidence.value });
+        return { ...evidence, observedAt, recordedAt: now, actor };
+      });
+    }
+    if (kind === "ideal_customer_profiles" && operation === "create") {
+      const ledger = await db
+        .collection("schema_versions")
+        .findOne({ _id: "vapp-v1" } as Document, options);
+      if ([27, 28, 29, 30].includes(ledger?.version ?? 0) && !row.offer)
+        throw new HiveConflict("Choose an approved offer for the profile");
+    }
     row.contentHash = definitionHash(
       row as Parameters<typeof definitionHash>[0],
     );
@@ -347,6 +436,42 @@ export async function mutateHiveDefinition(
       await db
         .collection("hive_definition_revisions")
         .insertOne(clean(snapshot) as Document, options);
+      if (certifiedApplications.length) {
+        const body = {
+          kind: "canonical_support_certificate",
+          schemaVersion: 1,
+          policyVersion: 1,
+          verifier: "canonical_support_v1",
+          workspaceId,
+          resource: kind,
+          entityId: row.id,
+          revision: row.revision,
+          snapshotId: snapshot.id,
+          contentHash: row.contentHash,
+          snapshotDigest: canonicalDigest(row),
+          evidenceDigest: canonicalDigest(row.evidence),
+          approvedAt: now.toISOString(),
+          approver: actor,
+          applications: certifiedApplications,
+        };
+        const payload = SupportCertificateSchema.parse({
+          ...body,
+          digest: canonicalDigest(body),
+        });
+        // Reserved writer: snapshot, certificate and canonical CAS are one transaction.
+        await db.collection("events").insertOne(
+          EventSchema.parse({
+            id: generatePlatformId("event"),
+            workspaceId,
+            createdAt: now,
+            updatedAt: now,
+            occurredAt: now,
+            eventType: CERTIFICATE_EVENT,
+            payload,
+          }),
+          options,
+        );
+      }
     }
     if (!previous) await collection.insertOne(row, options);
     else {
@@ -433,6 +558,28 @@ async function references(
       .collection("offerings")
       .findOne({ id: row.offeringId, workspaceId, archived: false }, options);
     if (!offering) throw new AuthorizationDenied();
+    if (kind === "ideal_customer_profiles" && row.offer) {
+      const offer = await db
+        .collection("offers")
+        .findOne(
+          {
+            workspaceId,
+            id: row.offer.id,
+            offeringId: row.offeringId,
+            archived: false,
+          },
+          options,
+        );
+      const revision = await db
+        .collection("offer_revisions")
+        .findOne(
+          { workspaceId, offerId: row.offer.id, revision: row.offer.revision },
+          options,
+        );
+      if (!offer || !revision || revision.snapshot?.status !== "approved")
+        throw new AuthorizationDenied();
+    }
+
     if (
       kind === "buyer_profiles" &&
       !(await db.collection("ideal_customer_profiles").findOne(

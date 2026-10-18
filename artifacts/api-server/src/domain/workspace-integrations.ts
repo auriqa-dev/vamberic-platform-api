@@ -1,3 +1,4 @@
+import { executionSerializationFields } from "./execution-serialization";
 import { z } from "zod";
 import { basePersistenceSchema, platformIdSchema } from "./schemas";
 import { partnerHumanSchema } from "./partners";
@@ -18,6 +19,7 @@ const label = z.string().trim().min(1).max(200);
  */
 export const WorkspaceIntegrationSchema = basePersistenceSchema
   .extend({
+    ...executionSerializationFields,
     id: platformIdSchema("integration"),
     workspaceId: platformIdSchema("workspace"),
     provider: z.string().regex(INTEGRATION_PROVIDER_PATTERN),

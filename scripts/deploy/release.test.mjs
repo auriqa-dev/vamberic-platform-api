@@ -5,6 +5,8 @@ import {
   awsFailure,
   healthy,
   validateChanges,
+  validateDigest,
+  repository,
   validatePolicy,
   validateTag,
   validateTemplate,
@@ -12,7 +14,7 @@ import {
 
 function template() {
   return {
-    Parameters: { ApiImageTag: { Type: "String" } },
+    Parameters: { ApiImageDigest: { Type: "String" } },
     Resources: {
       Task: {
         Type: "AWS::ECS::TaskDefinition",
@@ -21,7 +23,7 @@ function template() {
             {
               Name: "api",
               Image: {
-                "Fn::Join": ["", ["registry:", { Ref: "ApiImageTag" }]],
+                "Fn::Join": ["", [`${repository}@`, { Ref: "ApiImageDigest" }]],
               },
               Environment: [{ Name: "EXISTING", Value: "preserved" }],
             },
@@ -77,7 +79,7 @@ test("image ownership requires a parameter used only by api image; preserves tem
     serviceId: "Service",
   });
   assert.deepEqual(input, before);
-  delete input.Parameters.ApiImageTag;
+  delete input.Parameters.ApiImageDigest;
   assert.throws(() => validateTemplate(input));
 });
 test("reject pinned images, extra parameter consumers, disabled rollback and transforms", () => {
@@ -91,7 +93,7 @@ test("reject pinned images, extra parameter consumers, disabled rollback and tra
       t.Resources.Task.Properties.ContainerDefinitions[0].Image = "old:1234567";
     },
     (t) => {
-      t.Resources.Task.Properties.Cpu = { Ref: "ApiImageTag" };
+      t.Resources.Task.Properties.Cpu = { Ref: "ApiImageDigest" };
     },
     (t) => {
       t.Resources.Service.Properties.DeploymentConfiguration.DeploymentCircuitBreaker.Rollback = false;
@@ -167,6 +169,7 @@ test("workflow gates frontend on healthy API and uses only existing OIDC environ
     workflow,
     /release.mjs deploy[\s\S]*release.mjs health[\s\S]*deploy-vapp:/,
   );
+  assert.match(workflow, /if: vars\.HVM_API_AUTOMATION_ENABLED == 'true'/);
   assert.match(workflow, /environment: dev/);
   assert.match(workflow, /environment: vapp/);
   assert.match(workflow, /cancel-in-progress: false/);
@@ -194,7 +197,7 @@ import { spawnSync } from "node:child_process";
 function runFake(mode, command = "deploy") {
   const dir = mkdtempSync(join(tmpdir(), "vamberic-release-test-"));
   const tag = "a".repeat(40);
-  const uri = `755905325223.dkr.ecr.eu-west-2.amazonaws.com/vamberic-dev-api:${tag}`;
+  const uri = `${repository}@sha256:${"d".repeat(64)}`;
   const fixture = { template: template(), changes: changes(), tag, uri, mode };
   if (mode === "unsafe")
     fixture.changes[1].ResourceChange.Details[0].Target.Name = "DesiredCount";
@@ -230,7 +233,7 @@ if (a[1] === "delete-change-set" && f.mode.startsWith("cleanup-")) {
  if (f.mode === "cleanup-busy") fail("InvalidChangeSetStatusException", "DeleteChangeSet", "ChangeSet is in status CREATE_IN_PROGRESS");
 }
 switch (a[0]+" "+a[1]) {
-case "cloudformation describe-stacks": result = {Stacks:[{ RoleARN:"arn:aws:iam::755905325223:role/cfn", StackStatus:"UPDATE_COMPLETE", Parameters:[{ParameterKey:"ApiImageTag",ParameterValue:f.mode === "rerun" ? f.tag : "bbbbbbb"},{ParameterKey:"Other",ParameterValue:"untouched"}]}]}; break;
+case "cloudformation describe-stacks": result = {Stacks:[{ RoleARN:"arn:aws:iam::755905325223:role/cfn", StackStatus:"UPDATE_COMPLETE", Parameters:[{ParameterKey:"ApiImageDigest",ParameterValue:f.mode === "rerun" ? "sha256:" + "d".repeat(64) : "sha256:" + "b".repeat(64)},{ParameterKey:"Other",ParameterValue:"untouched"}]}]}; break;
 case "cloudformation get-template": result = {TemplateBody:f.template}; break;
 case "cloudformation describe-stack-resource": result = {StackResourceDetail:{PhysicalResourceId:revision}}; break;
 case "ecs describe-services": result = {failures:[],services:[{taskDefinition:f.mode === "drift" ? "task:999" : revision, deployments:[{}], desiredCount:1,runningCount:1,pendingCount:0}]}; break;
@@ -238,8 +241,8 @@ case "ecr describe-repositories": result = {repositories:[{imageTagMutability:"I
 case "cloudformation describe-change-set": result = {Changes:f.changes}; break;
 case "ecs describe-task-definition": result = {taskDefinition:{containerDefinitions:[{name:"api",image:f.uri}]}}; break;
 case "ecs list-tasks": result = {taskArns:["running-task"]}; break;
-case "ecs describe-tasks": result = {failures:[],tasks:[{taskDefinitionArn:revision,lastStatus:"RUNNING",containers:[{name:"api",image:f.uri,imageDigest:f.mode === "wrong-digest" ? "bad" : "sha256:expected"}]}]}; break;
-case "ecr describe-images": result = {imageDetails:[{imageDigest:"sha256:expected"}]}; break;
+case "ecs describe-tasks": result = {failures:[],tasks:[{taskDefinitionArn:revision,lastStatus:"RUNNING",containers:[{name:"api",image:f.uri,imageDigest:f.mode === "wrong-digest" ? "bad" : "sha256:" + "d".repeat(64)}]}]}; break;
+case "ecr describe-images": result = {imageDetails:[{imageDigest:"sha256:" + "d".repeat(64)}]}; break;
 case "ecr list-images": result = {imageIds:f.mode === "rerun" ? [{imageTag:f.tag}] : []}; break;
 case "cloudformation wait": if (f.mode === "rollback" && a[2] === "stack-update-complete") process.exit(1); result = {}; break;
 case "cloudformation create-change-set":
@@ -298,7 +301,10 @@ test("CLI releases only image parameter and verifies resulting tasks/digest", ()
   const create = result.calls.find((a) => a[1] === "create-change-set");
   assert.ok(create.includes("--use-previous-template"));
   assert.deepEqual(JSON.parse(create[create.indexOf("--parameters") + 1]), [
-    { ParameterKey: "ApiImageTag", ParameterValue: "a".repeat(40) },
+    {
+      ParameterKey: "ApiImageDigest",
+      ParameterValue: "sha256:" + "d".repeat(64),
+    },
     { ParameterKey: "Other", UsePreviousValue: true },
   ]);
   assert.match(result.stdout, /Previous task definition: task:1/);
@@ -458,4 +464,47 @@ test("standalone cleanup succeeds for absent/consumed sets but rejects real erro
     assert.notEqual(result.status, 0);
     assert.match(result.stderr, /delete-change-set; code=/);
   }
+});
+
+test("digest validation rejects mutable tags and malformed digests", () => {
+  validateDigest("sha256:" + "d".repeat(64));
+  for (const value of [
+    "latest",
+    "a".repeat(40),
+    "sha256:short",
+    "sha256:" + "A".repeat(64),
+  ])
+    assert.throws(() => validateDigest(value));
+});
+
+import { reconcileImage } from "./reconcile-image.mjs";
+test("offline reconciliation preserves running image and every unrelated template field", () => {
+  const input = template();
+  delete input.Parameters.ApiImageDigest;
+  input.Parameters.ApiImageTag = { Type: "String" };
+  const image = `${repository}@sha256:${"d".repeat(64)}`;
+  input.Resources.Task.Properties.ContainerDefinitions[0].Image = image;
+  const before = structuredClone(input);
+  const result = reconcileImage(input, image);
+  assert.deepEqual(input, before);
+  assert.deepEqual(result.parameter, {
+    ParameterKey: "ApiImageDigest",
+    ParameterValue: "sha256:" + "d".repeat(64),
+  });
+  const restored = structuredClone(result.template);
+  delete restored.Parameters.ApiImageDigest;
+  restored.Parameters.ApiImageTag = before.Parameters.ApiImageTag;
+  restored.Resources.Task.Properties.ContainerDefinitions[0].Image = image;
+  assert.deepEqual(restored, before);
+  assert.throws(() =>
+    reconcileImage(input, `${repository}@sha256:${"e".repeat(64)}`),
+  );
+  assert.throws(() =>
+    reconcileImage(input, "another-repository@sha256:" + "d".repeat(64)),
+  );
+  input.Resources.Task.Properties.ContainerDefinitions[0].Environment.push({
+    Name: "UNSAFE",
+    Value: { Ref: "ApiImageTag" },
+  });
+  assert.throws(() => reconcileImage(input, image));
 });
