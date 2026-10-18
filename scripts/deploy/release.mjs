@@ -384,6 +384,8 @@ async function deploy() {
       "--use-previous-template",
       "--parameters",
       JSON.stringify(parameters),
+      "--role-arn",
+      "arn:aws:iam::755905325223:role/HvmEcsReleaseCloudFormationRole",
       "--capabilities",
       "CAPABILITY_NAMED_IAM",
     );

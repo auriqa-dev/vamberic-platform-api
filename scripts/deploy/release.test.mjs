@@ -306,6 +306,10 @@ test("CLI releases only image parameter and verifies resulting tasks/digest", ()
   assert.equal(result.status, 0, result.stderr);
   const create = result.calls.find((a) => a[1] === "create-change-set");
   assert.ok(create.includes("--use-previous-template"));
+  assert.equal(
+    create[create.indexOf("--role-arn") + 1],
+    "arn:aws:iam::755905325223:role/HvmEcsReleaseCloudFormationRole",
+  );
   assert.deepEqual(JSON.parse(create[create.indexOf("--parameters") + 1]), [
     {
       ParameterKey: "ApiImageDigest",
